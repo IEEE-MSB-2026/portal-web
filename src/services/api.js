@@ -44,7 +44,15 @@ async function request(endpoint, options = {}) {
 export const api = {
   // Public Catalog
   getPublicCommittees: () => request('/api/core/public/committees'),
-  getPublicAnnouncements: () => request('/api/core/public/announcements'),
+  getPublicAnnouncements: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.category && params.category !== 'All') query.append('category', params.category);
+    if (params.search) query.append('search', params.search);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    const qs = query.toString();
+    return request(`/api/core/public/announcements${qs ? `?${qs}` : ''}`);
+  },
   getPublicAlbums: () => request('/api/core/public/media/albums'),
   getPublicEvents: () => request('/api/events'),
   getEventById: (id) => request(`/api/events/${id}`),

@@ -9,6 +9,7 @@ import {
   Users,
   Megaphone,
   Palette,
+  Pin,
   ArrowRight,
   Calendar,
   Sparkles,
@@ -541,20 +542,44 @@ export default function Home() {
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-                  {announcements.map((ann) => (
-                    <div key={ann.id} className="bento-card" style={{ padding: 'var(--space-5)' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--space-2)' }}>
-                        <span className="badge badge-accent">OFFICIAL</span>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          {new Date(ann.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <h4 style={{ fontSize: '1.0625rem', marginBottom: 'var(--space-2)' }}>{ann.title}</h4>
-                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', lineHeight: 1.5 }}>
-                        {ann.body}
-                      </p>
-                    </div>
-                  ))}
+                  {announcements.map((ann) => {
+                    const isPinned = Boolean(ann.isPinned);
+                    return (
+                      <Link
+                        key={ann.id}
+                        to="/announcements"
+                        className="bento-card"
+                        style={{
+                          padding: 'var(--space-5)',
+                          textDecoration: 'none',
+                          color: 'inherit',
+                          display: 'block',
+                          borderLeft: isPinned ? '3px solid var(--color-primary)' : undefined,
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {isPinned && (
+                              <span className="badge badge-accent" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.6875rem' }}>
+                                <Pin size={10} style={{ transform: 'rotate(45deg)' }} />
+                                PINNED
+                              </span>
+                            )}
+                            <span className="badge badge-primary" style={{ fontSize: '0.6875rem' }}>
+                              {ann.category || 'General'}
+                            </span>
+                          </div>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            {new Date(ann.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <h4 style={{ fontSize: '1.0625rem', marginBottom: 'var(--space-2)', fontWeight: 600 }}>{ann.title}</h4>
+                        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {ann.body}
+                        </p>
+                      </Link>
+                    );
+                  })}
                 </div>
               )}
             </div>
