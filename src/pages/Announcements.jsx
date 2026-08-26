@@ -326,9 +326,6 @@ export default function Announcements() {
                       <span className={`badge ${getCategoryBadgeClass(ann.category)}`}>
                         {ann.category || 'General'}
                       </span>
-                      <span className="badge" style={{ opacity: 0.85 }}>
-                        OFFICIAL
-                      </span>
                     </div>
 
                     <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
