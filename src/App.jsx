@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useThemeStore } from './store/themeStore';
 import Layout from './components/layout/Layout';
 import Home from './pages/Home';
+import About from './pages/About';
 import Committees from './pages/Committees';
 import Events from './pages/Events';
 import Announcements from './pages/Announcements';
@@ -41,6 +42,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
+          <Route path="about" element={<About />} />
           <Route path="committees" element={<Committees />} />
           <Route path="events" element={<Events />} />
           <Route path="announcements" element={<Announcements />} />

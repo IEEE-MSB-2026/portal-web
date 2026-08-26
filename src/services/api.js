@@ -53,4 +53,11 @@ export const api = {
       method: 'POST',
       body: payload,
     }),
+
+  // Branch Leadership ("Meet the Brains")
+  getPublicOfficers: (params = {}) => {
+    const query = params.season ? `?season=${encodeURIComponent(params.season)}` : '';
+    return request(`/api/core/public/officers${query}`);
+  },
+  getPublicSeasons: () => request('/api/core/public/officers/seasons'),
 };

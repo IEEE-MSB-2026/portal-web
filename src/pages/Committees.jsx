@@ -172,7 +172,7 @@ export default function Committees() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--space-2)' }}>
                     <span className="badge badge-primary">{slug.toUpperCase()}</span>
-                    <span className="badge badge-accent">ACTIVE CHAPTER</span>
+                    <span className="badge badge-accent">ACTIVE</span>
                   </div>
 
                   <h2 style={{ fontSize: '1.75rem', marginBottom: 'var(--space-3)' }}>{detail.name}</h2>

@@ -9,6 +9,7 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/', label: 'Home' },
+    { to: '/about', label: 'About' },
     { to: '/committees', label: 'Committees' },
     { to: '/events', label: 'Events' },
     { to: '/announcements', label: 'Announcements' },
@@ -74,7 +75,8 @@ export default function Navbar() {
                 fontFamily: 'var(--font-mono)',
                 fontSize: '0.6875rem',
                 color: 'var(--color-text-muted)',
-                fontWeight: 500,
+                fontWeight: 600,
+                letterSpacing: '0.04em',
               }}
             >
               STUDENT BRANCH PORTAL
@@ -128,7 +130,7 @@ export default function Navbar() {
           <button
             type="button"
             className="btn btn-primary btn-sm"
-            onClick={() => alert('Portal Authentication modal will be enabled in Milestone 2!')}
+            onClick={() => alert('Portal Authentication modal will be enabled in Milestone 3!')}
             style={{ display: 'none' }}
             id="nav-login-cta"
           >

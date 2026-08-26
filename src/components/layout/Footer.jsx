@@ -58,15 +58,26 @@ export default function Footer() {
               >
                 IEEE
               </div>
-              <span
-                style={{
-                  fontFamily: 'var(--font-heading)',
-                  fontSize: '1.125rem',
-                  fontWeight: 700,
-                }}
-              >
-                IEEE Menoufia SB
-              </span>
+              <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-heading)',
+                    fontSize: '1.125rem',
+                    fontWeight: 700,
+                  }}
+                >
+                  IEEE MSB
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '0.6875rem',
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
+                  Menoufia University
+                </span>
+              </div>
             </div>
             <p
               style={{
@@ -103,7 +114,8 @@ export default function Footer() {
               Navigation
             </h4>
             <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.625rem', fontSize: '0.9375rem', color: 'var(--color-text-muted)' }}>
-              <li><Link to="/" style={{ transition: 'color var(--transition-fast)' }}>Home & Mission</Link></li>
+              <li><Link to="/" style={{ transition: 'color var(--transition-fast)' }}>Home</Link></li>
+              <li><Link to="/about" style={{ transition: 'color var(--transition-fast)' }}>About & Leadership</Link></li>
               <li><Link to="/committees" style={{ transition: 'color var(--transition-fast)' }}>Committees Overview</Link></li>
               <li><Link to="/events" style={{ transition: 'color var(--transition-fast)' }}>Conferences & Workshops</Link></li>
               <li><Link to="/announcements" style={{ transition: 'color var(--transition-fast)' }}>Official Newsfeed</Link></li>
@@ -183,9 +195,9 @@ export default function Footer() {
             color: 'var(--color-text-muted)',
           }}
         >
-          <span>© {new Date().getFullYear()} IEEE Menoufia Student Branch. All rights reserved.</span>
+          <span>© {new Date().getFullYear()} IEEE Menoufia Student Branch (STB20451). All rights reserved.</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-            Built with pride by the IEEE MSB Webmaster
+            Built with pride by the IEEE Menoufia Web Team
           </span>
         </div>
       </div>
