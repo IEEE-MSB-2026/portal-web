@@ -42,8 +42,7 @@ export default function Login() {
     setError(null);
 
     try {
-      const res = await api.login({ email: cleanEmail, password });
-      toast.success('Welcome back!', `Signed in as ${res.user?.name || 'Member'}`);
+      await api.login({ email: cleanEmail, password });
       navigate(redirectUrl, { replace: true });
     } catch (err) {
       console.error('Login error:', err);

@@ -78,6 +78,12 @@ export default function Profile() {
   // Scope switching
   const [switchingScopeId, setSwitchingScopeId] = useState(null);
 
+  // In-place save feedback states
+  const [savedName, setSavedName] = useState(false);
+  const [savedMembership, setSavedMembership] = useState(false);
+  const [savedPassword, setSavedPassword] = useState(false);
+  const [savedAvatar, setSavedAvatar] = useState(false);
+
   // Fetch dashboard data
   useEffect(() => {
     let cancelled = false;
@@ -169,7 +175,8 @@ export default function Profile() {
       });
 
       updateAvatar(secureUrl);
-      toast.success('Avatar Updated', 'Your profile picture has been updated.');
+      setSavedAvatar(true);
+      setTimeout(() => setSavedAvatar(false), 2500);
     } catch (err) {
       console.error('Failed to upload avatar:', err);
       toast.error('Upload Failed', err.message || 'Failed to update avatar photo.');
@@ -187,7 +194,8 @@ export default function Profile() {
       await api.updateProfile({ name: nameInput.trim() });
       updateUser({ name: nameInput.trim() });
       setEditingName(false);
-      toast.success('Name Updated', 'Your display name has been saved.');
+      setSavedName(true);
+      setTimeout(() => setSavedName(false), 2500);
     } catch (err) {
       toast.error('Update Failed', err.message || 'Failed to update name.');
     } finally {
@@ -202,7 +210,8 @@ export default function Profile() {
       await api.updateProfile({ membershipId: membershipInput });
       updateUser({ membershipId: membershipInput });
       setEditingMembership(false);
-      toast.success('Membership ID Updated', 'Your IEEE Membership ID has been saved.');
+      setSavedMembership(true);
+      setTimeout(() => setSavedMembership(false), 2500);
     } catch (err) {
       toast.error('Update Failed', err.message || 'Failed to update membership ID.');
     } finally {
@@ -226,7 +235,8 @@ export default function Profile() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      toast.success('Password Changed', 'Your password has been updated successfully.');
+      setSavedPassword(true);
+      setTimeout(() => setSavedPassword(false), 3000);
     } catch (err) {
       toast.error('Password Change Failed', err.message || 'Could not change password.');
     } finally {
@@ -460,7 +470,14 @@ export default function Profile() {
               {/* Name Field */}
               <div className="profile-field">
                 <div className="profile-field__row">
-                  <span className="profile-field__label">Display Name</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="profile-field__label">Display Name</span>
+                    {savedName && (
+                      <span className="badge badge-success" style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                        <Check size={10} /> Saved
+                      </span>
+                    )}
+                  </div>
                   {!editingName && (
                     <button
                       type="button"
@@ -504,7 +521,14 @@ export default function Profile() {
               {/* Membership ID Field */}
               <div className="profile-field">
                 <div className="profile-field__row">
-                  <span className="profile-field__label">IEEE Membership ID</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className="profile-field__label">IEEE Membership ID</span>
+                    {savedMembership && (
+                      <span className="badge badge-success" style={{ fontSize: '0.65rem', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                        <Check size={10} /> Saved
+                      </span>
+                    )}
+                  </div>
                   {!editingMembership && (
                     <button
                       type="button"
@@ -655,12 +679,27 @@ export default function Profile() {
 
                 <button
                   type="submit"
-                  disabled={changingPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
-                  className="btn btn-primary"
-                  style={{ alignSelf: 'flex-start', gap: '0.5rem', marginTop: '0.25rem' }}
+                  disabled={changingPassword || savedPassword || !currentPassword || !newPassword || newPassword !== confirmPassword}
+                  className={`btn ${savedPassword ? 'btn-success' : 'btn-primary'}`}
+                  style={{
+                    alignSelf: 'flex-start',
+                    gap: '0.5rem',
+                    marginTop: '0.25rem',
+                    transition: 'all 0.2s ease',
+                    ...(savedPassword ? { backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' } : {}),
+                  }}
                 >
-                  <KeyRound size={15} />
-                  {changingPassword ? 'Changing…' : 'Change Password'}
+                  {savedPassword ? (
+                    <>
+                      <Check size={15} />
+                      <span>Password Updated!</span>
+                    </>
+                  ) : (
+                    <>
+                      <KeyRound size={15} />
+                      <span>{changingPassword ? 'Changing…' : 'Change Password'}</span>
+                    </>
+                  )}
                 </button>
               </form>
             </div>

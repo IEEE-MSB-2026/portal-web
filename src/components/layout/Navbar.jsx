@@ -98,7 +98,6 @@ export default function Navbar() {
     setUserDropdownOpen(false);
     setMobileMenuOpen(false);
     await api.logout();
-    toast.info('Signed Out', 'You have been signed out successfully.');
     navigate('/', { replace: true });
   };
 

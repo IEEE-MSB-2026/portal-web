@@ -34,6 +34,29 @@ export default function Register() {
     }
   }, [isAuthenticated, navigate, redirectUrl]);
 
+  const getPasswordStrength = (pwd) => {
+    if (!pwd) return { score: 0, label: 'Empty', color: 'var(--color-border)' };
+    let score = 0;
+    if (pwd.length >= 8) score += 1;
+    if (/[A-Z]/.test(pwd)) score += 1;
+    if (/[0-9]/.test(pwd)) score += 1;
+    if (/[^A-Za-z0-9]/.test(pwd)) score += 1;
+
+    switch (score) {
+      case 1:
+        return { score: 1, label: 'Weak', color: '#ef4444' };
+      case 2:
+        return { score: 2, label: 'Fair', color: '#f59e0b' };
+      case 3:
+        return { score: 3, label: 'Good', color: '#3b82f6' };
+      case 4:
+      default:
+        return { score: 4, label: 'Strong', color: '#10b981' };
+    }
+  };
+
+  const strength = getPasswordStrength(password);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const cleanName = name.trim();
@@ -64,13 +87,12 @@ export default function Register() {
     setError(null);
 
     try {
-      const res = await api.register({
+      await api.register({
         name: cleanName,
         email: cleanEmail,
         password,
         membershipId: cleanMemId || undefined,
       });
-      toast.success('Account created!', `Welcome to IEEE Menoufia SB, ${cleanName}!`);
       navigate(redirectUrl, { replace: true });
     } catch (err) {
       console.error('Registration error:', err);
@@ -232,6 +254,28 @@ export default function Register() {
                   )}
                 </button>
               </div>
+
+              {/* Password Strength Indicator */}
+              {password && (
+                <div style={{ marginTop: '0.4rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', fontWeight: 600, marginBottom: '0.25rem' }}>
+                    <span style={{ color: 'var(--auth-ink-soft)' }}>Strength</span>
+                    <span style={{ color: strength.color }}>{strength.label}</span>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '0.25rem', height: '4px' }}>
+                    {[1, 2, 3, 4].map((bar) => (
+                      <div
+                        key={bar}
+                        style={{
+                          borderRadius: '2px',
+                          backgroundColor: bar <= strength.score ? strength.color : 'var(--auth-border)',
+                          transition: 'background-color 0.2s ease',
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="auth-field">

@@ -107,7 +107,7 @@ export default function ForgotPassword() {
   const strength = getPasswordStrength(newPassword);
 
   // STEP 1: Request OTP
-  const handleRequestOtp = async (e) => {
+  const handleRequestOtp = async (e, isResend = false) => {
     if (e) e.preventDefault();
     const cleanEmail = email.trim().toLowerCase();
     if (!cleanEmail) {
@@ -120,7 +120,9 @@ export default function ForgotPassword() {
 
     try {
       await api.requestPasswordResetOtp({ email: cleanEmail });
-      toast.success('Code Sent', `We sent a 6-digit verification code to ${cleanEmail}`);
+      if (isResend) {
+        toast.info('Code Resent', 'A new verification code has been dispatched.');
+      }
       setTimeLeft(600); // 10 mins
       setResendCooldown(45); // 45s cooldown
       setStep(2);
@@ -185,7 +187,6 @@ export default function ForgotPassword() {
         otp: otpCode,
       });
       setResetToken(res.resetToken);
-      toast.success('Code Verified', 'Please enter your new password.');
       setStep(3);
     } catch (err) {
       console.error('Verify OTP error:', err);
@@ -216,7 +217,6 @@ export default function ForgotPassword() {
         newPassword,
         confirmPassword,
       });
-      toast.success('Success', 'Password updated successfully!');
       setStep(4);
     } catch (err) {
       console.error('Reset Password error:', err);
@@ -417,7 +417,7 @@ export default function ForgotPassword() {
 
                   <button
                     type="button"
-                    onClick={() => handleRequestOtp()}
+                    onClick={() => handleRequestOtp(null, true)}
                     disabled={resendCooldown > 0 || loading}
                     style={{
                       display: 'inline-flex',
