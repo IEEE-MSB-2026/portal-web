@@ -172,7 +172,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <a href="https://ieee-egypt.org" target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
+                <a href="https://sac.ieee.org.eg/" target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
                   <span>IEEE Egypt Section</span>
                   <ExternalLink size={14} />
                 </a>

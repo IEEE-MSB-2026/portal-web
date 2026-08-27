@@ -152,7 +152,15 @@ a {
   text-decoration: none;
 }
 
-button, input, select, textarea {
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+input, select, textarea {
   font: inherit;
   color: inherit;
 }
@@ -282,28 +290,36 @@ img, svg {
   font-weight: 600;
   border-radius: var(--radius-md);
   border: 1px solid transparent;
+  background-color: transparent;
+  color: var(--color-text);
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
+  user-select: none;
+  text-decoration: none;
 }
 
 .btn-primary {
   background-color: var(--color-primary);
   color: var(--color-primary-text);
+  border-color: transparent;
 }
 
 .btn-primary:hover {
   background-color: var(--color-primary-hover);
+  color: var(--color-primary-text);
   transform: translateY(-1px);
 }
 
 .btn-accent {
   background-color: var(--color-accent);
   color: var(--color-accent-text);
+  border-color: transparent;
 }
 
 .btn-accent:hover {
   background-color: var(--color-accent-hover);
+  color: var(--color-accent-text);
   transform: translateY(-1px);
 }
 
@@ -316,6 +332,7 @@ img, svg {
 .btn-secondary:hover {
   background-color: var(--color-card-hover);
   border-color: var(--color-border-hover);
+  color: var(--color-text);
 }
 
 .btn-outline {
@@ -326,7 +343,38 @@ img, svg {
 
 .btn-outline:hover {
   border-color: var(--color-primary);
+  background-color: var(--color-primary-light);
   color: var(--color-primary);
+}
+
+.btn-ghost {
+  background-color: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--color-text-muted);
+}
+
+.btn-ghost:hover {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+[data-theme="light"] .btn-ghost {
+  background-color: rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: var(--color-text-muted);
+}
+
+[data-theme="light"] .btn-ghost:hover {
+  background-color: var(--color-primary-light);
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.btn-xs {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  border-radius: var(--radius-sm);
 }
 
 .btn-sm {
@@ -347,9 +395,10 @@ img, svg {
 }
 
 .btn:disabled {
-  opacity: 0.6;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none !important;
+  pointer-events: none;
 }
 
 /* --------------------------------------------------------------------------

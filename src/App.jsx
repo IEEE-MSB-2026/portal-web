@@ -1,13 +1,21 @@
 import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { useThemeStore } from './store/themeStore';
+import { useAuthStore } from './stores/authStore';
+import { api } from './services/api';
 import Layout from './components/layout/Layout';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import ToastContainer from './components/ui/ToastContainer';
+
 import Home from './pages/Home';
 import About from './pages/About';
 import Committees from './pages/Committees';
 import Events from './pages/Events';
 import Announcements from './pages/Announcements';
 import Gallery from './pages/Gallery';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import Profile from './pages/Profile';
 
 function NotFound() {
   return (
@@ -32,14 +40,30 @@ function NotFound() {
 
 export default function App() {
   const initTheme = useThemeStore((state) => state.initTheme);
+  const initSync = useAuthStore((state) => state.initSync);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   useEffect(() => {
     initTheme();
-  }, [initTheme]);
+    initSync();
+
+    // Proactive background session validation
+    if (isAuthenticated) {
+      api.getMe().catch((err) => {
+        console.warn('Session verification fallback:', err.message);
+      });
+    }
+  }, [initTheme, initSync, isAuthenticated]);
 
   return (
     <BrowserRouter>
+      <ToastContainer />
       <Routes>
+        {/* Standalone full-screen auth routes without global Navbar and Footer */}
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+
+        {/* Main application routes with global Navbar & Footer */}
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="about" element={<About />} />
@@ -47,6 +71,14 @@ export default function App() {
           <Route path="events" element={<Events />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="gallery" element={<Gallery />} />
+          <Route
+            path="profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
