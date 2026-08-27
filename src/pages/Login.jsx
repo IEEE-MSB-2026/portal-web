@@ -177,16 +177,9 @@ export default function Login() {
                 />
                 Remember me
               </label>
-              <a
-                className="auth-link"
-                href="#forgot-password"
-                onClick={(e) => {
-                  e.preventDefault();
-                  toast.info('Password Recovery', 'Please contact your committee lead or branch administrator to reset credentials.');
-                }}
-              >
+              <Link to="/forgot-password" className="auth-link">
                 Forgot password?
-              </a>
+              </Link>
             </div>
 
             <button className="auth-btn-primary" type="submit" disabled={loading}>

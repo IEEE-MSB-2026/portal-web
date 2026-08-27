@@ -15,6 +15,7 @@ import Announcements from './pages/Announcements';
 import Gallery from './pages/Gallery';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import ForgotPassword from './pages/ForgotPassword';
 import Profile from './pages/Profile';
 
 function NotFound() {
@@ -62,6 +63,7 @@ export default function App() {
         {/* Standalone full-screen auth routes without global Navbar and Footer */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
 
         {/* Main application routes with global Navbar & Footer */}
         <Route path="/" element={<Layout />}>

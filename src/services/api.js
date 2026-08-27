@@ -218,6 +218,25 @@ export const api = {
       body: { currentPassword, newPassword, confirmPassword },
     }),
 
+  // 3-Step Password Reset & OTP Recovery
+  requestPasswordResetOtp: ({ email }) =>
+    request('/api/auth/forgot-password/request-otp', {
+      method: 'POST',
+      body: { email },
+    }),
+
+  verifyPasswordResetOtp: ({ email, otp }) =>
+    request('/api/auth/forgot-password/verify-otp', {
+      method: 'POST',
+      body: { email, otp },
+    }),
+
+  resetPasswordWithToken: ({ resetToken, newPassword, confirmPassword }) =>
+    request('/api/auth/forgot-password/reset', {
+      method: 'POST',
+      body: { resetToken, newPassword, confirmPassword },
+    }),
+
   // Cloudinary Direct Upload Architecture
   getFileUploadSignature: ({ folder = 'general', resourceType = 'auto', tags, publicId } = {}) =>
     request('/api/files/signature', {
