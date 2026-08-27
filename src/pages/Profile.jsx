@@ -239,8 +239,7 @@ export default function Profile() {
     if (!targetScopeId) return;
     setSwitchingScopeId(targetScopeId);
     try {
-      const switchRes = await api.switchContext({ targetScopeId });
-      toast.success('Scope Switched', `Switched to ${switchRes.user?.role?.toUpperCase()} (${switchRes.user?.scopeType})`);
+      await api.switchContext({ targetScopeId });
     } catch (err) {
       toast.error('Switch Failed', err.message || 'Failed to switch context scope.');
     } finally {
@@ -323,7 +322,7 @@ export default function Profile() {
                 {user.scopeType && user.scopeType !== 'global' && (
                   <span className="profile-hero__badge profile-hero__badge--scope">
                     <Layers size={10} />
-                    {user.committeeName || user.scopeType?.toUpperCase()}
+                    {user.committeeSlug?.toUpperCase() || user.committeeName || user.scopeType?.toUpperCase()}
                   </span>
                 )}
               </div>
@@ -441,64 +440,6 @@ export default function Profile() {
                 <Users size={32} />
                 <p>You're not assigned to any committees yet.</p>
               </div>
-            )}
-
-            {/* Scope Switcher — show non-committee scopes */}
-            {user.availableScopes && user.availableScopes.some(s => s.scopeType !== 'committee') && (
-              <>
-                <div className="profile-section-title">
-                  <Layers size={14} />
-                  <span>Other Scopes</span>
-                </div>
-                <div className="profile-committees" style={{ marginBottom: 'var(--space-6)' }}>
-                  {user.availableScopes
-                    .filter(s => s.scopeType !== 'committee')
-                    .map((scope) => {
-                      const scopeKey = scope.id || scope.scopeId;
-                      const isActive =
-                        (user.scopeId === scope.scopeId || user.scopeId === scope.id) &&
-                        user.role === scope.role;
-                      const isSwitching = switchingScopeId === scopeKey;
-
-                      return (
-                        <div
-                          key={scopeKey}
-                          className={`profile-committee-card ${isActive ? 'profile-committee-card--active' : ''}`}
-                        >
-                          <div className="profile-committee-card__info">
-                            <div className="profile-committee-card__name">
-                              {scope.label || `${scope.role} (${scope.scopeType})`}
-                            </div>
-                            <div className="profile-committee-card__role">
-                              <span className={`badge ${getRoleBadgeClass(scope.role)}`} style={{ fontSize: '0.65rem' }}>
-                                {scope.role?.toUpperCase()}
-                              </span>
-                            </div>
-                          </div>
-                          {isActive ? (
-                            <span className="badge badge-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700 }}>
-                              <Check size={11} /> ACTIVE
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleScopeSwitch(scope)}
-                              disabled={isSwitching}
-                              className="btn btn-outline btn-sm"
-                              style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
-                            >
-                              {isSwitching ? (
-                                <div className="spinner" style={{ width: '0.875rem', height: '0.875rem' }} />
-                              ) : (
-                                <>Switch <ChevronRight size={12} /></>
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
-                </div>
-              </>
             )}
           </>
         )}

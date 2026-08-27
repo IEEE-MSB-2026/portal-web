@@ -62,6 +62,11 @@ export default function Navbar() {
     { to: '/gallery', label: 'Gallery' },
   ];
 
+  // Available scopes for the user (filter out generic redundant defaults)
+  const selectableScopes = (user?.availableScopes || []).filter(
+    (s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName || (s.role !== 'applicant' && s.role !== 'member')
+  );
+
   const handleScopeSwitch = async (targetScope) => {
     const targetScopeId = targetScope.id || targetScope.scopeId;
     if (!targetScopeId) return;
@@ -78,11 +83,7 @@ export default function Navbar() {
 
     setSwitchingScopeId(targetScopeId);
     try {
-      const switchRes = await api.switchContext({ targetScopeId });
-      toast.success(
-        'Active Scope Switched',
-        `Switched to ${switchRes.user?.role?.toUpperCase()} (${switchRes.user?.scopeType})`
-      );
+      await api.switchContext({ targetScopeId });
       setUserDropdownOpen(false);
       setMobileMenuOpen(false);
     } catch (err) {
@@ -280,7 +281,7 @@ export default function Navbar() {
                     className={`badge ${getRoleBadgeClass(user.role)}`}
                     style={{ fontSize: '0.6875rem', padding: '0.1rem 0.45rem' }}
                   >
-                    {user.role?.toUpperCase()}
+                    {user.committeeSlug ? `${user.role?.toUpperCase()}` : user.role?.toUpperCase()}
                   </span>
                 </div>
 
@@ -318,7 +319,7 @@ export default function Navbar() {
                           {user.scopeType && user.scopeType !== 'global' && (
                             <span className="nav-profile-badge nav-profile-badge--scope">
                               <Layers size={10} />
-                              {user.committeeName || user.scopeType?.toUpperCase()}
+                              {user.committeeSlug?.toUpperCase() || user.committeeName || user.scopeType?.toUpperCase()}
                             </span>
                           )}
                         </div>
@@ -326,15 +327,15 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  {/* 1-Click Scope Switcher Section */}
-                  {user.availableScopes && user.availableScopes.length > 1 && (
+                  {/* Switch Scope / Role Section */}
+                  {selectableScopes.length > 1 && (
                     <div className="nav-profile-scopes">
                       <div className="nav-profile-section-title">
                         <Layers size={12} />
                         <span>Switch Scope / Role</span>
                       </div>
                       <div className="nav-profile-scopes__list">
-                        {user.availableScopes.map((scope) => {
+                        {selectableScopes.map((scope) => {
                           const scopeKey = scope.id || scope.scopeId;
                           const isActive =
                             (user.scopeId === scope.scopeId || user.scopeId === scope.id) &&
@@ -351,11 +352,13 @@ export default function Navbar() {
                             >
                               <div className="nav-scope-item__info">
                                 <span className="nav-scope-item__label">
-                                  {scope.label || `${scope.role} (${scope.scopeType})`}
+                                  {scope.committeeSlug ? `${scope.committeeSlug.toUpperCase()} Committee` : (scope.committeeName || `${scope.scopeType?.toUpperCase()} Scope`)}
                                 </span>
-                                {scope.committeeName && (
-                                  <span className="nav-scope-item__sub">{scope.committeeName}</span>
-                                )}
+                                <span className="nav-scope-item__sub">
+                                  <span className={`badge ${getRoleBadgeClass(scope.role)}`} style={{ fontSize: '0.6rem', padding: '0.05rem 0.35rem' }}>
+                                    {scope.role?.toUpperCase()}
+                                  </span>
+                                </span>
                               </div>
                               {isSwitching ? (
                                 <div className="spinner" style={{ width: '0.875rem', height: '0.875rem', borderWidth: '2px' }} />
@@ -475,7 +478,7 @@ export default function Navbar() {
                       {user.scopeType && user.scopeType !== 'global' && (
                         <span className="nav-profile-badge nav-profile-badge--scope">
                           <Layers size={9} />
-                          {user.committeeName || user.scopeType?.toUpperCase()}
+                          {user.committeeSlug?.toUpperCase() || user.committeeName || user.scopeType?.toUpperCase()}
                         </span>
                       )}
                     </div>
@@ -483,14 +486,14 @@ export default function Navbar() {
                 </div>
               </div>
 
-              {/* Mobile 1-Click Scope Switcher */}
-              {user.availableScopes && user.availableScopes.length > 1 && (
+              {/* Mobile Scope Switcher */}
+              {selectableScopes.length > 1 && (
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.375rem', letterSpacing: '0.04em' }}>
                     Switch Scope / Role
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-                    {user.availableScopes.map((scope) => {
+                    {selectableScopes.map((scope) => {
                       const scopeKey = scope.id || scope.scopeId;
                       const isActive =
                         (user.scopeId === scope.scopeId || user.scopeId === scope.id) &&
@@ -504,8 +507,14 @@ export default function Navbar() {
                           className={`nav-scope-item ${isActive ? 'nav-scope-item--active' : ''}`}
                         >
                           <div className="nav-scope-item__info">
-                            <span className="nav-scope-item__label">{scope.label || `${scope.role} (${scope.scopeType})`}</span>
-                            {scope.committeeName && <span className="nav-scope-item__sub">{scope.committeeName}</span>}
+                            <span className="nav-scope-item__label">
+                              {scope.committeeSlug ? `${scope.committeeSlug.toUpperCase()} Committee` : (scope.committeeName || `${scope.scopeType?.toUpperCase()} Scope`)}
+                            </span>
+                            <span className="nav-scope-item__sub">
+                              <span className={`badge ${getRoleBadgeClass(scope.role)}`} style={{ fontSize: '0.6rem', padding: '0.05rem 0.35rem' }}>
+                                {scope.role?.toUpperCase()}
+                              </span>
+                            </span>
                           </div>
                           {isActive && (
                             <span className="nav-scope-item__active-badge">
@@ -628,6 +637,7 @@ export default function Navbar() {
           color: var(--color-text);
           cursor: pointer;
           transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          user-select: none;
         }
         .nav-user-pill-btn:hover {
           border-color: var(--color-primary);
@@ -661,7 +671,7 @@ export default function Navbar() {
         .nav-user-label__name {
           font-size: 0.875rem;
           font-weight: 600;
-          max-width: 110px;
+          max-width: 100px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
