@@ -212,6 +212,12 @@ export const api = {
 
   getMyDashboard: () => request('/api/core/me/dashboard'),
 
+  changePassword: ({ currentPassword, newPassword, confirmPassword }) =>
+    request('/api/auth/password', {
+      method: 'PATCH',
+      body: { currentPassword, newPassword, confirmPassword },
+    }),
+
   // Cloudinary Direct Upload Architecture
   getFileUploadSignature: ({ folder = 'general', resourceType = 'auto', tags, publicId } = {}) =>
     request('/api/files/signature', {

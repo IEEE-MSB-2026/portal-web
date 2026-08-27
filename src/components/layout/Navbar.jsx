@@ -10,12 +10,14 @@ import {
   Menu,
   X,
   ChevronDown,
+  ChevronRight,
   User,
   LayoutDashboard,
   LogOut,
   Layers,
   Check,
-  Sparkles,
+  Settings,
+  Shield,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -64,7 +66,6 @@ export default function Navbar() {
     const targetScopeId = targetScope.id || targetScope.scopeId;
     if (!targetScopeId) return;
 
-    // If already active, close menus
     const isCurrentActive =
       (user?.scopeId === targetScope.scopeId || user?.scopeId === targetScope.id) &&
       user?.role === targetScope.role;
@@ -248,162 +249,120 @@ export default function Navbar() {
             </div>
           )}
 
-          {/* Authenticated: User Avatar & 1-Click Context Switcher Dropdown */}
+          {/* Authenticated: User Avatar Pill & Floating Menu */}
           {isAuthenticated && user && (
             <div style={{ position: 'relative' }} ref={dropdownRef}>
               <button
                 type="button"
                 onClick={() => setUserDropdownOpen(!userDropdownOpen)}
-                className="btn btn-secondary"
-                style={{
-                  padding: '0.35rem 0.65rem 0.35rem 0.35rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  borderRadius: 'var(--radius-full)',
-                }}
+                className="nav-user-pill-btn"
                 aria-expanded={userDropdownOpen}
                 aria-label="User profile & scope menu"
               >
                 {/* Avatar Image or Initials */}
-                {user.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.name}
-                    style={{
-                      width: '2rem',
-                      height: '2rem',
-                      borderRadius: 'var(--radius-full)',
-                      objectFit: 'cover',
-                    }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: '2rem',
-                      height: '2rem',
-                      borderRadius: 'var(--radius-full)',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      fontSize: '0.75rem',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {getInitials(user.name)}
-                  </div>
-                )}
+                <div className="nav-user-pill-btn__avatar">
+                  {user.avatarUrl ? (
+                    <img
+                      src={user.avatarUrl}
+                      alt={user.name}
+                    />
+                  ) : (
+                    <span>{getInitials(user.name)}</span>
+                  )}
+                </div>
 
                 {/* User Active Role Pill (Desktop) */}
-                <div className="nav-user-label" style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', textAlign: 'left' }}>
-                  <span style={{ fontSize: '0.875rem', fontWeight: 600, maxWidth: '110px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                <div className="nav-user-label">
+                  <span className="nav-user-label__name">
                     {user.name?.split(' ')[0]}
                   </span>
                   <span
                     className={`badge ${getRoleBadgeClass(user.role)}`}
-                    style={{ fontSize: '0.6875rem', padding: '0.1rem 0.4rem' }}
+                    style={{ fontSize: '0.6875rem', padding: '0.1rem 0.45rem' }}
                   >
                     {user.role?.toUpperCase()}
                   </span>
                 </div>
 
-                <ChevronDown size={14} style={{ color: 'var(--color-text-muted)', transform: userDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }} />
+                <ChevronDown
+                  size={14}
+                  style={{
+                    color: 'var(--color-text-muted)',
+                    transform: userDropdownOpen ? 'rotate(180deg)' : 'none',
+                    transition: 'transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                  }}
+                />
               </button>
 
-              {/* Context Switcher & Profile Dropdown */}
+              {/* Floating Glassmorphism Dropdown */}
               {userDropdownOpen && (
-                <div
-                  className="bento-card"
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 0.5rem)',
-                    right: 0,
-                    width: '300px',
-                    padding: 0,
-                    boxShadow: 'var(--shadow-xl)',
-                    borderRadius: 'var(--radius-lg)',
-                    zIndex: 200,
-                    overflow: 'hidden',
-                  }}
-                >
-                  {/* User Profile Header */}
-                  <div style={{ padding: 'var(--space-4)', borderBottom: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text)' }}>{user.name}</div>
-                    <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.email}</div>
-                    <div style={{ marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Active Context:</span>
-                      <span className={`badge ${getRoleBadgeClass(user.role)}`} style={{ fontSize: '0.6875rem' }}>
-                        {user.role} ({user.scopeType})
-                      </span>
+                <div className="nav-profile-dropdown" role="menu">
+                  {/* Dark Navy Gradient Header */}
+                  <div className="nav-profile-header">
+                    <div className="nav-profile-header__layout">
+                      <div className="nav-profile-header__avatar">
+                        {user.avatarUrl ? (
+                          <img src={user.avatarUrl} alt={user.name} />
+                        ) : (
+                          <span>{getInitials(user.name)}</span>
+                        )}
+                      </div>
+                      <div className="nav-profile-header__meta">
+                        <div className="nav-profile-header__name">{user.name}</div>
+                        <div className="nav-profile-header__email">{user.email}</div>
+                        <div className="nav-profile-header__badges">
+                          <span className="nav-profile-badge nav-profile-badge--role">
+                            <Shield size={10} />
+                            {user.role?.toUpperCase()}
+                          </span>
+                          {user.scopeType && user.scopeType !== 'global' && (
+                            <span className="nav-profile-badge nav-profile-badge--scope">
+                              <Layers size={10} />
+                              {user.committeeName || user.scopeType?.toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
 
-                  {/* 1-Click Context / Scope Switcher Section */}
-                  {user.availableScopes && user.availableScopes.length > 0 && (
-                    <div style={{ padding: 'var(--space-3) var(--space-4)', borderBottom: '1px solid var(--color-border)' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.375rem',
-                          fontSize: '0.75rem',
-                          fontWeight: 700,
-                          color: 'var(--color-text-muted)',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.05em',
-                          marginBottom: '0.5rem',
-                        }}
-                      >
-                        <Layers size={13} style={{ color: 'var(--color-primary)' }} />
+                  {/* 1-Click Scope Switcher Section */}
+                  {user.availableScopes && user.availableScopes.length > 1 && (
+                    <div className="nav-profile-scopes">
+                      <div className="nav-profile-section-title">
+                        <Layers size={12} />
                         <span>Switch Scope / Role</span>
                       </div>
-
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem', maxHeight: '180px', overflowY: 'auto' }}>
+                      <div className="nav-profile-scopes__list">
                         {user.availableScopes.map((scope) => {
                           const scopeKey = scope.id || scope.scopeId;
                           const isActive =
                             (user.scopeId === scope.scopeId || user.scopeId === scope.id) &&
                             user.role === scope.role;
-                          const isSwitchingThis = switchingScopeId === scopeKey;
+                          const isSwitching = switchingScopeId === scopeKey;
 
                           return (
                             <button
                               key={scopeKey}
                               type="button"
                               onClick={() => handleScopeSwitch(scope)}
-                              disabled={isSwitchingThis}
-                              style={{
-                                width: '100%',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                padding: '0.5rem 0.65rem',
-                                borderRadius: 'var(--radius-sm)',
-                                border: isActive ? '1px solid var(--color-primary)' : '1px solid transparent',
-                                backgroundColor: isActive ? 'var(--color-primary-light)' : 'transparent',
-                                cursor: 'pointer',
-                                textAlign: 'left',
-                                transition: 'background-color 0.15s ease',
-                              }}
-                              className="scope-switch-item"
+                              disabled={isSwitching}
+                              className={`nav-scope-item ${isActive ? 'nav-scope-item--active' : ''}`}
                             >
-                              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                <span style={{ fontSize: '0.8125rem', fontWeight: isActive ? 700 : 500, color: isActive ? 'var(--color-primary)' : 'var(--color-text)' }}>
+                              <div className="nav-scope-item__info">
+                                <span className="nav-scope-item__label">
                                   {scope.label || `${scope.role} (${scope.scopeType})`}
                                 </span>
                                 {scope.committeeName && (
-                                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                                    {scope.committeeName}
-                                  </span>
+                                  <span className="nav-scope-item__sub">{scope.committeeName}</span>
                                 )}
                               </div>
-
-                              {isSwitchingThis ? (
-                                <div className="spinner" style={{ width: '0.875rem', height: '0.875rem' }} />
+                              {isSwitching ? (
+                                <div className="spinner" style={{ width: '0.875rem', height: '0.875rem', borderWidth: '2px' }} />
                               ) : isActive ? (
-                                <Check size={14} style={{ color: 'var(--color-primary)' }} />
+                                <span className="nav-scope-item__active-badge">
+                                  <Check size={12} />
+                                </span>
                               ) : null}
                             </button>
                           );
@@ -412,69 +371,53 @@ export default function Navbar() {
                     </div>
                   )}
 
-                  {/* Navigation Links */}
-                  <div style={{ padding: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  {/* Quick Navigation Links */}
+                  <div className="nav-profile-links">
                     <Link
                       to="/profile"
                       onClick={() => setUserDropdownOpen(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.65rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.875rem',
-                        color: 'var(--color-text)',
-                        textDecoration: 'none',
-                      }}
-                      className="dropdown-nav-item"
+                      className="nav-profile-link"
                     >
-                      <User size={16} style={{ color: 'var(--color-primary)' }} />
-                      <span>Member Profile</span>
+                      <div className="nav-profile-link__left">
+                        <User size={15} />
+                        <span>Member Profile</span>
+                      </div>
+                      <ChevronRight size={13} className="nav-profile-link__arrow" />
+                    </Link>
+
+                    <Link
+                      to="/profile?tab=settings"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="nav-profile-link"
+                    >
+                      <div className="nav-profile-link__left">
+                        <Settings size={15} />
+                        <span>Account Settings</span>
+                      </div>
+                      <ChevronRight size={13} className="nav-profile-link__arrow" />
                     </Link>
 
                     <Link
                       to="/dashboard"
                       onClick={() => setUserDropdownOpen(false)}
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.65rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.875rem',
-                        color: 'var(--color-text)',
-                        textDecoration: 'none',
-                      }}
-                      className="dropdown-nav-item"
+                      className="nav-profile-link"
                     >
-                      <LayoutDashboard size={16} style={{ color: 'var(--color-primary)' }} />
-                      <span>Member Dashboard</span>
+                      <div className="nav-profile-link__left">
+                        <LayoutDashboard size={15} />
+                        <span>Member Dashboard</span>
+                      </div>
+                      <ChevronRight size={13} className="nav-profile-link__arrow" />
                     </Link>
                   </div>
 
                   {/* Sign Out Action */}
-                  <div style={{ padding: '0.5rem', borderTop: '1px solid var(--color-border)', backgroundColor: 'var(--color-surface)' }}>
+                  <div className="nav-profile-footer">
                     <button
                       type="button"
                       onClick={handleLogout}
-                      style={{
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '0.65rem',
-                        padding: '0.5rem 0.75rem',
-                        borderRadius: 'var(--radius-sm)',
-                        fontSize: '0.875rem',
-                        color: 'var(--color-danger)',
-                        background: 'none',
-                        border: 'none',
-                        cursor: 'pointer',
-                        textAlign: 'left',
-                      }}
-                      className="dropdown-nav-item"
+                      className="nav-profile-logout-btn"
                     >
-                      <LogOut size={16} />
+                      <LogOut size={15} />
                       <span>Sign Out</span>
                     </button>
                   </div>
@@ -495,7 +438,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Dropdown Menu with Complete Parity */}
+      {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
         <div
           style={{
@@ -511,54 +454,40 @@ export default function Navbar() {
         >
           {/* Authenticated User Header on Mobile */}
           {isAuthenticated && user && (
-            <div
-              style={{
-                padding: 'var(--space-3)',
-                borderRadius: 'var(--radius-md)',
-                backgroundColor: 'var(--color-surface)',
-                border: '1px solid var(--color-border)',
-                marginBottom: '0.5rem',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                {user.avatarUrl ? (
-                  <img
-                    src={user.avatarUrl}
-                    alt={user.name}
-                    style={{ width: '2.5rem', height: '2.5rem', borderRadius: 'var(--radius-full)', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div
-                    style={{
-                      width: '2.5rem',
-                      height: '2.5rem',
-                      borderRadius: 'var(--radius-full)',
-                      backgroundColor: 'var(--color-primary)',
-                      color: 'white',
-                      fontSize: '0.875rem',
-                      fontWeight: 700,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                  >
-                    {getInitials(user.name)}
+            <div className="mobile-user-card">
+              <div className="nav-profile-header" style={{ borderRadius: 'var(--radius-md)', padding: '1rem' }}>
+                <div className="nav-profile-header__layout">
+                  <div className="nav-profile-header__avatar" style={{ width: '2.75rem', height: '2.75rem' }}>
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt={user.name} />
+                    ) : (
+                      <span>{getInitials(user.name)}</span>
+                    )}
                   </div>
-                )}
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--color-text)' }}>{user.name}</div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{user.email}</div>
-                  <span className={`badge ${getRoleBadgeClass(user.role)}`} style={{ fontSize: '0.6875rem', marginTop: '0.25rem' }}>
-                    {user.role?.toUpperCase()} ({user.scopeType})
-                  </span>
+                  <div className="nav-profile-header__meta">
+                    <div className="nav-profile-header__name" style={{ fontSize: '0.9375rem' }}>{user.name}</div>
+                    <div className="nav-profile-header__email">{user.email}</div>
+                    <div className="nav-profile-header__badges">
+                      <span className="nav-profile-badge nav-profile-badge--role">
+                        <Shield size={9} />
+                        {user.role?.toUpperCase()}
+                      </span>
+                      {user.scopeType && user.scopeType !== 'global' && (
+                        <span className="nav-profile-badge nav-profile-badge--scope">
+                          <Layers size={9} />
+                          {user.committeeName || user.scopeType?.toUpperCase()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Mobile 1-Click Scope Switcher List */}
+              {/* Mobile 1-Click Scope Switcher */}
               {user.availableScopes && user.availableScopes.length > 1 && (
-                <div style={{ marginTop: '0.75rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)' }}>
-                  <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.375rem' }}>
-                    Active Scope
+                <div style={{ marginTop: '0.75rem' }}>
+                  <div style={{ fontSize: '0.6875rem', fontWeight: 700, color: 'var(--color-text-muted)', textTransform: 'uppercase', marginBottom: '0.375rem', letterSpacing: '0.04em' }}>
+                    Switch Scope / Role
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
                     {user.availableScopes.map((scope) => {
@@ -572,22 +501,17 @@ export default function Navbar() {
                           type="button"
                           onClick={() => handleScopeSwitch(scope)}
                           disabled={switchingScopeId === scopeKey}
-                          style={{
-                            width: '100%',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '0.375rem 0.5rem',
-                            borderRadius: 'var(--radius-sm)',
-                            backgroundColor: isActive ? 'var(--color-primary-light)' : 'transparent',
-                            border: isActive ? '1px solid var(--color-primary)' : '1px solid transparent',
-                            color: isActive ? 'var(--color-primary)' : 'var(--color-text)',
-                            fontSize: '0.8125rem',
-                            textAlign: 'left',
-                          }}
+                          className={`nav-scope-item ${isActive ? 'nav-scope-item--active' : ''}`}
                         >
-                          <span>{scope.label || `${scope.role} (${scope.scopeType})`}</span>
-                          {isActive && <Check size={14} />}
+                          <div className="nav-scope-item__info">
+                            <span className="nav-scope-item__label">{scope.label || `${scope.role} (${scope.scopeType})`}</span>
+                            {scope.committeeName && <span className="nav-scope-item__sub">{scope.committeeName}</span>}
+                          </div>
+                          {isActive && (
+                            <span className="nav-scope-item__active-badge">
+                              <Check size={12} />
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -620,30 +544,48 @@ export default function Navbar() {
 
           {/* Profile & Auth Mobile Actions */}
           {isAuthenticated ? (
-            <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               <Link
                 to="/profile"
                 onClick={() => setMobileMenuOpen(false)}
-                className="btn btn-secondary"
-                style={{ justifyContent: 'flex-start', gap: '0.5rem' }}
+                className="nav-profile-link"
+                style={{ padding: '0.625rem 0.875rem' }}
               >
-                <User size={16} />
-                <span>My Profile</span>
+                <div className="nav-profile-link__left">
+                  <User size={16} />
+                  <span>Member Profile</span>
+                </div>
+                <ChevronRight size={14} className="nav-profile-link__arrow" />
+              </Link>
+              <Link
+                to="/profile?tab=settings"
+                onClick={() => setMobileMenuOpen(false)}
+                className="nav-profile-link"
+                style={{ padding: '0.625rem 0.875rem' }}
+              >
+                <div className="nav-profile-link__left">
+                  <Settings size={16} />
+                  <span>Account Settings</span>
+                </div>
+                <ChevronRight size={14} className="nav-profile-link__arrow" />
               </Link>
               <Link
                 to="/dashboard"
                 onClick={() => setMobileMenuOpen(false)}
-                className="btn btn-secondary"
-                style={{ justifyContent: 'flex-start', gap: '0.5rem' }}
+                className="nav-profile-link"
+                style={{ padding: '0.625rem 0.875rem' }}
               >
-                <LayoutDashboard size={16} />
-                <span>Member Dashboard</span>
+                <div className="nav-profile-link__left">
+                  <LayoutDashboard size={16} />
+                  <span>Member Dashboard</span>
+                </div>
+                <ChevronRight size={14} className="nav-profile-link__arrow" />
               </Link>
               <button
                 type="button"
                 onClick={handleLogout}
-                className="btn btn-outline"
-                style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)', justifyContent: 'flex-start', gap: '0.5rem' }}
+                className="nav-profile-logout-btn"
+                style={{ marginTop: '0.5rem' }}
               >
                 <LogOut size={16} />
                 <span>Sign Out</span>
@@ -664,7 +606,7 @@ export default function Navbar() {
         </div>
       )}
 
-      {/* Responsive media style override */}
+      {/* Scoped CSS styling for Navbar user dropdown */}
       <style>{`
         @media (min-width: 768px) {
           .desktop-nav { display: flex !important; }
@@ -673,11 +615,314 @@ export default function Navbar() {
         @media (max-width: 640px) {
           .nav-user-label { display: none !important; }
         }
-        .dropdown-nav-item:hover {
-          background-color: var(--color-primary-light);
+
+        /* Nav User Pill Trigger */
+        .nav-user-pill-btn {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          padding: 0.3rem 0.65rem 0.3rem 0.3rem;
+          border-radius: var(--radius-pill);
+          background: var(--color-card);
+          border: 1px solid var(--color-border);
+          color: var(--color-text);
+          cursor: pointer;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
-        .scope-switch-item:hover:not(:disabled) {
-          background-color: var(--color-primary-light);
+        .nav-user-pill-btn:hover {
+          border-color: var(--color-primary);
+          box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-sm);
+        }
+        .nav-user-pill-btn__avatar {
+          width: 2rem;
+          height: 2rem;
+          border-radius: var(--radius-pill);
+          overflow: hidden;
+          background: var(--color-primary);
+          color: #fff;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 0.75rem;
+          font-weight: 700;
+          flex-shrink: 0;
+        }
+        .nav-user-pill-btn__avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .nav-user-label {
+          display: flex;
+          align-items: center;
+          gap: 0.375rem;
+          text-align: left;
+        }
+        .nav-user-label__name {
+          font-size: 0.875rem;
+          font-weight: 600;
+          max-width: 110px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          color: var(--color-text);
+        }
+
+        /* Floating Glassmorphism Dropdown */
+        .nav-profile-dropdown {
+          position: absolute;
+          top: calc(100% + 0.65rem);
+          right: 0;
+          width: 320px;
+          background: var(--color-card);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05);
+          overflow: hidden;
+          z-index: 500;
+          animation: navDropdownSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes navDropdownSlideIn {
+          from {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.97);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
+        /* Dropdown Header */
+        .nav-profile-header {
+          background: linear-gradient(135deg, #002F4C 0%, #00629B 70%, #00A6C4 100%);
+          padding: 1.25rem 1rem;
+          position: relative;
+          overflow: hidden;
+        }
+        .nav-profile-header::after {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -20%;
+          width: 180px;
+          height: 180px;
+          background: radial-gradient(circle, rgba(0, 166, 196, 0.3) 0%, transparent 70%);
+          pointer-events: none;
+        }
+        .nav-profile-header__layout {
+          display: flex;
+          align-items: center;
+          gap: 0.875rem;
+          position: relative;
+          z-index: 1;
+        }
+        .nav-profile-header__avatar {
+          width: 3rem;
+          height: 3rem;
+          border-radius: var(--radius-pill);
+          border: 2px solid rgba(255, 255, 255, 0.4);
+          overflow: hidden;
+          background: rgba(255, 255, 255, 0.15);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 1.125rem;
+          font-weight: 700;
+          color: #fff;
+          flex-shrink: 0;
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        .nav-profile-header__avatar img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+        .nav-profile-header__meta {
+          min-width: 0;
+          flex: 1;
+        }
+        .nav-profile-header__name {
+          font-family: var(--font-heading);
+          font-weight: 700;
+          font-size: 0.9375rem;
+          color: #ffffff;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          line-height: 1.2;
+        }
+        .nav-profile-header__email {
+          font-size: 0.75rem;
+          color: rgba(255, 255, 255, 0.75);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          margin-top: 0.125rem;
+        }
+        .nav-profile-header__badges {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          flex-wrap: wrap;
+          margin-top: 0.4rem;
+        }
+        .nav-profile-badge {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          font-size: 0.625rem;
+          font-weight: 700;
+          text-transform: uppercase;
+          letter-spacing: 0.04em;
+          padding: 0.15rem 0.45rem;
+          border-radius: var(--radius-pill);
+          backdrop-filter: blur(4px);
+        }
+        .nav-profile-badge--role {
+          background: rgba(59, 130, 246, 0.3);
+          color: #93c5fd;
+        }
+        .nav-profile-badge--scope {
+          background: rgba(16, 185, 129, 0.25);
+          color: #6ee7b7;
+        }
+
+        /* Scope Switcher */
+        .nav-profile-scopes {
+          padding: 0.75rem 0.875rem;
+          border-bottom: 1px solid var(--color-border);
+        }
+        .nav-profile-section-title {
+          display: flex;
+          align-items: center;
+          gap: 0.35rem;
+          font-size: 0.6875rem;
+          font-weight: 700;
+          color: var(--color-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 0.5rem;
+        }
+        .nav-profile-scopes__list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.25rem;
+          max-height: 160px;
+          overflow-y: auto;
+        }
+        .nav-scope-item {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.45rem 0.625rem;
+          border-radius: var(--radius-sm);
+          border: 1px solid transparent;
+          background: transparent;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s ease;
+        }
+        .nav-scope-item:hover:not(:disabled) {
+          background: var(--color-bg-alt);
+        }
+        .nav-scope-item--active {
+          background: var(--color-primary-light) !important;
+          border-color: var(--color-primary);
+        }
+        .nav-scope-item__info {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+        }
+        .nav-scope-item__label {
+          font-size: 0.8125rem;
+          font-weight: 600;
+          color: var(--color-text);
+        }
+        .nav-scope-item--active .nav-scope-item__label {
+          color: var(--color-primary);
+          font-weight: 700;
+        }
+        .nav-scope-item__sub {
+          font-size: 0.6875rem;
+          color: var(--color-text-muted);
+        }
+        .nav-scope-item__active-badge {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 1.125rem;
+          height: 1.125rem;
+          border-radius: var(--radius-pill);
+          background: var(--color-primary);
+          color: #fff;
+          flex-shrink: 0;
+        }
+
+        /* Navigation Links */
+        .nav-profile-links {
+          padding: 0.375rem;
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+        }
+        .nav-profile-link {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          padding: 0.55rem 0.75rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.875rem;
+          font-weight: 500;
+          color: var(--color-text);
+          text-decoration: none;
+          transition: all 0.15s ease;
+        }
+        .nav-profile-link:hover {
+          background: var(--color-primary-light);
+          color: var(--color-primary);
+        }
+        .nav-profile-link__left {
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+        }
+        .nav-profile-link:hover .nav-profile-link__arrow {
+          transform: translateX(2px);
+          color: var(--color-primary);
+        }
+        .nav-profile-link__arrow {
+          color: var(--color-text-subtle);
+          transition: transform 0.15s ease;
+        }
+
+        /* Footer / Danger Sign Out */
+        .nav-profile-footer {
+          padding: 0.375rem;
+          border-top: 1px solid var(--color-border);
+          background: var(--color-surface);
+        }
+        .nav-profile-logout-btn {
+          width: 100%;
+          display: flex;
+          align-items: center;
+          gap: 0.625rem;
+          padding: 0.55rem 0.75rem;
+          border-radius: var(--radius-sm);
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: var(--color-destructive);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+          text-align: left;
+          transition: all 0.15s ease;
+        }
+        .nav-profile-logout-btn:hover {
+          background: var(--color-destructive-light);
         }
       `}</style>
     </header>
