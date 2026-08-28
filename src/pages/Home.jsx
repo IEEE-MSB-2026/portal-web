@@ -755,7 +755,7 @@ export default function Home() {
                 </p>
               </div>
               <Link to="/about" className="btn btn-outline">
-                <span>View Leadership Roster</span>
+                <span>View Officers</span>
                 <ArrowRight size={16} />
               </Link>
             </div>

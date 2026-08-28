@@ -108,7 +108,7 @@ export default function About() {
         {/* Large, Image-Focused Officer Cards (3 to 5 Per Season) */}
         {loading ? (
           <div style={{ textAlign: 'center', padding: 'var(--space-16)', color: 'var(--color-text-muted)' }}>
-            Loading leadership roster...
+            Loading Officers ...
           </div>
         ) : officers.length === 0 ? (
           <div className="bento-card" style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--color-text-muted)', maxWidth: '600px', margin: '0 auto' }}>

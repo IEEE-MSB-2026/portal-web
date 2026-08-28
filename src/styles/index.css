@@ -53,6 +53,8 @@
 
   --color-bg: #F8FAFC;
   --color-bg-alt: #F1F5F9;
+  --color-surface: #FFFFFF;
+  --color-background: #F8FAFC;
   --color-card: #FFFFFF;
   --color-card-hover: #F8FAFC;
   
@@ -93,6 +95,8 @@
 
   --color-bg: #0B0F19;
   --color-bg-alt: #070A12;
+  --color-surface: #131B2E;
+  --color-background: #0B0F19;
   --color-card: #131B2E;
   --color-card-hover: #18233C;
   

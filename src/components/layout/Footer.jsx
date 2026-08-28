@@ -197,7 +197,7 @@ export default function Footer() {
         >
           <span>© {new Date().getFullYear()} IEEE Menoufia Student Branch (STB20451). All rights reserved.</span>
           <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-            Built with pride by the IEEE Menoufia Web Team
+            Built with pride by the IEEE Menoufia Webmaster
           </span>
         </div>
       </div>

@@ -17,6 +17,8 @@ import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Profile from './pages/Profile';
+import Dashboard from './pages/Dashboard';
+import Workspace from './pages/Workspace';
 
 function NotFound() {
   return (
@@ -73,6 +75,22 @@ export default function App() {
           <Route path="events" element={<Events />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="gallery" element={<Gallery />} />
+          <Route
+            path="dashboard"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="workspace"
+            element={
+              <ProtectedRoute>
+                <Workspace />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="profile"
             element={

@@ -55,11 +55,16 @@ export default function Navbar() {
 
   const navLinks = [
     { to: '/', label: 'Home' },
-    { to: '/about', label: 'About' },
+    ...(isAuthenticated
+      ? [
+          { to: '/dashboard', label: 'Dashboard' },
+        ]
+      : []),
     { to: '/committees', label: 'Committees' },
     { to: '/events', label: 'Events' },
     { to: '/announcements', label: 'Announcements' },
     { to: '/gallery', label: 'Gallery' },
+    { to: '/about', label: 'About' },
   ];
 
   // Available scopes for the user (filter out generic redundant defaults)
@@ -376,6 +381,30 @@ export default function Navbar() {
                   {/* Quick Navigation Links */}
                   <div className="nav-profile-links">
                     <Link
+                      to="/dashboard"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="nav-profile-link"
+                    >
+                      <div className="nav-profile-link__left">
+                        <LayoutDashboard size={15} />
+                        <span>Member Dashboard</span>
+                      </div>
+                      <ChevronRight size={13} className="nav-profile-link__arrow" />
+                    </Link>
+
+                    <Link
+                      to="/workspace"
+                      onClick={() => setUserDropdownOpen(false)}
+                      className="nav-profile-link"
+                    >
+                      <div className="nav-profile-link__left">
+                        <Layers size={15} />
+                        <span>Committee Workspace</span>
+                      </div>
+                      <ChevronRight size={13} className="nav-profile-link__arrow" />
+                    </Link>
+
+                    <Link
                       to="/profile"
                       onClick={() => setUserDropdownOpen(false)}
                       className="nav-profile-link"
@@ -395,18 +424,6 @@ export default function Navbar() {
                       <div className="nav-profile-link__left">
                         <Settings size={15} />
                         <span>Account Settings</span>
-                      </div>
-                      <ChevronRight size={13} className="nav-profile-link__arrow" />
-                    </Link>
-
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="nav-profile-link"
-                    >
-                      <div className="nav-profile-link__left">
-                        <LayoutDashboard size={15} />
-                        <span>Member Dashboard</span>
                       </div>
                       <ChevronRight size={13} className="nav-profile-link__arrow" />
                     </Link>

@@ -273,10 +273,13 @@ export const api = {
     purpose = 'general',
     tags,
   }) => {
+    const isImage = file.type && file.type.startsWith('image/');
+    const resolvedResourceType = resourceType === 'auto' ? (isImage ? 'image' : 'raw') : resourceType;
+
     // 1. Request signed upload parameters from File Service
     const sigData = await api.getFileUploadSignature({
       folder,
-      resourceType,
+      resourceType: resolvedResourceType,
       tags: tags || ['ieee_portal', folder],
     });
 
@@ -318,8 +321,8 @@ export const api = {
       cloudinaryAssetId: assetId,
       cloudinaryPublicId: publicId,
       secureUrl,
-      resourceType: cldData.resource_type || (file.type.startsWith('video/') ? 'video' : 'image'),
-      format: cldData.format || file.name.split('.').pop(),
+      resourceType: cldData.resource_type || (isImage ? 'image' : 'raw'),
+      format: cldData.format || (file.name.includes('.') ? file.name.split('.').pop() : 'bin'),
       bytes: cldData.bytes || file.size,
       purpose,
     });
@@ -359,4 +362,56 @@ export const api = {
     return request(`/api/core/public/officers${query}`);
   },
   getPublicSeasons: () => request('/api/core/public/officers/seasons'),
+
+  // Milestone 4: Workspace & Task Management
+  getCommitteeWorkspace: (committeeId, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.isArchived !== undefined) query.append('isArchived', params.isArchived);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.cursor) query.append('cursor', params.cursor);
+    const qs = query.toString();
+    return request(`/api/core/committees/${committeeId}/workspace${qs ? `?${qs}` : ''}`);
+  },
+  createTask: ({ committeeId, title, description, priority = 'medium', assigneeUserId, dueAt }) =>
+    request(`/api/core/committees/${committeeId}/tasks`, {
+      method: 'POST',
+      body: { title, description, priority, assigneeUserId, dueAt },
+    }),
+  updateTask: (taskId, payload) =>
+    request(`/api/core/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: payload,
+    }),
+  updateTaskStatus: ({ taskId, status }) =>
+    request(`/api/core/tasks/${taskId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    }),
+  archiveTask: ({ taskId, isArchived = true }) =>
+    request(`/api/core/tasks/${taskId}/archive`, {
+      method: 'PATCH',
+      body: { isArchived },
+    }),
+  deleteTask: (taskId) =>
+    request(`/api/core/tasks/${taskId}`, {
+      method: 'DELETE',
+    }),
+  getCommitteeResources: (committeeId) => request(`/api/core/committees/${committeeId}/resources`),
+  createCommitteeResource: ({ committeeId, title, url, resourceType = 'link', description }) =>
+    request(`/api/core/committees/${committeeId}/resources`, {
+      method: 'POST',
+      body: { title, url, resourceType, description },
+    }),
+  deleteCommitteeResource: (committeeId, resourceId) =>
+    request(`/api/core/committees/${committeeId}/resources/${resourceId}`, {
+      method: 'DELETE',
+    }),
+  getCommitteeMemberships: (committeeId) => request(`/api/core/committees/${committeeId}/memberships`),
+  getCommitteeMembers: (committeeId, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.id) query.append('id', params.id);
+    const qs = query.toString();
+    return request(`/api/core/committees/${committeeId}/members${qs ? `?${qs}` : ''}`);
+  },
 };
