@@ -33,6 +33,16 @@ import {
   Eye,
   Info,
   CalendarClock,
+  Bell,
+  Megaphone,
+  Upload,
+  Send,
+  Download,
+  Award,
+  FileCheck,
+  Pin,
+  PinOff,
+  UserPlus,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
@@ -43,14 +53,19 @@ export default function Workspace() {
   const { user, updateUser } = useAuthStore();
   const toast = useToastStore();
 
-  // Navigation tabs: 'kanban' | 'archived' | 'resources' | 'roster'
+  // Navigation tabs: 'kanban' | 'assignments' | 'announcements' | 'resources' | 'roster' | 'archived'
   const [activeTab, setActiveTab] = useState('kanban');
   const [workspaceData, setWorkspaceData] = useState(null);
   const [archivedTasks, setArchivedTasks] = useState([]);
   const [memberships, setMemberships] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [committeeAnnouncements, setCommitteeAnnouncements] = useState([]);
+
   const [loading, setLoading] = useState(true);
   const [loadingArchived, setLoadingArchived] = useState(false);
   const [loadingRoster, setLoadingRoster] = useState(false);
+  const [loadingAssignments, setLoadingAssignments] = useState(false);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(false);
 
   // Drag and Drop state
   const [draggingTaskId, setDraggingTaskId] = useState(null);
@@ -63,8 +78,47 @@ export default function Workspace() {
   const [deleteConfirmModalOpen, setDeleteConfirmModalOpen] = useState(false);
   const [deletingTaskId, setDeletingTaskId] = useState(null);
   const [addResourceModalOpen, setAddResourceModalOpen] = useState(false);
+  const [editingResource, setEditingResource] = useState(null);
+  const [editResourceTitle, setEditResourceTitle] = useState('');
+  const [editResourceDesc, setEditResourceDesc] = useState('');
+  const [savingResourceEdit, setSavingResourceEdit] = useState(false);
   const [selectedTaskDetails, setSelectedTaskDetails] = useState(null);
   const [deletingResourceId, setDeletingResourceId] = useState(null);
+
+  // Assignment Modals state
+  const [createAssignmentModalOpen, setCreateAssignmentModalOpen] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState(null);
+  const [viewingSubmissionsAssignment, setViewingSubmissionsAssignment] = useState(null);
+  const [submissionsList, setSubmissionsList] = useState([]);
+  const [loadingSubmissions, setLoadingSubmissions] = useState(false);
+  const [gradingSubmissionId, setGradingSubmissionId] = useState(null);
+  const [gradeInput, setGradeInput] = useState('');
+  const [feedbackInput, setFeedbackInput] = useState('');
+  const [savingGrade, setSavingGrade] = useState(false);
+
+  // Member Assignment Delivery Modal state
+  const [memberDeliveryModalAssignment, setMemberDeliveryModalAssignment] = useState(null);
+  const [deliveryFile, setDeliveryFile] = useState(null);
+  const [deliveryNotes, setDeliveryNotes] = useState('');
+  const [submittingDelivery, setSubmittingDelivery] = useState(false);
+
+  // Assignment Form state
+  const [assignmentTitle, setAssignmentTitle] = useState('');
+  const [assignmentDesc, setAssignmentDesc] = useState('');
+  const [assignmentDueDate, setAssignmentDueDate] = useState('');
+  const [assignmentMaxPoints, setAssignmentMaxPoints] = useState(100);
+  const [assignmentAttachmentFile, setAssignmentAttachmentFile] = useState(null);
+  const [existingAttachmentUrl, setExistingAttachmentUrl] = useState(null);
+  const [existingAttachmentName, setExistingAttachmentName] = useState(null);
+  const [removeExistingAttachment, setRemoveExistingAttachment] = useState(false);
+  const [savingAssignment, setSavingAssignment] = useState(false);
+
+  // Announcement Modals & Form state
+  const [createAnnouncementModalOpen, setCreateAnnouncementModalOpen] = useState(false);
+  const [announcementTitle, setAnnouncementTitle] = useState('');
+  const [announcementBody, setAnnouncementBody] = useState('');
+  const [announcementPinned, setAnnouncementPinned] = useState(false);
+  const [savingAnnouncement, setSavingAnnouncement] = useState(false);
 
   // Task Form state
   const [taskTitle, setTaskTitle] = useState('');
@@ -75,7 +129,7 @@ export default function Workspace() {
   const [savingTask, setSavingTask] = useState(false);
 
   // Resource Form state (Dual-Mode: 'file' | 'link')
-  const [resourceMode, setResourceMode] = useState('file'); // 'file' | 'link'
+  const [resourceMode, setResourceMode] = useState('file');
   const [resourceTitle, setResourceTitle] = useState('');
   const [resourceUrl, setResourceUrl] = useState('');
   const [resourceDesc, setResourceDesc] = useState('');
@@ -88,13 +142,13 @@ export default function Workspace() {
 
   // Active committee ID resolution
   const activeCommitteeId = user?.committeeId || (user?.scopeType === 'committee' ? user?.scopeId : null);
+  
+  // Committee-accurate lead detection (resolves 403 error across committees)
   const isLead =
-    user?.role === 'lead' ||
     user?.role === 'admin' ||
     user?.role === 'officer' ||
     workspaceData?.committee?.myRole === 'lead';
 
-  // Permission helper: Check if the current user is allowed to move / update a given task
   const canMoveTask = (task) => {
     if (!task) return false;
     if (isLead) return true;
@@ -150,10 +204,38 @@ export default function Workspace() {
     }
   };
 
+  const fetchAssignments = async (cid) => {
+    if (!cid) return;
+    try {
+      setLoadingAssignments(true);
+      const data = await api.getCommitteeAssignments(cid);
+      setAssignments(data.assignments || []);
+    } catch (err) {
+      console.error('Failed to load committee assignments:', err);
+    } finally {
+      setLoadingAssignments(false);
+    }
+  };
+
+  const fetchAnnouncements = async (cid) => {
+    if (!cid) return;
+    try {
+      setLoadingAnnouncements(true);
+      const data = await api.getCommitteeAnnouncements(cid);
+      setCommitteeAnnouncements(data.announcements || []);
+    } catch (err) {
+      console.error('Failed to load committee announcements:', err);
+    } finally {
+      setLoadingAnnouncements(false);
+    }
+  };
+
   useEffect(() => {
     if (activeCommitteeId) {
       fetchWorkspace(activeCommitteeId);
       fetchRoster(activeCommitteeId);
+      fetchAssignments(activeCommitteeId);
+      fetchAnnouncements(activeCommitteeId);
     } else {
       setLoading(false);
     }
@@ -162,6 +244,12 @@ export default function Workspace() {
   useEffect(() => {
     if (activeTab === 'archived' && activeCommitteeId) {
       fetchArchivedTasks(activeCommitteeId);
+    }
+    if (activeTab === 'assignments' && activeCommitteeId) {
+      fetchAssignments(activeCommitteeId);
+    }
+    if (activeTab === 'announcements' && activeCommitteeId) {
+      fetchAnnouncements(activeCommitteeId);
     }
   }, [activeTab, activeCommitteeId]);
 
@@ -224,7 +312,7 @@ export default function Workspace() {
     await handleUpdateTaskStatus(taskId, targetStatus);
   };
 
-  // Update Task Status (Supports bi-directional transitions for assignees & leads)
+  // Update Task Status
   const handleUpdateTaskStatus = async (taskId, newStatus) => {
     const currentTask = allTasks.find((t) => t.id === taskId);
     if (currentTask && !canMoveTask(currentTask)) {
@@ -232,7 +320,6 @@ export default function Workspace() {
       return;
     }
 
-    // Optimistic UI Update
     setWorkspaceData((prev) => {
       if (!prev) return prev;
       const currentTasks = Array.isArray(prev.tasks) ? prev.tasks : (prev.tasks?.items || []);
@@ -248,7 +335,6 @@ export default function Workspace() {
       await api.updateTaskStatus({ taskId, status: newStatus });
       toast.success('Task Status Updated', `Task moved to ${newStatus.replace('_', ' ')}`);
     } catch (err) {
-      // Revert optimistic update
       fetchWorkspace(activeCommitteeId);
       toast.error('Status Update Failed', err.message || 'Could not update task status.');
     }
@@ -261,10 +347,6 @@ export default function Workspace() {
       toast.error('Validation Error', 'Task title is required.');
       return;
     }
-    if (!taskAssigneeId) {
-      toast.error('Validation Error', 'Please select an assignee from the committee team.');
-      return;
-    }
 
     setSavingTask(true);
     try {
@@ -273,11 +355,11 @@ export default function Workspace() {
         title: taskTitle.trim(),
         description: taskDescription.trim() || undefined,
         priority: taskPriority,
-        assigneeUserId: taskAssigneeId,
+        assigneeUserId: taskAssigneeId || undefined,
         dueAt: taskDueDate ? new Date(taskDueDate).toISOString() : undefined,
       });
 
-      const assigneeObj = memberships.find((m) => (m.externalUserId || m.id) === taskAssigneeId);
+      const assigneeObj = taskAssigneeId ? memberships.find((m) => (m.externalUserId || m.id) === taskAssigneeId) : null;
       const newTask = {
         id: res.task?.id || `task_${Date.now()}`,
         title: taskTitle.trim(),
@@ -287,9 +369,9 @@ export default function Workspace() {
         status: 'todo',
         dueAt: taskDueDate ? new Date(taskDueDate).toISOString() : null,
         due_at: taskDueDate ? new Date(taskDueDate).toISOString() : null,
-        assigneeUserId: taskAssigneeId,
-        assigneeName: assigneeObj?.name || 'Assigned Member',
-        assignee_name: assigneeObj?.name || 'Assigned Member',
+        assigneeUserId: taskAssigneeId || null,
+        assigneeName: assigneeObj?.name || null,
+        assignee_name: assigneeObj?.name || null,
         assigneeEmail: assigneeObj?.email || '',
         created_at: new Date().toISOString(),
       };
@@ -302,123 +384,123 @@ export default function Workspace() {
         };
       });
 
+      toast.success(
+        'Task Created',
+        taskAssigneeId ? `"${taskTitle}" assigned to ${assigneeObj?.name || 'member'}` : `"${taskTitle}" created as open task.`
+      );
+      setCreateTaskModalOpen(false);
       setTaskTitle('');
       setTaskDescription('');
       setTaskPriority('medium');
       setTaskAssigneeId('');
       setTaskDueDate('');
-      setCreateTaskModalOpen(false);
-      toast.success('Task Created', 'New task assigned successfully.');
     } catch (err) {
-      toast.error('Create Task Failed', err.message || 'Could not create task.');
+      toast.error('Task Creation Failed', err.message || 'Could not create task.');
     } finally {
       setSavingTask(false);
     }
   };
 
-  // Open Edit Task Modal
+  // Edit Task
   const handleOpenEditTask = (task) => {
     setEditingTask(task);
     setTaskTitle(task.title || '');
     setTaskDescription(task.description || '');
     setTaskPriority(task.priority || 'medium');
-    setTaskAssigneeId(task.assigneeUserId || '');
-    setTaskDueDate(task.dueAt || task.due_date || '');
+    setTaskAssigneeId(task.assigneeUserId || task.assignee_user_id || '');
+    setTaskDueDate(task.dueAt || task.due_at ? new Date(task.dueAt || task.due_at).toISOString().split('T')[0] : '');
     setEditTaskModalOpen(true);
-    if (selectedTaskDetails) {
-      setSelectedTaskDetails(null);
-    }
+    setSelectedTaskDetails(null);
   };
 
-  // Submit Edit Task
-  const handleEditTaskSubmit = async (e) => {
+  const handleUpdateTask = async (e) => {
     e.preventDefault();
     if (!editingTask) return;
 
     setSavingTask(true);
     try {
-      const res = await api.updateTask(editingTask.id, {
+      await api.updateTask(editingTask.id, {
         title: taskTitle.trim(),
         description: taskDescription.trim() || null,
         priority: taskPriority,
-        assigneeUserId: taskAssigneeId || undefined,
+        assigneeUserId: taskAssigneeId || null,
         dueAt: taskDueDate ? new Date(taskDueDate).toISOString() : null,
       });
 
-      // Update in active workspace data
+      const assigneeObj = taskAssigneeId ? memberships.find((m) => (m.externalUserId || m.id) === taskAssigneeId) : null;
+
       setWorkspaceData((prev) => {
         if (!prev) return prev;
         const currentTasks = Array.isArray(prev.tasks) ? prev.tasks : (prev.tasks?.items || []);
-        const updatedTasks = currentTasks.map((t) =>
-          t.id === editingTask.id
-            ? {
-                ...t,
-                title: taskTitle.trim(),
-                description: taskDescription.trim() || null,
-                priority: taskPriority,
-                assigneeUserId: taskAssigneeId || t.assigneeUserId,
-                dueAt: taskDueDate ? new Date(taskDueDate).toISOString() : null,
-                due_at: taskDueDate ? new Date(taskDueDate).toISOString() : null,
-              }
-            : t
-        );
+        const updatedTasks = currentTasks.map((t) => {
+          if (t.id === editingTask.id) {
+            return {
+              ...t,
+              title: taskTitle.trim(),
+              description: taskDescription.trim() || null,
+              priority: taskPriority,
+              dueAt: taskDueDate ? new Date(taskDueDate).toISOString() : null,
+              due_at: taskDueDate ? new Date(taskDueDate).toISOString() : null,
+              assigneeUserId: taskAssigneeId || null,
+              assigneeName: assigneeObj?.name || null,
+              assignee_name: assigneeObj?.name || null,
+              assigneeEmail: assigneeObj?.email || '',
+            };
+          }
+          return t;
+        });
         return { ...prev, tasks: updatedTasks };
       });
 
+      toast.success('Task Updated', `"${taskTitle}" has been modified.`);
       setEditTaskModalOpen(false);
       setEditingTask(null);
-      toast.success('Task Updated', 'Task details updated successfully.');
     } catch (err) {
-      toast.error('Edit Failed', err.message || 'Could not update task.');
+      toast.error('Update Failed', err.message || 'Could not update task.');
     } finally {
       setSavingTask(false);
     }
   };
 
   // Archive / Restore Task
-  const handleToggleArchiveTask = async (taskId, shouldArchive = true) => {
+  const handleToggleArchiveTask = async (taskId, isArchived) => {
     try {
-      await api.archiveTask({ taskId, isArchived: shouldArchive });
+      await api.archiveTask({ taskId, isArchived });
       toast.success(
-        shouldArchive ? 'Task Archived' : 'Task Restored',
-        shouldArchive ? 'Task moved to archive.' : 'Task returned to active board.'
+        isArchived ? 'Task Archived' : 'Task Restored',
+        isArchived ? 'Task moved to committee archive repository.' : 'Task restored to active kanban board.'
       );
 
-      if (selectedTaskDetails && selectedTaskDetails.id === taskId) {
-        setSelectedTaskDetails(null);
-      }
-
-      if (shouldArchive) {
-        // Remove from active board
+      if (isArchived) {
         setWorkspaceData((prev) => {
           if (!prev) return prev;
           const currentTasks = Array.isArray(prev.tasks) ? prev.tasks : (prev.tasks?.items || []);
           return { ...prev, tasks: currentTasks.filter((t) => t.id !== taskId) };
         });
+        if (selectedTaskDetails?.id === taskId) {
+          setSelectedTaskDetails(null);
+        }
       } else {
-        // Restore to board
         setArchivedTasks((prev) => prev.filter((t) => t.id !== taskId));
         fetchWorkspace(activeCommitteeId);
       }
     } catch (err) {
-      toast.error('Archive Failed', err.message || 'Could not archive/restore task.');
+      toast.error('Action Failed', err.message || 'Could not change task archive status.');
     }
   };
 
-  // Open Delete Confirm
+  // Delete Task
   const handleOpenDeleteConfirm = (taskId) => {
     setDeletingTaskId(taskId);
     setDeleteConfirmModalOpen(true);
-    if (selectedTaskDetails) {
-      setSelectedTaskDetails(null);
-    }
+    setSelectedTaskDetails(null);
   };
 
-  // Confirm Delete Task
   const handleConfirmDeleteTask = async () => {
     if (!deletingTaskId) return;
     try {
       await api.deleteTask(deletingTaskId);
+      toast.success('Task Deleted', 'Task permanently removed.');
       setWorkspaceData((prev) => {
         if (!prev) return prev;
         const currentTasks = Array.isArray(prev.tasks) ? prev.tasks : (prev.tasks?.items || []);
@@ -427,14 +509,13 @@ export default function Workspace() {
       setArchivedTasks((prev) => prev.filter((t) => t.id !== deletingTaskId));
       setDeleteConfirmModalOpen(false);
       setDeletingTaskId(null);
-      toast.success('Task Deleted', 'Task permanently removed.');
     } catch (err) {
-      toast.error('Delete Failed', err.message || 'Could not delete task.');
+      toast.error('Deletion Failed', err.message || 'Could not delete task.');
     }
   };
 
-  // Add Resource Form Submit (Dual-Mode: Cloudinary upload vs External link)
-  const handleAddResource = async (e) => {
+  // Resource Create
+  const handleCreateResource = async (e) => {
     e.preventDefault();
     if (!resourceTitle.trim()) {
       toast.error('Validation Error', 'Resource title is required.');
@@ -444,31 +525,26 @@ export default function Workspace() {
     setSavingResource(true);
     try {
       let finalUrl = resourceUrl.trim();
-      let resType = resourceMode;
+      let resType = resourceMode === 'file' ? 'document' : 'link';
 
       if (resourceMode === 'file') {
         if (!selectedFile) {
-          toast.error('Validation Error', 'Please choose a document or file to upload.');
+          toast.error('File Required', 'Please select a file to upload.');
           setSavingResource(false);
           return;
         }
+
         setUploadingFile(true);
-        const uploaded = await api.uploadDirectToCloudinary({
+        const uploadRes = await api.uploadDirectToCloudinary({
           file: selectedFile,
           folder: 'resources',
           purpose: 'committee_resource',
         });
-        finalUrl = uploaded.secureUrl;
+        finalUrl = uploadRes.secureUrl;
         setUploadingFile(false);
-      } else {
-        if (!resourceUrl.trim()) {
-          toast.error('Validation Error', 'Please provide a valid web URL.');
-          setSavingResource(false);
-          return;
-        }
       }
 
-      const res = await api.createCommitteeResource({
+      await api.createCommitteeResource({
         committeeId: activeCommitteeId,
         title: resourceTitle.trim(),
         url: finalUrl,
@@ -476,117 +552,344 @@ export default function Workspace() {
         description: resourceDesc.trim() || undefined,
       });
 
-      setWorkspaceData((prev) => {
-        if (!prev) return prev;
-        const newRes = res.resource || {
-          id: `res_${Date.now()}`,
-          title: resourceTitle.trim(),
-          url: finalUrl,
-          resourceType: resType,
-          description: resourceDesc.trim() || null,
-          createdAt: new Date().toISOString(),
-        };
-        return {
-          ...prev,
-          resources: [newRes, ...(prev.resources || [])],
-        };
-      });
-
+      toast.success('Resource Added', `"${resourceTitle}" is now available to the committee.`);
+      setAddResourceModalOpen(false);
       setResourceTitle('');
       setResourceUrl('');
       setResourceDesc('');
       setSelectedFile(null);
-      setAddResourceModalOpen(false);
-      toast.success('Resource Added', 'New resource published to repository.');
+      fetchWorkspace(activeCommitteeId);
     } catch (err) {
-      toast.error('Resource Error', err.message || 'Could not add resource.');
+      toast.error('Upload Failed', err.message || 'Could not add resource.');
     } finally {
-      setUploadingFile(false);
       setSavingResource(false);
+      setUploadingFile(false);
     }
   };
 
-  // Delete Resource Handler (for Leads)
+  // Resource Edit
+  const handleOpenEditResource = (res) => {
+    setEditingResource(res);
+    setEditResourceTitle(res.title || '');
+    setEditResourceDesc(res.description || '');
+  };
+
+  const handleSaveResourceEdit = async (e) => {
+    e.preventDefault();
+    if (!editingResource) return;
+    if (!editResourceTitle.trim()) {
+      toast.error('Validation Error', 'Resource title is required.');
+      return;
+    }
+
+    setSavingResourceEdit(true);
+    try {
+      await api.updateCommitteeResource({
+        committeeId: activeCommitteeId,
+        resourceId: editingResource.id,
+        title: editResourceTitle.trim(),
+        description: editResourceDesc.trim() || null,
+      });
+
+      toast.success('Resource Updated', `"${editResourceTitle}" has been updated.`);
+      setEditingResource(null);
+      fetchWorkspace(activeCommitteeId);
+    } catch (err) {
+      toast.error('Update Failed', err.message || 'Could not update resource.');
+    } finally {
+      setSavingResourceEdit(false);
+    }
+  };
+
+  // Claim unassigned task
+  const handleClaimTask = async (taskId) => {
+    try {
+      await api.claimTask(taskId);
+      toast.success('Task Claimed', 'You have claimed this task. It is now assigned to you.');
+      fetchWorkspace(activeCommitteeId);
+      if (selectedTaskDetails && selectedTaskDetails.id === taskId) {
+        setSelectedTaskDetails((prev) => ({
+          ...prev,
+          assigneeUserId: user?.id || user?.externalUserId,
+          assigneeName: user?.name,
+          assigneeEmail: user?.email,
+        }));
+      }
+    } catch (err) {
+      toast.error('Claim Failed', err.message || 'Could not claim this task.');
+    }
+  };
+
+  // Resource Delete
   const handleDeleteResource = async (resourceId) => {
-    if (!confirm('Are you sure you want to delete this resource?')) return;
+    if (!window.confirm('Are you sure you want to delete this resource?')) return;
     try {
       await api.deleteCommitteeResource(activeCommitteeId, resourceId);
-      setWorkspaceData((prev) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          resources: (prev.resources || []).filter((r) => r.id !== resourceId),
-        };
-      });
-      toast.success('Resource Deleted', 'Resource removed from repository.');
+      toast.success('Resource Deleted', 'Resource removed from committee files.');
+      fetchWorkspace(activeCommitteeId);
     } catch (err) {
-      toast.error('Delete Resource Failed', err.message || 'Could not delete resource.');
+      toast.error('Delete Failed', err.message || 'Could not delete resource.');
     }
+  };
+
+  // ==========================================
+  // ASSIGNMENTS ACTIONS
+  // ==========================================
+  const handleSaveAssignment = async (e) => {
+    e.preventDefault();
+    if (!assignmentTitle.trim()) {
+      toast.error('Validation Error', 'Assignment title is required.');
+      return;
+    }
+
+    setSavingAssignment(true);
+    try {
+      let attachmentUrl = undefined;
+      let attachmentName = undefined;
+
+      if (assignmentAttachmentFile) {
+        const uploadRes = await api.uploadDirectToCloudinary({
+          file: assignmentAttachmentFile,
+          folder: 'resources',
+          purpose: 'assignment_attachment',
+        });
+        attachmentUrl = uploadRes.secureUrl;
+        attachmentName = assignmentAttachmentFile.name;
+      } else if (removeExistingAttachment) {
+        attachmentUrl = null;
+        attachmentName = null;
+      } else if (editingAssignment) {
+        attachmentUrl = existingAttachmentUrl;
+        attachmentName = existingAttachmentName;
+      }
+
+      if (editingAssignment) {
+        await api.updateCommitteeAssignment({
+          committeeId: activeCommitteeId,
+          assignmentId: editingAssignment.id,
+          title: assignmentTitle.trim(),
+          description: assignmentDesc.trim() || null,
+          dueDate: assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null,
+          maxPoints: Number(assignmentMaxPoints) || 100,
+          attachmentUrl,
+          attachmentName,
+        });
+        toast.success('Assignment Updated', `"${assignmentTitle}" modified.`);
+      } else {
+        await api.createCommitteeAssignment({
+          committeeId: activeCommitteeId,
+          title: assignmentTitle.trim(),
+          description: assignmentDesc.trim() || null,
+          dueDate: assignmentDueDate ? new Date(assignmentDueDate).toISOString() : null,
+          maxPoints: Number(assignmentMaxPoints) || 100,
+          attachmentUrl: attachmentUrl || null,
+          attachmentName: attachmentName || null,
+        });
+        toast.success('Assignment Published', `"${assignmentTitle}" created for team members.`);
+      }
+
+      setCreateAssignmentModalOpen(false);
+      setEditingAssignment(null);
+      setAssignmentTitle('');
+      setAssignmentDesc('');
+      setAssignmentDueDate('');
+      setAssignmentMaxPoints(100);
+      setAssignmentAttachmentFile(null);
+      setExistingAttachmentUrl(null);
+      setExistingAttachmentName(null);
+      setRemoveExistingAttachment(false);
+      fetchAssignments(activeCommitteeId);
+    } catch (err) {
+      toast.error('Assignment Error', err.message || 'Could not save assignment.');
+    } finally {
+      setSavingAssignment(false);
+    }
+  };
+
+  const handleDeleteAssignment = async (assignmentId) => {
+    if (!window.confirm('Are you sure you want to delete this assignment?')) return;
+    try {
+      await api.deleteCommitteeAssignment(activeCommitteeId, assignmentId);
+      toast.success('Assignment Deleted', 'Assignment and related submissions removed.');
+      fetchAssignments(activeCommitteeId);
+    } catch (err) {
+      toast.error('Delete Failed', err.message || 'Could not delete assignment.');
+    }
+  };
+
+  const handleOpenSubmissions = async (assignment) => {
+    setViewingSubmissionsAssignment(assignment);
+    setLoadingSubmissions(true);
+    try {
+      const data = await api.getAssignmentSubmissions(activeCommitteeId, assignment.id);
+      setSubmissionsList(data.submissions || []);
+    } catch (err) {
+      toast.error('Submissions Error', err.message || 'Could not load submissions.');
+    } finally {
+      setLoadingSubmissions(false);
+    }
+  };
+
+  const handleGradeSubmission = async (submissionId) => {
+    if (gradeInput === '' || Number.isNaN(Number(gradeInput))) {
+      toast.error('Grade Required', 'Please enter a valid numeric grade.');
+      return;
+    }
+
+    setSavingGrade(true);
+    try {
+      await api.gradeAssignmentSubmission({
+        committeeId: activeCommitteeId,
+        assignmentId: viewingSubmissionsAssignment.id,
+        submissionId,
+        grade: Number(gradeInput),
+        feedback: feedbackInput.trim() || null,
+        status: 'graded',
+      });
+
+      toast.success('Grade Recorded', 'Member grade and feedback saved.');
+      setGradingSubmissionId(null);
+      setGradeInput('');
+      setFeedbackInput('');
+      handleOpenSubmissions(viewingSubmissionsAssignment);
+    } catch (err) {
+      toast.error('Grading Failed', err.message || 'Could not record grade.');
+    } finally {
+      setSavingGrade(false);
+    }
+  };
+
+  const handleMemberSubmitDelivery = async (e) => {
+    e.preventDefault();
+    if (!memberDeliveryModalAssignment || !deliveryFile) {
+      toast.error('File Required', 'Please choose a solution file to upload.');
+      return;
+    }
+
+    setSubmittingDelivery(true);
+    try {
+      const uploadRes = await api.uploadDirectToCloudinary({
+        file: deliveryFile,
+        folder: 'resources',
+        purpose: 'assignment_delivery',
+      });
+
+      await api.submitAssignment({
+        committeeId: activeCommitteeId,
+        assignmentId: memberDeliveryModalAssignment.id,
+        fileUrl: uploadRes.secureUrl,
+        fileName: deliveryFile.name,
+        notes: deliveryNotes.trim() || null,
+      });
+
+      toast.success('Delivery Submitted', 'Your assignment solution has been delivered.');
+      setMemberDeliveryModalAssignment(null);
+      setDeliveryFile(null);
+      setDeliveryNotes('');
+      fetchAssignments(activeCommitteeId);
+    } catch (err) {
+      toast.error('Submission Failed', err.message || 'Could not deliver assignment.');
+    } finally {
+      setSubmittingDelivery(false);
+    }
+  };
+
+  // ==========================================
+  // ANNOUNCEMENTS ACTIONS
+  // ==========================================
+  const handleCreateAnnouncement = async (e) => {
+    e.preventDefault();
+    if (!announcementTitle.trim() || !announcementBody.trim()) {
+      toast.error('Validation Error', 'Title and announcement body are required.');
+      return;
+    }
+
+    setSavingAnnouncement(true);
+    try {
+      await api.createCommitteeAnnouncement({
+        committeeId: activeCommitteeId,
+        title: announcementTitle.trim(),
+        body: announcementBody.trim(),
+        isPinned: announcementPinned,
+      });
+
+      toast.success('Announcement Posted', 'Broadcasted to all committee members.');
+      setCreateAnnouncementModalOpen(false);
+      setAnnouncementTitle('');
+      setAnnouncementBody('');
+      setAnnouncementPinned(false);
+      fetchAnnouncements(activeCommitteeId);
+    } catch (err) {
+      toast.error('Posting Failed', err.message || 'Could not create announcement.');
+    } finally {
+      setSavingAnnouncement(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = async (announcementId) => {
+    if (!window.confirm('Are you sure you want to delete this announcement?')) return;
+    try {
+      await api.deleteCommitteeAnnouncement(activeCommitteeId, announcementId);
+      toast.success('Announcement Deleted', 'Announcement removed from board.');
+      fetchAnnouncements(activeCommitteeId);
+    } catch (err) {
+      toast.error('Delete Failed', err.message || 'Could not delete announcement.');
+    }
+  };
+
+  const handleTogglePinAnnouncement = async (announcementId, currentPinned) => {
+    const nextPinned = !currentPinned;
+    try {
+      await api.toggleCommitteeAnnouncementPin({
+        committeeId: activeCommitteeId,
+        announcementId,
+        isPinned: nextPinned,
+      });
+      toast.success(
+        nextPinned ? 'Announcement Pinned' : 'Announcement Unpinned',
+        nextPinned ? 'Announcement pinned to top of committee stream.' : 'Announcement unpinned.'
+      );
+      fetchAnnouncements(activeCommitteeId);
+    } catch (err) {
+      toast.error('Action Failed', err.message || 'Could not update pin status.');
+    }
+  };
+
+  const getPriorityBadgeClass = (p) => {
+    const priority = (p || 'medium').toLowerCase();
+    return `workspace-task-card__priority-badge--${priority}`;
   };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '';
     const d = new Date(dateStr);
-    if (Number.isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  const getPriorityBadgeClass = (priority) => {
-    switch (priority?.toLowerCase()) {
-      case 'urgent':
-        return 'workspace-task-card__priority-badge--urgent';
-      case 'high':
-        return 'workspace-task-card__priority-badge--high';
-      case 'medium':
-        return 'workspace-task-card__priority-badge--medium';
-      case 'low':
-      default:
-        return 'workspace-task-card__priority-badge--low';
-    }
-  };
-
-  // If user is not scoped to a committee (e.g. global officer/admin viewing /workspace directly)
-  if (!activeCommitteeId) {
-    const committeeScopes = (user?.availableScopes || []).filter((s) => s.scopeType === 'committee');
+  if (!activeCommitteeId && !loading) {
     return (
-      <div className="workspace-page">
-        <div className="workspace-header">
-          <div className="workspace-header__layout">
-            <div className="workspace-header__identity">
-              <div className="workspace-header__icon-badge">
-                <Building size={32} />
-              </div>
-              <div>
-                <h1 className="workspace-header__title">Committee Workspaces</h1>
-                <p style={{ color: 'rgba(255, 255, 255, 0.85)', fontSize: '0.875rem' }}>
-                  Select an active committee workspace to manage tasks, resources, and roster.
-                </p>
-              </div>
-            </div>
-          </div>
+      <div className="workspace-picker-container">
+        <div className="workspace-picker-header">
+          <Layers size={36} color="var(--color-primary)" />
+          <h1 className="workspace-picker-title">Select Committee Workspace</h1>
+          <p className="workspace-picker-subtitle">
+            Choose a committee from your available authorizations to manage tasks and resources.
+          </p>
         </div>
 
         <div className="workspace-picker-grid">
-          {committeeScopes.map((scope) => (
-            <div key={scope.scopeId} className="workspace-picker-card">
-              <div className="workspace-picker-card__header">
-                <div className="workspace-picker-card__icon">
-                  <Layers size={22} />
-                </div>
-                <span className="badge badge-primary" style={{ textTransform: 'uppercase' }}>
-                  {scope.role}
-                </span>
+          {(user?.availableScopes || []).map((scope) => (
+            <div key={scope.id || scope.scopeId} className="workspace-picker-card">
+              <div className="workspace-picker-card__icon">
+                <Building size={24} />
               </div>
-              <h3 className="workspace-picker-card__title">
-                {scope.committeeName || scope.name || 'Committee Workspace'}
-              </h3>
+              <div className="workspace-picker-card__title">{scope.committeeName || scope.label}</div>
               <p className="workspace-picker-card__desc">
-                Access Kanban task boards, collaborative learning repositories, and committee team.
+                Role: <strong>{scope.role.toUpperCase()}</strong> &bull; Access workspace operations
               </p>
               <button
                 type="button"
-                className="btn btn-outline"
-                style={{ width: '100%', marginTop: 'auto' }}
+                className="workspace-picker-card__btn"
                 onClick={async () => {
                   try {
                     const switched = await api.switchContext({
@@ -637,7 +940,7 @@ export default function Workspace() {
                   {workspaceData?.committee?.slug || user?.committeeSlug}
                 </span>
                 <span style={{ fontSize: '0.8125rem', opacity: 0.9 }}>
-                  {allTasks.length} Active Tasks &bull; {resources.length} Resources
+                  {allTasks.length} Tasks &bull; {assignments.length} Assignments &bull; {resources.length} Resources
                 </span>
               </div>
             </div>
@@ -660,11 +963,10 @@ export default function Workspace() {
                 <button
                   type="button"
                   className="workspace-btn-secondary"
-                  id="btn-add-resource"
-                  onClick={() => setAddResourceModalOpen(true)}
+                  onClick={() => setCreateAnnouncementModalOpen(true)}
                 >
                   <Plus size={15} />
-                  <span>Add Resource</span>
+                  <span>Post Announcement</span>
                 </button>
               </>
             )}
@@ -686,12 +988,22 @@ export default function Workspace() {
 
         <button
           type="button"
-          className={`workspace-tab ${activeTab === 'archived' ? 'workspace-tab--active' : ''}`}
-          onClick={() => setActiveTab('archived')}
+          className={`workspace-tab ${activeTab === 'assignments' ? 'workspace-tab--active' : ''}`}
+          onClick={() => setActiveTab('assignments')}
         >
-          <Archive size={16} />
-          <span>Archived</span>
-          {archivedTasks.length > 0 && <span className="workspace-tab__badge">{archivedTasks.length}</span>}
+          <FileText size={16} />
+          <span>Assignments</span>
+          <span className="workspace-tab__badge">{assignments.length}</span>
+        </button>
+
+        <button
+          type="button"
+          className={`workspace-tab ${activeTab === 'announcements' ? 'workspace-tab--active' : ''}`}
+          onClick={() => setActiveTab('announcements')}
+        >
+          <Megaphone size={16} />
+          <span>Announcements</span>
+          <span className="workspace-tab__badge">{committeeAnnouncements.length}</span>
         </button>
 
         <button
@@ -713,6 +1025,16 @@ export default function Workspace() {
           <span>Team</span>
           <span className="workspace-tab__badge">{memberships.length}</span>
         </button>
+
+        <button
+          type="button"
+          className={`workspace-tab ${activeTab === 'archived' ? 'workspace-tab--active' : ''}`}
+          onClick={() => setActiveTab('archived')}
+        >
+          <Archive size={16} />
+          <span>Archived</span>
+          {archivedTasks.length > 0 && <span className="workspace-tab__badge">{archivedTasks.length}</span>}
+        </button>
       </nav>
 
       {/* 3. TAB 1: KANBAN BOARD */}
@@ -728,75 +1050,72 @@ export default function Workspace() {
             onDrop={(e) => handleDrop(e, 'todo')}
           >
             <div className="workspace-kanban-column__header">
-              <div className="workspace-kanban-column__title">
+              <div className="workspace-kanban-column__title-wrap">
                 <span className="workspace-kanban-column__dot workspace-kanban-column__dot--todo" />
-                <span>To Do</span>
+                <h3 className="workspace-kanban-column__title">To Do</h3>
               </div>
               <span className="workspace-kanban-column__count">{todoTasks.length}</span>
             </div>
 
-            <div className="workspace-kanban-column__cards">
-              {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {[1, 2].map((n) => (
-                    <div key={n} className="dashboard-shimmer" style={{ height: '110px' }} />
-                  ))}
-                </div>
-              ) : todoTasks.length > 0 ? (
+            <div className="workspace-kanban-column__body">
+              {todoTasks.length > 0 ? (
                 todoTasks.map((task) => {
-                  const priority = task.priority || 'medium';
-                  const dueDate = task.dueAt || task.due_at;
-                  const assigneeName = task.assigneeName || task.assignee_name;
-                  const isDragging = draggingTaskId === task.id;
+                  const isUnassigned = !task.assigneeUserId && !task.assignee_user_id;
+                  const assigneeName = isUnassigned ? null : (task.assigneeName || task.assignee_name);
                   const isOwnerOrLead = canMoveTask(task);
                   return (
                     <div
                       key={task.id}
+                      className={`workspace-task-card ${!isOwnerOrLead && !isUnassigned ? 'workspace-task-card--view-only' : ''}`}
                       draggable={isOwnerOrLead}
                       onDragStart={(e) => handleDragStart(e, task.id)}
-                      onDragEnd={() => setDraggingTaskId(null)}
                       onClick={() => setSelectedTaskDetails(task)}
-                      className={`workspace-task-card workspace-task-card--priority-${priority} ${
-                        isDragging ? 'workspace-task-card--dragging' : ''
-                      } ${!isOwnerOrLead ? 'workspace-task-card--view-only' : ''}`}
                     >
-                      <div className="workspace-task-card__top">
-                        <span className={`workspace-task-card__priority-badge ${getPriorityBadgeClass(priority)}`}>
-                          {priority.toUpperCase()}
+                      <div className="workspace-task-card__header">
+                        <span className={`workspace-task-card__priority-badge ${getPriorityBadgeClass(task.priority)}`}>
+                          {(task.priority || 'medium').toUpperCase()}
                         </span>
-                        {dueDate && (
+                        {task.dueAt || task.due_at ? (
                           <span className="workspace-task-card__due">
-                            <Calendar size={11} />
-                            {formatDate(dueDate)}
+                            <Calendar size={12} />
+                            {formatDate(task.dueAt || task.due_at)}
                           </span>
-                        )}
+                        ) : null}
                       </div>
 
-                      <h3 className="workspace-task-card__title">{task.title}</h3>
-                      {task.description && (
-                        <div className="workspace-task-card__desc">
-                          {task.description}
-                        </div>
-                      )}
+                      <h4 className="workspace-task-card__title">{task.title}</h4>
+                      {task.description && <p className="workspace-task-card__desc">{task.description}</p>}
 
                       <div className="workspace-task-card__footer" onClick={(e) => e.stopPropagation()}>
                         <div className="workspace-task-card__assignee">
-                          <div className="workspace-task-card__avatar">
-                            {assigneeName ? assigneeName.charAt(0).toUpperCase() : 'M'}
+                          <div className="workspace-task-card__avatar" style={isUnassigned ? { background: 'var(--color-border)', color: 'var(--color-text-muted)' } : undefined}>
+                            {isUnassigned ? '?' : (assigneeName || 'M').charAt(0).toUpperCase()}
                           </div>
-                          <span className="workspace-task-card__assignee-name">
-                            {assigneeName || 'Assigned'}
+                          <span className="workspace-task-card__assignee-name" style={isUnassigned ? { fontStyle: 'italic', color: 'var(--color-text-muted)' } : undefined}>
+                            {isUnassigned ? 'Unassigned' : (assigneeName || 'Assigned')}
                           </span>
                         </div>
 
                         <div className="workspace-task-card__actions">
-                          {isOwnerOrLead ? (
+                          {isUnassigned ? (
                             <button
                               type="button"
                               className="workspace-task-card__btn"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                              onClick={() => handleClaimTask(task.id)}
+                              title="Claim this unassigned task"
+                            >
+                              <UserPlus size={12} />
+                              <span>Claim</span>
+                            </button>
+                          ) : isOwnerOrLead ? (
+                            <button
+                              type="button"
+                              className="workspace-task-card__btn workspace-task-card__btn--start"
                               onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')}
                             >
-                              Start &rarr;
+                              <Play size={12} />
+                              <span>Start</span>
                             </button>
                           ) : (
                             <span className="workspace-task-card__locked" title="Assigned to another team member">
@@ -805,24 +1124,14 @@ export default function Workspace() {
                           )}
 
                           {isLead && (
-                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                              <button
-                                type="button"
-                                className="btn-icon-subtle"
-                                title="Edit Task"
-                                onClick={() => handleOpenEditTask(task)}
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-icon-subtle"
-                                title="Archive Task"
-                                onClick={() => handleToggleArchiveTask(task.id, true)}
-                              >
-                                <Archive size={13} />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              className="btn-icon-subtle"
+                              title="Edit Task"
+                              onClick={() => handleOpenEditTask(task)}
+                            >
+                              <Edit3 size={13} />
+                            </button>
                           )}
                         </div>
                       </div>
@@ -832,17 +1141,7 @@ export default function Workspace() {
               ) : (
                 <div className="workspace-empty-dropzone">
                   <ListTodo size={24} />
-                  <p>No tasks in To Do</p>
-                  {isLead && (
-                    <button
-                      type="button"
-                      onClick={() => setCreateTaskModalOpen(true)}
-                      className="btn btn-ghost btn-xs"
-                      style={{ fontSize: '0.75rem', marginTop: '0.25rem' }}
-                    >
-                      + Add Task
-                    </button>
-                  )}
+                  <p>Drop tasks here</p>
                 </div>
               )}
             </div>
@@ -858,87 +1157,73 @@ export default function Workspace() {
             onDrop={(e) => handleDrop(e, 'in_progress')}
           >
             <div className="workspace-kanban-column__header">
-              <div className="workspace-kanban-column__title">
+              <div className="workspace-kanban-column__title-wrap">
                 <span className="workspace-kanban-column__dot workspace-kanban-column__dot--in_progress" />
-                <span>In Progress</span>
+                <h3 className="workspace-kanban-column__title">In Progress</h3>
               </div>
               <span className="workspace-kanban-column__count">{inProgressTasks.length}</span>
             </div>
 
-            <div className="workspace-kanban-column__cards">
-              {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {[1].map((n) => (
-                    <div key={n} className="dashboard-shimmer" style={{ height: '110px' }} />
-                  ))}
-                </div>
-              ) : inProgressTasks.length > 0 ? (
+            <div className="workspace-kanban-column__body">
+              {inProgressTasks.length > 0 ? (
                 inProgressTasks.map((task) => {
-                  const priority = task.priority || 'medium';
-                  const dueDate = task.dueAt || task.due_at;
-                  const assigneeName = task.assigneeName || task.assignee_name;
-                  const isDragging = draggingTaskId === task.id;
+                  const isUnassigned = !task.assigneeUserId && !task.assignee_user_id;
+                  const assigneeName = isUnassigned ? null : (task.assigneeName || task.assignee_name);
                   const isOwnerOrLead = canMoveTask(task);
                   return (
                     <div
                       key={task.id}
+                      className={`workspace-task-card ${!isOwnerOrLead && !isUnassigned ? 'workspace-task-card--view-only' : ''}`}
                       draggable={isOwnerOrLead}
                       onDragStart={(e) => handleDragStart(e, task.id)}
-                      onDragEnd={() => setDraggingTaskId(null)}
                       onClick={() => setSelectedTaskDetails(task)}
-                      className={`workspace-task-card workspace-task-card--priority-${priority} ${
-                        isDragging ? 'workspace-task-card--dragging' : ''
-                      } ${!isOwnerOrLead ? 'workspace-task-card--view-only' : ''}`}
                     >
-                      <div className="workspace-task-card__top">
-                        <span className={`workspace-task-card__priority-badge ${getPriorityBadgeClass(priority)}`}>
-                          {priority.toUpperCase()}
+                      <div className="workspace-task-card__header">
+                        <span className={`workspace-task-card__priority-badge ${getPriorityBadgeClass(task.priority)}`}>
+                          {(task.priority || 'medium').toUpperCase()}
                         </span>
-                        {dueDate && (
+                        {task.dueAt || task.due_at ? (
                           <span className="workspace-task-card__due">
-                            <Clock size={11} />
-                            {formatDate(dueDate)}
+                            <Calendar size={12} />
+                            {formatDate(task.dueAt || task.due_at)}
                           </span>
-                        )}
+                        ) : null}
                       </div>
 
-                      <h3 className="workspace-task-card__title">{task.title}</h3>
-                      {task.description && (
-                        <div className="workspace-task-card__desc">
-                          {task.description}
-                        </div>
-                      )}
+                      <h4 className="workspace-task-card__title">{task.title}</h4>
+                      {task.description && <p className="workspace-task-card__desc">{task.description}</p>}
 
                       <div className="workspace-task-card__footer" onClick={(e) => e.stopPropagation()}>
                         <div className="workspace-task-card__assignee">
-                          <div className="workspace-task-card__avatar" style={{ background: '#3b82f6' }}>
-                            {assigneeName ? assigneeName.charAt(0).toUpperCase() : 'M'}
+                          <div className="workspace-task-card__avatar" style={isUnassigned ? { background: 'var(--color-border)', color: 'var(--color-text-muted)' } : undefined}>
+                            {isUnassigned ? '?' : (assigneeName || 'M').charAt(0).toUpperCase()}
                           </div>
-                          <span className="workspace-task-card__assignee-name">
-                            {assigneeName || 'Assigned'}
+                          <span className="workspace-task-card__assignee-name" style={isUnassigned ? { fontStyle: 'italic', color: 'var(--color-text-muted)' } : undefined}>
+                            {isUnassigned ? 'Unassigned' : (assigneeName || 'Assigned')}
                           </span>
                         </div>
 
                         <div className="workspace-task-card__actions">
-                          {isOwnerOrLead ? (
-                            <>
-                              <button
-                                type="button"
-                                className="workspace-task-card__btn"
-                                style={{ background: '#10b981', color: '#fff', borderColor: '#10b981' }}
-                                onClick={() => handleUpdateTaskStatus(task.id, 'done')}
-                              >
-                                Done ✓
-                              </button>
-                              <button
-                                type="button"
-                                className="workspace-task-card__btn"
-                                title="Move back to To Do"
-                                onClick={() => handleUpdateTaskStatus(task.id, 'todo')}
-                              >
-                                &larr;
-                              </button>
-                            </>
+                          {isUnassigned ? (
+                            <button
+                              type="button"
+                              className="workspace-task-card__btn"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                              onClick={() => handleClaimTask(task.id)}
+                              title="Claim this unassigned task"
+                            >
+                              <UserPlus size={12} />
+                              <span>Claim</span>
+                            </button>
+                          ) : isOwnerOrLead ? (
+                            <button
+                              type="button"
+                              className="workspace-task-card__btn workspace-task-card__btn--done"
+                              onClick={() => handleUpdateTaskStatus(task.id, 'done')}
+                            >
+                              <Check size={12} />
+                              <span>Done</span>
+                            </button>
                           ) : (
                             <span className="workspace-task-card__locked" title="Assigned to another team member">
                               <Lock size={12} />
@@ -946,24 +1231,14 @@ export default function Workspace() {
                           )}
 
                           {isLead && (
-                            <div style={{ display: 'flex', gap: '0.25rem' }}>
-                              <button
-                                type="button"
-                                className="btn-icon-subtle"
-                                title="Edit Task"
-                                onClick={() => handleOpenEditTask(task)}
-                              >
-                                <Edit3 size={13} />
-                              </button>
-                              <button
-                                type="button"
-                                className="btn-icon-subtle"
-                                title="Archive Task"
-                                onClick={() => handleToggleArchiveTask(task.id, true)}
-                              >
-                                <Archive size={13} />
-                              </button>
-                            </div>
+                            <button
+                              type="button"
+                              className="btn-icon-subtle"
+                              title="Edit Task"
+                              onClick={() => handleOpenEditTask(task)}
+                            >
+                              <Edit3 size={13} />
+                            </button>
                           )}
                         </div>
                       </div>
@@ -972,14 +1247,14 @@ export default function Workspace() {
                 })
               ) : (
                 <div className="workspace-empty-dropzone">
-                  <Play size={24} />
-                  <p>Drag active tasks here</p>
+                  <Clock size={24} />
+                  <p>Drop tasks in progress</p>
                 </div>
               )}
             </div>
           </div>
 
-          {/* COLUMN 3: COMPLETED */}
+          {/* COLUMN 3: DONE */}
           <div
             className={`workspace-kanban-column ${
               dragOverColumn === 'done' ? 'workspace-kanban-column--drag-over' : ''
@@ -989,65 +1264,51 @@ export default function Workspace() {
             onDrop={(e) => handleDrop(e, 'done')}
           >
             <div className="workspace-kanban-column__header">
-              <div className="workspace-kanban-column__title">
+              <div className="workspace-kanban-column__title-wrap">
                 <span className="workspace-kanban-column__dot workspace-kanban-column__dot--done" />
-                <span>Completed</span>
+                <h3 className="workspace-kanban-column__title">Done</h3>
               </div>
               <span className="workspace-kanban-column__count">{doneTasks.length}</span>
             </div>
 
-            <div className="workspace-kanban-column__cards">
-              {loading ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                  {[1].map((n) => (
-                    <div key={n} className="dashboard-shimmer" style={{ height: '110px' }} />
-                  ))}
-                </div>
-              ) : doneTasks.length > 0 ? (
+            <div className="workspace-kanban-column__body">
+              {doneTasks.length > 0 ? (
                 doneTasks.map((task) => {
-                  const dueDate = task.dueAt || task.due_at;
-                  const assigneeName = task.assigneeName || task.assignee_name;
-                  const isDragging = draggingTaskId === task.id;
+                  const isUnassigned = !task.assigneeUserId && !task.assignee_user_id;
+                  const assigneeName = isUnassigned ? null : (task.assigneeName || task.assignee_name);
                   const isOwnerOrLead = canMoveTask(task);
                   return (
                     <div
                       key={task.id}
+                      className={`workspace-task-card workspace-task-card--completed ${
+                        !isOwnerOrLead && !isUnassigned ? 'workspace-task-card--view-only' : ''
+                      }`}
                       draggable={isOwnerOrLead}
                       onDragStart={(e) => handleDragStart(e, task.id)}
-                      onDragEnd={() => setDraggingTaskId(null)}
                       onClick={() => setSelectedTaskDetails(task)}
-                      className={`workspace-task-card workspace-task-card--priority-low ${
-                        isDragging ? 'workspace-task-card--dragging' : ''
-                      } ${!isOwnerOrLead ? 'workspace-task-card--view-only' : ''}`}
-                      style={{ opacity: 0.9 }}
                     >
-                      <div className="workspace-task-card__top">
-                        <span className="badge badge-success" style={{ fontSize: '0.65rem' }}>
-                          <Check size={10} /> DONE
+                      <div className="workspace-task-card__header">
+                        <span className={`workspace-task-card__priority-badge ${getPriorityBadgeClass(task.priority)}`}>
+                          {(task.priority || 'medium').toUpperCase()}
                         </span>
-                        {dueDate && (
+                        {task.dueAt || task.due_at ? (
                           <span className="workspace-task-card__due">
-                            {formatDate(dueDate)}
+                            <Calendar size={12} />
+                            {formatDate(task.dueAt || task.due_at)}
                           </span>
-                        )}
+                        ) : null}
                       </div>
 
-                      <h3 className="workspace-task-card__title" style={{ textDecoration: 'line-through', color: 'var(--color-text-muted)' }}>
-                        {task.title}
-                      </h3>
-                      {task.description && (
-                        <div className="workspace-task-card__desc">
-                          {task.description}
-                        </div>
-                      )}
+                      <h4 className="workspace-task-card__title">{task.title}</h4>
+                      {task.description && <p className="workspace-task-card__desc">{task.description}</p>}
 
                       <div className="workspace-task-card__footer" onClick={(e) => e.stopPropagation()}>
                         <div className="workspace-task-card__assignee">
-                          <div className="workspace-task-card__avatar" style={{ background: '#10b981' }}>
-                            ✓
+                          <div className="workspace-task-card__avatar" style={isUnassigned ? { background: 'var(--color-border)', color: 'var(--color-text-muted)' } : undefined}>
+                            {isUnassigned ? '?' : (assigneeName || 'M').charAt(0).toUpperCase()}
                           </div>
-                          <span className="workspace-task-card__assignee-name">
-                            {assigneeName || 'Completed'}
+                          <span className="workspace-task-card__assignee-name" style={isUnassigned ? { fontStyle: 'italic', color: 'var(--color-text-muted)' } : undefined}>
+                            {isUnassigned ? 'Unassigned' : (assigneeName || 'Completed')}
                           </span>
                         </div>
 
@@ -1060,6 +1321,17 @@ export default function Workspace() {
                               onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')}
                             >
                               <RotateCcw size={12} />
+                            </button>
+                          ) : isUnassigned ? (
+                            <button
+                              type="button"
+                              className="workspace-task-card__btn"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
+                              onClick={() => handleClaimTask(task.id)}
+                              title="Claim this unassigned task"
+                            >
+                              <UserPlus size={12} />
+                              <span>Claim</span>
                             </button>
                           ) : (
                             <span className="workspace-task-card__locked" title="Assigned to another team member">
@@ -1093,7 +1365,530 @@ export default function Workspace() {
         </section>
       )}
 
-      {/* 4. TAB 2: ARCHIVED TASKS */}
+      {/* 4. TAB 2: ASSIGNMENTS */}
+      {activeTab === 'assignments' && (
+        <section className="workspace-resources-section" aria-label="Committee Assignments">
+          <div className="workspace-section-header">
+            <div>
+              <h2 className="workspace-section-title">Committee Assignments</h2>
+              <p className="workspace-section-subtitle">
+                Hands-on practical exercises, tasks, and project milestone deliveries.
+              </p>
+            </div>
+
+            {isLead && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setEditingAssignment(null);
+                  setAssignmentTitle('');
+                  setAssignmentDesc('');
+                  setAssignmentDueDate('');
+                  setAssignmentMaxPoints(100);
+                  setAssignmentAttachmentFile(null);
+                  setExistingAttachmentUrl(null);
+                  setExistingAttachmentName(null);
+                  setRemoveExistingAttachment(false);
+                  setCreateAssignmentModalOpen(true);
+                }}
+              >
+                <Plus size={15} />
+                <span>Create Assignment</span>
+              </button>
+            )}
+          </div>
+
+          {loadingAssignments ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '1rem' }}>
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="dashboard-shimmer" style={{ height: '140px' }} />
+              ))}
+            </div>
+          ) : assignments.length > 0 ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '1.25rem' }}>
+              {assignments.map((assignment) => {
+                const mySub = assignment.mySubmission;
+                const isGraded = mySub && mySub.grade !== null && mySub.grade !== undefined;
+
+                return (
+                  <div key={assignment.id} className="workspace-resource-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
+                        {isLead ? (
+                          <>
+                            <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>
+                              Max {assignment.maxPoints} Points
+                            </span>
+                            <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
+                              {assignment.totalSubmissionsCount || 0} Submissions
+                            </span>
+                          </>
+                        ) : mySub && isGraded ? (
+                          <span className="badge badge-success" style={{ fontSize: '0.7rem' }}>
+                            Score: {mySub.grade}/{assignment.maxPoints}
+                          </span>
+                        ) : (
+                          <>
+                            <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>
+                              Max {assignment.maxPoints} Points
+                            </span>
+                            {mySub ? (
+                              <span className="badge badge-warning" style={{ fontSize: '0.7rem' }}>
+                                Submitted &bull; Pending Review
+                              </span>
+                            ) : (
+                              <span className="badge badge-outline" style={{ fontSize: '0.7rem', color: 'var(--color-warning)' }}>
+                                Pending Submission
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </div>
+
+                      <h3 style={{ margin: '0 0 0.35rem', fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                        {assignment.title}
+                      </h3>
+
+                      {assignment.description && (
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', lineHeight: 1.45, marginBottom: '0.75rem' }}>
+                          {assignment.description}
+                        </p>
+                      )}
+
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        {assignment.dueDate && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <Calendar size={13} />
+                            <span>Due Date: <strong>{formatDate(assignment.dueDate)}</strong></span>
+                          </div>
+                        )}
+                        {assignment.attachmentUrl && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                            <Download size={13} color="var(--color-primary)" />
+                            <a
+                              href={assignment.attachmentUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              download
+                              style={{ color: 'var(--color-primary)', textDecoration: 'none', fontWeight: 600 }}
+                            >
+                              {assignment.attachmentName || 'Download Starter Material'}
+                            </a>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      {isLead ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', justifyContent: 'space-between' }}>
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-xs"
+                            onClick={() => handleOpenSubmissions(assignment)}
+                          >
+                            <Eye size={13} />
+                            <span>Review Submissions ({assignment.totalSubmissionsCount || 0})</span>
+                          </button>
+
+                          <div style={{ display: 'flex', gap: '0.35rem' }}>
+                            <button
+                              type="button"
+                              className="btn-icon-subtle"
+                              title="Edit Assignment"
+                              onClick={() => {
+                                setEditingAssignment(assignment);
+                                setAssignmentTitle(assignment.title || '');
+                                setAssignmentDesc(assignment.description || '');
+                                setAssignmentDueDate(assignment.dueDate ? new Date(assignment.dueDate).toISOString().split('T')[0] : '');
+                                setAssignmentMaxPoints(assignment.maxPoints || 100);
+                                setExistingAttachmentUrl(assignment.attachmentUrl || null);
+                                setExistingAttachmentName(assignment.attachmentName || null);
+                                setRemoveExistingAttachment(false);
+                                setAssignmentAttachmentFile(null);
+                                setCreateAssignmentModalOpen(true);
+                              }}
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-icon-subtle"
+                              title="Delete Assignment"
+                              onClick={() => handleDeleteAssignment(assignment.id)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end' }}>
+                          {isGraded ? (
+                            <span className="badge badge-success" style={{ fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                              <CheckCircle2 size={13} /> Graded ({mySub.grade}/{assignment.maxPoints})
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className={`btn ${mySub ? 'btn-outline' : 'btn-primary'} btn-xs`}
+                              onClick={() => setMemberDeliveryModalAssignment(assignment)}
+                            >
+                              <Upload size={13} />
+                              <span>{mySub ? 'Update Delivery' : 'Deliver Assignment'}</span>
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
+              <FileText size={32} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                No Assignments Created Yet
+              </h3>
+              <p>Committee leads can post exercises, challenges, and review member solutions here.</p>
+              {isLead && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingAssignment(null);
+                    setAssignmentTitle('');
+                    setAssignmentDesc('');
+                    setAssignmentDueDate('');
+                    setAssignmentMaxPoints(100);
+                    setAssignmentAttachmentFile(null);
+                    setExistingAttachmentUrl(null);
+                    setExistingAttachmentName(null);
+                    setRemoveExistingAttachment(false);
+                    setCreateAssignmentModalOpen(true);
+                  }}
+                  className="btn btn-outline btn-sm"
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  <Plus size={14} />
+                  <span>Create First Assignment</span>
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 5. TAB 3: ANNOUNCEMENTS */}
+      {activeTab === 'announcements' && (
+        <section className="workspace-resources-section" aria-label="Committee Announcements">
+          <div className="workspace-section-header">
+            <div>
+              <h2 className="workspace-section-title">Committee Announcements</h2>
+              <p className="workspace-section-subtitle">
+                Official notices, meeting schedules, and broadcast messages for {committee.name}.
+              </p>
+            </div>
+
+            {isLead && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => {
+                  setAnnouncementTitle('');
+                  setAnnouncementBody('');
+                  setAnnouncementPinned(false);
+                  setCreateAnnouncementModalOpen(true);
+                }}
+              >
+                <Plus size={15} />
+                <span>Post Announcement</span>
+              </button>
+            )}
+          </div>
+
+          {loadingAnnouncements ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              {[1, 2].map((n) => (
+                <div key={n} className="dashboard-shimmer" style={{ height: '90px' }} />
+              ))}
+            </div>
+          ) : committeeAnnouncements.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {committeeAnnouncements.map((ann) => (
+                <div
+                  key={ann.id}
+                  style={{
+                    background: 'var(--color-card)',
+                    border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-lg)',
+                    padding: '1.25rem',
+                    boxShadow: 'var(--shadow-sm)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      {ann.isPinned && (
+                        <span className="badge badge-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.65rem' }}>
+                          <Pin size={11} /> PINNED
+                        </span>
+                      )}
+                      <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                        {ann.title}
+                      </h3>
+                    </div>
+
+                    {isLead && (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <button
+                          type="button"
+                          className="btn-icon-subtle"
+                          title={ann.isPinned ? 'Unpin Announcement' : 'Pin Announcement to Top'}
+                          onClick={() => handleTogglePinAnnouncement(ann.id, ann.isPinned)}
+                          style={ann.isPinned ? { color: 'var(--color-warning)', borderColor: 'rgba(245, 158, 11, 0.4)', background: 'rgba(245, 158, 11, 0.12)' } : undefined}
+                        >
+                          {ann.isPinned ? <PinOff size={13} /> : <Pin size={13} />}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn-icon-subtle"
+                          title="Delete Announcement"
+                          onClick={() => handleDeleteAnnouncement(ann.id)}
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      background: 'var(--color-bg)',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-md)',
+                      padding: '0.85rem 1rem',
+                      fontSize: '0.875rem',
+                      lineHeight: 1.5,
+                      whiteSpace: 'pre-line',
+                      color: 'var(--color-text)',
+                      marginBottom: '0.75rem',
+                    }}
+                  >
+                    {ann.body}
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    <div className="workspace-task-card__avatar" style={{ width: '1.25rem', height: '1.25rem', fontSize: '0.6rem' }}>
+                      {(ann.authorName || 'L').charAt(0).toUpperCase()}
+                    </div>
+                    <span>Posted by <strong>{ann.authorName || 'Lead'}</strong></span>
+                    <span>&bull; {formatDate(ann.createdAt)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
+              <Megaphone size={32} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                No Committee Announcements Yet
+              </h3>
+              <p>Team leads can post internal reminders, meeting times, and updates here.</p>
+              {isLead && (
+                <button
+                  type="button"
+                  onClick={() => setCreateAnnouncementModalOpen(true)}
+                  className="btn btn-outline btn-sm"
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  <Plus size={14} />
+                  <span>Post First Announcement</span>
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 6. TAB 4: RESOURCES */}
+      {activeTab === 'resources' && (
+        <section className="workspace-resources-section" aria-label="Committee Shared Resources">
+          <div className="workspace-section-header">
+            <div>
+              <h2 className="workspace-section-title">Committee Drive & Resources</h2>
+              <p className="workspace-section-subtitle">
+                Official documentation, design templates, and technical assets for {committee.name}.
+              </p>
+            </div>
+
+            {isLead && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setAddResourceModalOpen(true)}
+              >
+                <Plus size={15} />
+                <span>Add Resource</span>
+              </button>
+            )}
+          </div>
+
+          {resources.length > 0 ? (
+            <div className="workspace-resources-grid">
+              {resources.map((res) => {
+                const resType = (res.resourceType || res.resource_type || 'link').toLowerCase();
+                const isDoc = resType === 'document' || resType === 'file';
+                return (
+                  <div key={res.id} className="workspace-resource-card">
+                    <div className="workspace-resource-card__header">
+                      <div className="workspace-resource-card__icon">
+                        {isDoc ? <FileText size={18} /> : <Link2 size={18} />}
+                      </div>
+                      <span className="badge badge-outline" style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                        {resType}
+                      </span>
+                    </div>
+
+                    <div className="workspace-resource-card__body">
+                      <h4 className="workspace-resource-card__title">{res.title}</h4>
+                      {res.description && (
+                        <p className="workspace-resource-card__desc">{res.description}</p>
+                      )}
+                    </div>
+
+                    <div className="workspace-resource-card__footer">
+                      <a
+                        href={res.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="workspace-resource-card__link"
+                        download={isDoc ? true : undefined}
+                      >
+                        <span>{isDoc ? 'Download File' : 'Open Link'}</span>
+                        <ExternalLink size={13} />
+                      </a>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                          {formatDate(res.created_at)}
+                        </span>
+                        {isLead && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            <button
+                              type="button"
+                              className="btn-icon-subtle"
+                              title="Edit Resource"
+                              onClick={() => handleOpenEditResource(res)}
+                            >
+                              <Edit3 size={13} />
+                            </button>
+                            <button
+                              type="button"
+                              className="btn-icon-subtle"
+                              title="Delete Resource"
+                              onClick={() => handleDeleteResource(res.id)}
+                            >
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
+              <FolderDown size={32} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                No Resources Uploaded Yet
+              </h3>
+              <p>Committee leads can upload training materials, drive links, and project repositories.</p>
+              {isLead && (
+                <button
+                  type="button"
+                  onClick={() => setAddResourceModalOpen(true)}
+                  className="btn btn-outline btn-sm"
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  <Plus size={14} />
+                  <span>Add First Resource</span>
+                </button>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 7. TAB 5: MEMBERS ROSTER & SEARCH */}
+      {activeTab === 'roster' && (
+        <section className="workspace-roster-section" aria-label="Committee Roster Directory">
+          <div className="workspace-section-header">
+            <div>
+              <h2 className="workspace-section-title">Committee Members Directory</h2>
+              <p className="workspace-section-subtitle">
+                Official team and active contributor registry for {committee.name}.
+              </p>
+            </div>
+
+            <div className="workspace-search-bar">
+              <Search size={16} className="workspace-search-icon" />
+              <input
+                type="text"
+                placeholder="Search member name, email or role..."
+                value={memberSearchQuery}
+                onChange={handleSearchMembers}
+                className="workspace-search-input"
+              />
+            </div>
+          </div>
+
+          {loadingRoster ? (
+            <div className="workspace-roster-grid">
+              {[1, 2, 3, 4].map((n) => (
+                <div key={n} className="dashboard-shimmer" style={{ height: '80px' }} />
+              ))}
+            </div>
+          ) : memberships.length > 0 ? (
+            <div className="workspace-roster-grid">
+              {memberships.map((m) => {
+                const memberName = m.name || m.userName || 'Member';
+                const memberRole = m.roleInCommittee || m.role_in_committee || 'member';
+                return (
+                  <div key={m.id || m.userId} className="workspace-member-card">
+                    <div className="workspace-member-card__avatar">
+                      {memberName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="workspace-member-card__info">
+                      <div className="workspace-member-card__name-wrap">
+                        <span className="workspace-member-card__name">{memberName}</span>
+                        {memberRole === 'lead' && (
+                          <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
+                            LEAD
+                          </span>
+                        )}
+                      </div>
+                      <span className="workspace-member-card__email">{m.email}</span>
+                      {m.membershipId && (
+                        <span className="workspace-member-card__mid">MID: {m.membershipId}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
+              <Users size={32} />
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>No Members Found</h3>
+              <p>Try searching with another keyword or invite members to join.</p>
+            </div>
+          )}
+        </section>
+      )}
+
+      {/* 8. TAB 6: ARCHIVED TASKS */}
       {activeTab === 'archived' && (
         <section className="workspace-archived-section" aria-label="Archived Tasks Repository">
           <div className="workspace-section-header">
@@ -1171,193 +1966,507 @@ export default function Workspace() {
           ) : (
             <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
               <Archive size={32} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>No Archived Tasks</h3>
-              <p>Tasks archived by committee leads will appear here for historical reference.</p>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                No Archived Tasks
+              </h3>
+              <p>When tasks are completed, leads can archive them to preserve committee history.</p>
             </div>
           )}
         </section>
       )}
 
-      {/* 5. TAB 3: LEARNING RESOURCES REPOSITORY */}
-      {activeTab === 'resources' && (
-        <section className="workspace-resources-section" aria-label="Learning Resources">
-          <div className="workspace-section-header">
-            <div>
-              <h2 className="workspace-section-title">Learning & Operational Resources</h2>
-              <p className="workspace-section-subtitle">
-                Repository of technical docs, workshop materials, drive repositories, and references.
-              </p>
+      {/* 9. CREATE / EDIT ASSIGNMENT MODAL (Lead) */}
+      {createAssignmentModalOpen && (
+        <div className="workspace-modal-overlay" onClick={() => setCreateAssignmentModalOpen(false)}>
+          <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="workspace-modal__header">
+              <h3 className="workspace-modal__title">
+                {editingAssignment ? 'Edit Assignment' : 'Create Committee Assignment'}
+              </h3>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setCreateAssignmentModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
             </div>
-            {isLead && (
+
+            <form onSubmit={handleSaveAssignment}>
+              <div className="workspace-modal__body">
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">
+                    Assignment Title <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="workspace-form-input"
+                    placeholder="e.g. Build PyTorch Classifier on CIFAR-10"
+                    value={assignmentTitle}
+                    onChange={(e) => setAssignmentTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">Description / Instructions</label>
+                  <textarea
+                    className="workspace-form-textarea"
+                    placeholder="Describe requirements, deliverables, and guidelines for team members..."
+                    value={assignmentDesc}
+                    onChange={(e) => setAssignmentDesc(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+                  <div className="workspace-form-group">
+                    <label className="workspace-form-label">Due Date</label>
+                    <input
+                      type="date"
+                      className="workspace-form-input"
+                      value={assignmentDueDate}
+                      onChange={(e) => setAssignmentDueDate(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="workspace-form-group">
+                    <label className="workspace-form-label">Max Score Points</label>
+                    <input
+                      type="number"
+                      className="workspace-form-input"
+                      value={assignmentMaxPoints}
+                      onChange={(e) => setAssignmentMaxPoints(e.target.value)}
+                      min={1}
+                      max={1000}
+                    />
+                  </div>
+                </div>
+
+                {/* Existing Attachment View & Remove */}
+                {editingAssignment && existingAttachmentUrl && !removeExistingAttachment && (
+                  <div className="workspace-form-group">
+                    <label className="workspace-form-label">Current Attached File</label>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.5rem 0.75rem', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+                        <Download size={14} color="var(--color-primary)" />
+                        <a
+                          href={existingAttachmentUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          download
+                          style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}
+                        >
+                          {existingAttachmentName || 'Current Attachment'}
+                        </a>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-xs"
+                        onClick={() => setRemoveExistingAttachment(true)}
+                        title="Delete current attachment"
+                      >
+                        <Trash2 size={12} />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">
+                    {editingAssignment && existingAttachmentUrl && !removeExistingAttachment
+                      ? 'Replace Attachment (Optional)'
+                      : 'Attachment (Optional)'}
+                  </label>
+                  <input
+                    type="file"
+                    className="workspace-form-input"
+                    onChange={(e) => {
+                      setAssignmentAttachmentFile(e.target.files?.[0] || null);
+                      if (e.target.files?.[0]) setRemoveExistingAttachment(false);
+                    }}
+                  />
+                  {removeExistingAttachment && (
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-warning)' }}>
+                      Current file will be removed upon saving unless a new file is selected.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <div className="workspace-modal__footer">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setCreateAssignmentModalOpen(false)}
+                  disabled={savingAssignment}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={savingAssignment}
+                >
+                  {savingAssignment ? 'Saving Assignment…' : editingAssignment ? 'Update Assignment' : 'Publish Assignment'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 10. SUBMISSIONS REVIEW MODAL (Lead) */}
+      {viewingSubmissionsAssignment && (
+        <div className="workspace-modal-overlay" onClick={() => setViewingSubmissionsAssignment(null)}>
+          <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
+            <div className="workspace-modal__header">
+              <div>
+                <h3 className="workspace-modal__title">Submissions: {viewingSubmissionsAssignment.title}</h3>
+                <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                  Max Points: {viewingSubmissionsAssignment.maxPoints} Pts
+                </span>
+              </div>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setViewingSubmissionsAssignment(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="workspace-modal__body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+              {loadingSubmissions ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                  {[1, 2].map((n) => (
+                    <div key={n} className="dashboard-shimmer" style={{ height: '80px' }} />
+                  ))}
+                </div>
+              ) : submissionsList.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {submissionsList.map((sub) => {
+                    const isGraded = sub.grade !== null && sub.grade !== undefined;
+                    const isCurrentlyGrading = gradingSubmissionId === sub.id;
+
+                    return (
+                      <div
+                        key={sub.id}
+                        style={{
+                          background: 'var(--color-bg)',
+                          border: '1px solid var(--color-border)',
+                          borderRadius: 'var(--radius-md)',
+                          padding: '1rem',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <div className="workspace-task-card__avatar">
+                              {(sub.studentName || 'M').charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <strong style={{ fontSize: '0.9375rem', color: 'var(--color-text)' }}>
+                                {sub.studentName}
+                              </strong>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                {sub.studentEmail} &bull; {formatDate(sub.submittedAt)}
+                              </div>
+                            </div>
+                          </div>
+
+                          {isGraded ? (
+                            <span className="badge badge-success">
+                              Graded: {sub.grade}/{viewingSubmissionsAssignment.maxPoints}
+                            </span>
+                          ) : (
+                            <span className="badge badge-warning">Pending Review</span>
+                          )}
+                        </div>
+
+                        <div style={{ margin: '0.5rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}>
+                          <Download size={14} color="var(--color-primary)" />
+                          <a
+                            href={sub.fileUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            download
+                            style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}
+                          >
+                            {sub.fileName || 'Download Solution File'}
+                          </a>
+                        </div>
+
+                        {sub.notes && (
+                          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text)', background: 'var(--color-card)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginBottom: '0.5rem' }}>
+                            <strong>Notes:</strong> {sub.notes}
+                          </div>
+                        )}
+
+                        {isCurrentlyGrading ? (
+                          <div style={{ background: 'var(--color-card)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginTop: '0.5rem' }}>
+                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                              <input
+                                type="number"
+                                className="workspace-form-input"
+                                placeholder={`Grade (out of ${viewingSubmissionsAssignment.maxPoints})`}
+                                value={gradeInput}
+                                onChange={(e) => setGradeInput(e.target.value)}
+                                min={0}
+                                max={viewingSubmissionsAssignment.maxPoints}
+                                style={{ width: '130px' }}
+                              />
+                              <input
+                                type="text"
+                                className="workspace-form-input"
+                                placeholder="Feedback / Comments for student..."
+                                value={feedbackInput}
+                                onChange={(e) => setFeedbackInput(e.target.value)}
+                                style={{ flex: 1 }}
+                              />
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                onClick={() => setGradingSubmissionId(null)}
+                                disabled={savingGrade}
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-primary btn-xs"
+                                onClick={() => handleGradeSubmission(sub.id)}
+                                disabled={savingGrade}
+                              >
+                                {savingGrade ? 'Saving…' : 'Save Grade'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
+                            {sub.feedback && (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                                <em>Feedback: {sub.feedback}</em>
+                              </span>
+                            )}
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-xs"
+                              style={{ marginLeft: 'auto' }}
+                              onClick={() => {
+                                setGradingSubmissionId(sub.id);
+                                setGradeInput(sub.grade !== null ? String(sub.grade) : '');
+                                setFeedbackInput(sub.feedback || '');
+                              }}
+                            >
+                              <Award size={12} />
+                              <span>{isGraded ? 'Update Grade' : 'Grade Solution'}</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', margin: '2rem 0' }}>
+                  No members have submitted this assignment yet.
+                </p>
+              )}
+            </div>
+
+            <div className="workspace-modal__footer">
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={() => setAddResourceModalOpen(true)}
+                onClick={() => setViewingSubmissionsAssignment(null)}
               >
-                <Plus size={15} />
-                <span>Add Resource</span>
+                Done
               </button>
-            )}
+            </div>
           </div>
+        </div>
+      )}
 
-          {loading ? (
-            <div className="workspace-resources-grid">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="dashboard-shimmer" style={{ height: '140px' }} />
-              ))}
+      {/* 11. MEMBER DELIVER ASSIGNMENT MODAL */}
+      {memberDeliveryModalAssignment && (
+        <div className="workspace-modal-overlay" onClick={() => setMemberDeliveryModalAssignment(null)}>
+          <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="workspace-modal__header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Upload size={18} color="var(--color-primary)" />
+                <h3 className="workspace-modal__title">Deliver Assignment</h3>
+              </div>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setMemberDeliveryModalAssignment(null)}
+              >
+                <X size={18} />
+              </button>
             </div>
-          ) : resources.length > 0 ? (
-            <div className="workspace-resources-grid">
-              {resources.map((res) => {
-                const isFile = res.resourceType === 'file' || res.resource_type === 'file';
-                return (
-                  <div key={res.id} className="workspace-resource-card">
-                    <div className="workspace-resource-card__header">
-                      <div className={`workspace-resource-card__icon ${isFile ? 'workspace-resource-card__icon--file' : 'workspace-resource-card__icon--link'}`}>
-                        {isFile ? <FileText size={20} /> : <Link2 size={20} />}
-                      </div>
-                      <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>
-                        {isFile ? 'FILE' : 'WEB LINK'}
-                      </span>
-                    </div>
 
-                    <h3 className="workspace-resource-card__title">{res.title}</h3>
-                    {res.description && (
-                      <p className="workspace-resource-card__desc">{res.description}</p>
-                    )}
+            <form onSubmit={handleMemberSubmitDelivery}>
+              <div className="workspace-modal__body">
+                <div>
+                  <h4 style={{ margin: '0 0 0.25rem', fontSize: '1.05rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                    {memberDeliveryModalAssignment.title}
+                  </h4>
+                  {memberDeliveryModalAssignment.description && (
+                    <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: 0, lineHeight: 1.4 }}>
+                      {memberDeliveryModalAssignment.description}
+                    </p>
+                  )}
+                </div>
 
-                    <div className="workspace-resource-card__footer">
-                      <span className="workspace-resource-card__date">
-                        {formatDate(res.createdAt || res.created_at)}
-                      </span>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <a
-                          href={res.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="workspace-resource-card__link"
-                        >
-                          <span>{isFile ? 'Download' : 'Open Link'}</span>
-                          {isFile ? <FileDown size={13} /> : <ExternalLink size={13} />}
-                        </a>
-                        {isLead && (
-                          <button
-                            type="button"
-                            className="btn-icon-subtle"
-                            title="Delete Resource"
-                            style={{ color: '#ef4444' }}
-                            onClick={() => handleDeleteResource(res.id)}
-                          >
-                            <Trash2 size={13} />
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
-              <FolderDown size={32} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                No Resources Uploaded Yet
-              </h3>
-              <p>Committee leads can upload training materials, drive links, and project repositories.</p>
-              {isLead && (
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">
+                    Upload Solution File (PDF, ZIP, IPYNB, DOCX) <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="file"
+                    className="workspace-form-input"
+                    onChange={(e) => setDeliveryFile(e.target.files?.[0] || null)}
+                    required
+                  />
+                </div>
+
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">Delivery Notes / Explanations (Optional)</label>
+                  <textarea
+                    className="workspace-form-textarea"
+                    placeholder="Provide any comments, model accuracy stats, or repository links..."
+                    value={deliveryNotes}
+                    onChange={(e) => setDeliveryNotes(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="workspace-modal__footer">
                 <button
                   type="button"
-                  onClick={() => setAddResourceModalOpen(true)}
                   className="btn btn-outline btn-sm"
-                  style={{ marginTop: '0.5rem' }}
+                  onClick={() => setMemberDeliveryModalAssignment(null)}
+                  disabled={submittingDelivery}
                 >
-                  <Plus size={14} />
-                  <span>Add First Resource</span>
+                  Cancel
                 </button>
-              )}
-            </div>
-          )}
-        </section>
-      )}
-
-      {/* 6. TAB 4: MEMBERS ROSTER & SEARCH */}
-      {activeTab === 'roster' && (
-        <section className="workspace-roster-section" aria-label="Committee Roster Directory">
-          <div className="workspace-section-header">
-            <div>
-              <h2 className="workspace-section-title">Committee Members Directory</h2>
-              <p className="workspace-section-subtitle">
-                Official team and active contributor registry for {committee.name}.
-              </p>
-            </div>
-
-            <div className="workspace-search-bar">
-              <Search size={16} className="workspace-search-icon" />
-              <input
-                type="text"
-                placeholder="Search member name, email or role..."
-                value={memberSearchQuery}
-                onChange={handleSearchMembers}
-                className="workspace-search-input"
-              />
-            </div>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={submittingDelivery}
+                >
+                  <Send size={14} />
+                  <span>{submittingDelivery ? 'Uploading Solution…' : 'Submit Delivery'}</span>
+                </button>
+              </div>
+            </form>
           </div>
-
-          {loadingRoster ? (
-            <div className="workspace-roster-grid">
-              {[1, 2, 3, 4].map((n) => (
-                <div key={n} className="dashboard-shimmer" style={{ height: '80px' }} />
-              ))}
-            </div>
-          ) : memberships.length > 0 ? (
-            <div className="workspace-roster-grid">
-              {memberships.map((m) => {
-                const memberName = m.name || m.userName || 'Member';
-                const memberRole = m.roleInCommittee || m.role_in_committee || 'member';
-                return (
-                  <div key={m.id || m.userId} className="workspace-member-card">
-                    <div className="workspace-member-card__avatar">
-                      {memberName.charAt(0).toUpperCase()}
-                    </div>
-                    <div className="workspace-member-card__info">
-                      <div className="workspace-member-card__name-wrap">
-                        <span className="workspace-member-card__name">{memberName}</span>
-                        {memberRole === 'lead' && (
-                          <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
-                            LEAD
-                          </span>
-                        )}
-                      </div>
-                      <span className="workspace-member-card__email">{m.email}</span>
-                      {m.membershipId && (
-                        <span className="workspace-member-card__mid">MID: {m.membershipId}</span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="workspace-empty-dropzone" style={{ padding: '3.5rem 1.5rem' }}>
-              <Users size={32} />
-              <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>No Members Found</h3>
-              <p>Try searching with another keyword or invite members to join.</p>
-            </div>
-          )}
-        </section>
+        </div>
       )}
 
-      {/* 7. TASK DETAILS MODAL */}
+      {/* 12. CREATE COMMITTEE ANNOUNCEMENT MODAL (Lead) */}
+      {createAnnouncementModalOpen && (
+        <div className="workspace-modal-overlay" onClick={() => setCreateAnnouncementModalOpen(false)}>
+          <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+            <div className="workspace-modal__header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Megaphone size={18} color="var(--color-primary)" />
+                <h3 className="workspace-modal__title">Post Committee Announcement</h3>
+              </div>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setCreateAnnouncementModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateAnnouncement}>
+              <div className="workspace-modal__body">
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">
+                    Announcement Title <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="workspace-form-input"
+                    placeholder="e.g. Sync Meeting this Thursday at 7 PM"
+                    value={announcementTitle}
+                    onChange={(e) => setAnnouncementTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">
+                    Announcement Body <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <textarea
+                    className="workspace-form-textarea"
+                    placeholder="Write the full update or message for committee members..."
+                    value={announcementBody}
+                    onChange={(e) => setAnnouncementBody(e.target.value)}
+                    rows={4}
+                    required
+                  />
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.25rem' }}>
+                  <input
+                    type="checkbox"
+                    id="chk-pinned"
+                    checked={announcementPinned}
+                    onChange={(e) => setAnnouncementPinned(e.target.checked)}
+                    style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="chk-pinned" style={{ fontSize: '0.8125rem', color: 'var(--color-text)', cursor: 'pointer' }}>
+                    Pin this announcement to top of committee stream
+                  </label>
+                </div>
+              </div>
+
+              <div className="workspace-modal__footer">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setCreateAnnouncementModalOpen(false)}
+                  disabled={savingAnnouncement}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={savingAnnouncement}
+                >
+                  <Send size={14} />
+                  <span>{savingAnnouncement ? 'Broadcasting…' : 'Post Announcement'}</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 13. TASK DETAILS MODAL */}
       {selectedTaskDetails && (
         <div className="workspace-modal-overlay" onClick={() => setSelectedTaskDetails(null)}>
-          <div className="workspace-modal workspace-modal--details" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="workspace-modal workspace-modal--details"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="workspace-modal__header">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <span className={`workspace-task-card__priority-badge ${getPriorityBadgeClass(selectedTaskDetails.priority)}`}>
                   {(selectedTaskDetails.priority || 'medium').toUpperCase()}
                 </span>
-                <span className="badge badge-outline" style={{ textTransform: 'uppercase', fontSize: '0.7rem' }}>
-                  {selectedTaskDetails.status?.replace('_', ' ')}
+                <span className="badge badge-outline" style={{ fontSize: '0.75rem' }}>
+                  Status: <strong>{selectedTaskDetails.status?.replace('_', ' ').toUpperCase()}</strong>
                 </span>
               </div>
               <button
@@ -1372,7 +2481,6 @@ export default function Workspace() {
             <div className="workspace-modal__body">
               <h2 className="workspace-details-title">{selectedTaskDetails.title}</h2>
 
-              {/* Status transition quick-bar */}
               {canMoveTask(selectedTaskDetails) && (
                 <div className="workspace-details-status-bar">
                   <span className="workspace-details-label">Quick Status:</span>
@@ -1402,24 +2510,39 @@ export default function Workspace() {
                 </div>
               )}
 
-              {/* Assignee & Dates metadata */}
               <div className="workspace-details-meta-grid">
                 <div className="workspace-details-meta-item">
                   <span className="workspace-details-label">Assignee</span>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.2rem' }}>
-                    <div className="workspace-task-card__avatar">
-                      {(selectedTaskDetails.assigneeName || 'M').charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
-                        {selectedTaskDetails.assigneeName || selectedTaskDetails.assignee_name || 'Assigned Member'}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.4rem', marginTop: '0.2rem' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                      <div className="workspace-task-card__avatar" style={!selectedTaskDetails.assigneeUserId && !selectedTaskDetails.assignee_user_id ? { background: 'var(--color-border)', color: 'var(--color-text-muted)' } : undefined}>
+                        {selectedTaskDetails.assigneeUserId || selectedTaskDetails.assignee_user_id
+                          ? (selectedTaskDetails.assigneeName || 'M').charAt(0).toUpperCase()
+                          : '?'}
                       </div>
-                      {selectedTaskDetails.assigneeEmail && (
-                        <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          {selectedTaskDetails.assigneeEmail}
+                      <div>
+                        <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>
+                          {selectedTaskDetails.assigneeUserId || selectedTaskDetails.assignee_user_id
+                            ? (selectedTaskDetails.assigneeName || selectedTaskDetails.assignee_name || 'Assigned Member')
+                            : 'Unassigned'}
                         </div>
-                      )}
+                        {selectedTaskDetails.assigneeEmail && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            {selectedTaskDetails.assigneeEmail}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                    {(!selectedTaskDetails.assigneeUserId && !selectedTaskDetails.assignee_user_id) && (
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-xs"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                        onClick={() => handleClaimTask(selectedTaskDetails.id)}
+                      >
+                        <UserPlus size={12} /> Claim Task
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1457,7 +2580,6 @@ export default function Workspace() {
                 </div>
               </div>
 
-              {/* Description body */}
               <div className="workspace-details-desc-section">
                 <span className="workspace-details-label">Task Description</span>
                 {selectedTaskDetails.description ? (
@@ -1515,12 +2637,12 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* 8. CREATE TASK MODAL */}
+      {/* 14. CREATE TASK MODAL */}
       {createTaskModalOpen && (
         <div className="workspace-modal-overlay" onClick={() => setCreateTaskModalOpen(false)}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
-              <h2 className="workspace-modal__title">Create Committee Task</h2>
+              <h3 className="workspace-modal__title">Create Committee Task</h3>
               <button
                 type="button"
                 className="workspace-modal__close"
@@ -1533,75 +2655,75 @@ export default function Workspace() {
             <form onSubmit={handleCreateTask}>
               <div className="workspace-modal__body">
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Task Title *</label>
+                  <label className="workspace-form-label">
+                    Task Title <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder=""
+                    className="workspace-form-input"
+                    placeholder="e.g. Prepare Robotics Arena Schedule"
                     value={taskTitle}
                     onChange={(e) => setTaskTitle(e.target.value)}
-                    className="workspace-form-input"
+                    required
                   />
                 </div>
 
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Priority Level</label>
-                  <div className="workspace-priority-selector">
-                    {[
-                      { key: 'urgent', label: '🔴 Urgent' },
-                      { key: 'high', label: '🟠 High' },
-                      { key: 'medium', label: '🔵 Medium' },
-                      { key: 'low', label: '⚪ Low' },
-                    ].map((p) => (
-                      <button
-                        key={p.key}
-                        type="button"
-                        onClick={() => setTaskPriority(p.key)}
-                        className={`workspace-priority-option ${
-                          taskPriority === p.key ? 'workspace-priority-option--selected' : ''
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="workspace-form-group">
-                  <label className="workspace-form-label">Description / Instructions</label>
+                  <label className="workspace-form-label">Description (Optional)</label>
                   <textarea
-                    rows={3}
-                    placeholder="Provide scope, deliverables, relevant links..."
+                    className="workspace-form-textarea"
+                    placeholder="Provide details, scope, and objectives for this assignment..."
                     value={taskDescription}
                     onChange={(e) => setTaskDescription(e.target.value)}
-                    className="workspace-form-textarea"
+                    rows={3}
                   />
                 </div>
 
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Assignee *</label>
+                  <label className="workspace-form-label">
+                    Assignee (Optional)
+                  </label>
                   <select
-                    required
+                    className="workspace-form-select"
                     value={taskAssigneeId}
                     onChange={(e) => setTaskAssigneeId(e.target.value)}
-                    className="workspace-form-select"
                   >
-                    <option value="">-- Select Member --</option>
+                    <option value="">Unassigned (Open for team to take)</option>
                     {memberships.map((m) => (
-                      <option key={m.id || m.userId || m.externalUserId} value={m.externalUserId || m.userId || m.id}>
-                        {m.name} ({m.email})
+                      <option key={m.id || m.externalUserId} value={m.externalUserId || m.id}>
+                        {m.name || m.userName} ({m.email})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Due Date</label>
+                  <label className="workspace-form-label">Priority Level</label>
+                  <div className="workspace-priority-selector">
+                    {['low', 'medium', 'high', 'urgent'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`workspace-priority-option ${
+                          taskPriority === p ? 'workspace-priority-option--selected' : ''
+                        }`}
+                        onClick={() => setTaskPriority(p)}
+                      >
+                        <span className={`workspace-task-card__priority-badge workspace-task-card__priority-badge--${p}`}>
+                          {p.toUpperCase()}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">Due Date (Optional)</label>
                   <input
                     type="date"
+                    className="workspace-form-input"
                     value={taskDueDate}
                     onChange={(e) => setTaskDueDate(e.target.value)}
-                    className="workspace-form-input"
                   />
                 </div>
               </div>
@@ -1609,17 +2731,18 @@ export default function Workspace() {
               <div className="workspace-modal__footer">
                 <button
                   type="button"
-                  className="btn btn-outline"
+                  className="btn btn-outline btn-sm"
                   onClick={() => setCreateTaskModalOpen(false)}
+                  disabled={savingTask}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="btn btn-primary btn-sm"
                   disabled={savingTask}
-                  className="btn btn-primary"
                 >
-                  {savingTask ? 'Assigning...' : 'Assign Task'}
+                  {savingTask ? 'Assigning Task…' : 'Create Task'}
                 </button>
               </div>
             </form>
@@ -1627,12 +2750,12 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* 9. EDIT TASK MODAL */}
+      {/* 15. EDIT TASK MODAL */}
       {editTaskModalOpen && (
         <div className="workspace-modal-overlay" onClick={() => setEditTaskModalOpen(false)}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
-              <h2 className="workspace-modal__title">Edit Task Details</h2>
+              <h3 className="workspace-modal__title">Edit Committee Task</h3>
               <button
                 type="button"
                 className="workspace-modal__close"
@@ -1642,75 +2765,72 @@ export default function Workspace() {
               </button>
             </div>
 
-            <form onSubmit={handleEditTaskSubmit}>
+            <form onSubmit={handleUpdateTask}>
               <div className="workspace-modal__body">
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Task Title *</label>
+                  <label className="workspace-form-label">Task Title</label>
                   <input
                     type="text"
-                    required
+                    className="workspace-form-input"
                     value={taskTitle}
                     onChange={(e) => setTaskTitle(e.target.value)}
-                    className="workspace-form-input"
+                    required
                   />
                 </div>
 
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Priority Level</label>
-                  <div className="workspace-priority-selector">
-                    {[
-                      { key: 'urgent', label: '🔴 Urgent' },
-                      { key: 'high', label: '🟠 High' },
-                      { key: 'medium', label: '🔵 Medium' },
-                      { key: 'low', label: '⚪ Low' },
-                    ].map((p) => (
-                      <button
-                        key={p.key}
-                        type="button"
-                        onClick={() => setTaskPriority(p.key)}
-                        className={`workspace-priority-option ${
-                          taskPriority === p.key ? 'workspace-priority-option--selected' : ''
-                        }`}
-                      >
-                        {p.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="workspace-form-group">
-                  <label className="workspace-form-label">Description / Instructions</label>
+                  <label className="workspace-form-label">Description</label>
                   <textarea
-                    rows={3}
+                    className="workspace-form-textarea"
                     value={taskDescription}
                     onChange={(e) => setTaskDescription(e.target.value)}
-                    className="workspace-form-textarea"
+                    rows={3}
                   />
                 </div>
 
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Assignee</label>
+                  <label className="workspace-form-label">Assignee (Optional)</label>
                   <select
+                    className="workspace-form-select"
                     value={taskAssigneeId}
                     onChange={(e) => setTaskAssigneeId(e.target.value)}
-                    className="workspace-form-select"
                   >
-                    <option value="">-- Keep Current Assignee --</option>
+                    <option value="">Unassigned (Open for team to take)</option>
                     {memberships.map((m) => (
-                      <option key={m.id || m.userId || m.externalUserId} value={m.externalUserId || m.userId || m.id}>
-                        {m.name} ({m.email})
+                      <option key={m.id || m.externalUserId} value={m.externalUserId || m.id}>
+                        {m.name || m.userName} ({m.email})
                       </option>
                     ))}
                   </select>
                 </div>
 
                 <div className="workspace-form-group">
+                  <label className="workspace-form-label">Priority Level</label>
+                  <div className="workspace-priority-selector">
+                    {['low', 'medium', 'high', 'urgent'].map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`workspace-priority-option ${
+                          taskPriority === p ? 'workspace-priority-option--selected' : ''
+                        }`}
+                        onClick={() => setTaskPriority(p)}
+                      >
+                        <span className={`workspace-task-card__priority-badge workspace-task-card__priority-badge--${p}`}>
+                          {p.toUpperCase()}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="workspace-form-group">
                   <label className="workspace-form-label">Due Date</label>
                   <input
                     type="date"
-                    value={taskDueDate ? taskDueDate.slice(0, 10) : ''}
-                    onChange={(e) => setTaskDueDate(e.target.value)}
                     className="workspace-form-input"
+                    value={taskDueDate}
+                    onChange={(e) => setTaskDueDate(e.target.value)}
                   />
                 </div>
               </div>
@@ -1718,17 +2838,18 @@ export default function Workspace() {
               <div className="workspace-modal__footer">
                 <button
                   type="button"
-                  className="btn btn-outline"
+                  className="btn btn-outline btn-sm"
                   onClick={() => setEditTaskModalOpen(false)}
+                  disabled={savingTask}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
+                  className="btn btn-primary btn-sm"
                   disabled={savingTask}
-                  className="btn btn-primary"
                 >
-                  {savingTask ? 'Saving...' : 'Save Changes'}
+                  {savingTask ? 'Updating…' : 'Save Changes'}
                 </button>
               </div>
             </form>
@@ -1736,14 +2857,12 @@ export default function Workspace() {
         </div>
       )}
 
-      {/* 10. DELETE CONFIRMATION MODAL */}
+      {/* 16. DELETE TASK CONFIRM MODAL */}
       {deleteConfirmModalOpen && (
         <div className="workspace-modal-overlay" onClick={() => setDeleteConfirmModalOpen(false)}>
-          <div className="workspace-modal" style={{ maxWidth: '440px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="workspace-modal__header">
-              <h2 className="workspace-modal__title" style={{ color: '#ef4444' }}>
-                Delete Task Permanently?
-              </h2>
+              <h3 className="workspace-modal__title">Delete Task</h3>
               <button
                 type="button"
                 className="workspace-modal__close"
@@ -1754,37 +2873,37 @@ export default function Workspace() {
             </div>
 
             <div className="workspace-modal__body">
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', lineHeight: '1.5' }}>
-                This action is irreversible. The task, its history, and associated records will be permanently deleted from the database.
+              <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text)' }}>
+                Are you sure you want to permanently delete this task? This action cannot be undone.
               </p>
             </div>
 
             <div className="workspace-modal__footer">
               <button
                 type="button"
-                className="btn btn-outline"
+                className="btn btn-outline btn-sm"
                 onClick={() => setDeleteConfirmModalOpen(false)}
               >
                 Cancel
               </button>
               <button
                 type="button"
-                className="btn btn-danger"
+                className="btn btn-danger btn-sm"
                 onClick={handleConfirmDeleteTask}
               >
-                Yes, Delete Task
+                Delete Permanently
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 11. DUAL-MODE ADD RESOURCE MODAL */}
+      {/* 17. ADD RESOURCE MODAL (Dual File Upload / Link) */}
       {addResourceModalOpen && (
         <div className="workspace-modal-overlay" onClick={() => setAddResourceModalOpen(false)}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
-              <h2 className="workspace-modal__title">Add Committee Resource</h2>
+              <h3 className="workspace-modal__title">Add Committee Resource</h3>
               <button
                 type="button"
                 className="workspace-modal__close"
@@ -1794,7 +2913,7 @@ export default function Workspace() {
               </button>
             </div>
 
-            {/* Mode Switcher Tabs */}
+            {/* Mode Picker Tabs */}
             <div className="workspace-modal-tabs">
               <button
                 type="button"
@@ -1802,7 +2921,7 @@ export default function Workspace() {
                 onClick={() => setResourceMode('file')}
               >
                 <UploadCloud size={15} />
-                <span>Upload Document</span>
+                <span>Upload Document / File</span>
               </button>
               <button
                 type="button"
@@ -1814,43 +2933,49 @@ export default function Workspace() {
               </button>
             </div>
 
-            <form onSubmit={handleAddResource}>
+            <form onSubmit={handleCreateResource}>
               <div className="workspace-modal__body">
                 <div className="workspace-form-group">
-                  <label className="workspace-form-label">Resource Title *</label>
+                  <label className="workspace-form-label">
+                    Resource Title <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
                   <input
                     type="text"
-                    required
-                    placeholder="e.g. AI & ML Technical Workshop Guide"
+                    className="workspace-form-input"
+                    placeholder={resourceMode === 'file' ? 'e.g. Autonomous Navigation Whitepaper' : 'e.g. Team Google Drive Repository'}
                     value={resourceTitle}
                     onChange={(e) => setResourceTitle(e.target.value)}
-                    className="workspace-form-input"
+                    required
                   />
                 </div>
 
                 {resourceMode === 'file' ? (
                   <div className="workspace-form-group">
-                    <label className="workspace-form-label">Choose File (PDF, DOCX, ZIP, PPTX, Image) *</label>
+                    <label className="workspace-form-label">
+                      Choose File (PDF, DOCX, ZIP, XLSX, PPTX) <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
                     <input
                       type="file"
-                      required={!selectedFile}
-                      onChange={(e) => setSelectedFile(e.target.files[0] || null)}
                       className="workspace-form-input"
+                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                      required
                     />
-                    <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>
-                      Files will be stored securely on Cloudinary CDN for instant download.
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      Files are delivered directly to committee members via IEEE Cloudinary CDN.
                     </span>
                   </div>
                 ) : (
                   <div className="workspace-form-group">
-                    <label className="workspace-form-label">Target URL (Drive, GitHub, Figma) *</label>
+                    <label className="workspace-form-label">
+                      Destination URL <span style={{ color: 'var(--color-danger)' }}>*</span>
+                    </label>
                     <input
                       type="url"
-                      required={resourceMode === 'link'}
+                      className="workspace-form-input"
                       placeholder="https://drive.google.com/..."
                       value={resourceUrl}
                       onChange={(e) => setResourceUrl(e.target.value)}
-                      className="workspace-form-input"
+                      required
                     />
                   </div>
                 )}
@@ -1858,11 +2983,11 @@ export default function Workspace() {
                 <div className="workspace-form-group">
                   <label className="workspace-form-label">Description (Optional)</label>
                   <textarea
-                    rows={2}
-                    placeholder="Brief description of this resource..."
+                    className="workspace-form-textarea"
+                    placeholder="Brief description of this resource for committee members..."
                     value={resourceDesc}
                     onChange={(e) => setResourceDesc(e.target.value)}
-                    className="workspace-form-textarea"
+                    rows={2}
                   />
                 </div>
               </div>
@@ -1870,26 +2995,82 @@ export default function Workspace() {
               <div className="workspace-modal__footer">
                 <button
                   type="button"
-                  className="btn btn-outline"
+                  className="btn btn-outline btn-sm"
                   onClick={() => setAddResourceModalOpen(false)}
+                  disabled={savingResource}
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={uploadingFile || savingResource}
-                  className="btn btn-primary"
+                  className="btn btn-primary btn-sm"
+                  disabled={savingResource || uploadingFile}
                 >
-                  {uploadingFile ? (
-                    <>
-                      <Loader2 size={14} className="animate-spin" />
-                      <span>Uploading...</span>
-                    </>
-                  ) : savingResource ? (
-                    'Saving...'
-                  ) : (
-                    'Publish Resource'
-                  )}
+                  {uploadingFile ? 'Uploading to CDN…' : savingResource ? 'Adding Resource…' : 'Publish Resource'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 18. EDIT RESOURCE MODAL */}
+      {editingResource && (
+        <div className="workspace-modal-overlay" onClick={() => setEditingResource(null)}>
+          <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="workspace-modal__header">
+              <h3 className="workspace-modal__title">Edit Committee Resource</h3>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setEditingResource(null)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveResourceEdit}>
+              <div className="workspace-modal__body">
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">
+                    Resource Title <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    className="workspace-form-input"
+                    value={editResourceTitle}
+                    onChange={(e) => setEditResourceTitle(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className="workspace-form-group">
+                  <label className="workspace-form-label">Description (Optional)</label>
+                  <textarea
+                    className="workspace-form-textarea"
+                    placeholder="Brief description of this resource..."
+                    value={editResourceDesc}
+                    onChange={(e) => setEditResourceDesc(e.target.value)}
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              <div className="workspace-modal__footer">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => setEditingResource(null)}
+                  disabled={savingResourceEdit}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-sm"
+                  disabled={savingResourceEdit}
+                >
+                  {savingResourceEdit ? 'Saving Changes…' : 'Save Changes'}
                 </button>
               </div>
             </form>

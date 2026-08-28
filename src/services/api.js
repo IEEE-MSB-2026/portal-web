@@ -211,6 +211,8 @@ export const api = {
     }),
 
   getMyDashboard: () => request('/api/core/me/dashboard'),
+  getMyStats: () => request('/api/core/me/stats'),
+  getMyProfile: () => request('/api/core/me/profile'),
 
   changePassword: ({ currentPassword, newPassword, confirmPassword }) =>
     request('/api/auth/password', {
@@ -387,6 +389,10 @@ export const api = {
       method: 'PATCH',
       body: { status },
     }),
+  claimTask: (taskId) =>
+    request(`/api/core/tasks/${taskId}/claim`, {
+      method: 'PATCH',
+    }),
   archiveTask: ({ taskId, isArchived = true }) =>
     request(`/api/core/tasks/${taskId}/archive`, {
       method: 'PATCH',
@@ -402,6 +408,11 @@ export const api = {
       method: 'POST',
       body: { title, url, resourceType, description },
     }),
+  updateCommitteeResource: ({ committeeId, resourceId, title, description }) =>
+    request(`/api/core/committees/${committeeId}/resources/${resourceId}`, {
+      method: 'PATCH',
+      body: { title, description },
+    }),
   deleteCommitteeResource: (committeeId, resourceId) =>
     request(`/api/core/committees/${committeeId}/resources/${resourceId}`, {
       method: 'DELETE',
@@ -414,4 +425,46 @@ export const api = {
     const qs = query.toString();
     return request(`/api/core/committees/${committeeId}/members${qs ? `?${qs}` : ''}`);
   },
+  getCommitteeAnnouncements: (committeeId) => request(`/api/core/committees/${committeeId}/announcements`),
+  createCommitteeAnnouncement: ({ committeeId, title, body, isPinned = false }) =>
+    request(`/api/core/committees/${committeeId}/announcements`, {
+      method: 'POST',
+      body: { title, body, isPinned },
+    }),
+  deleteCommitteeAnnouncement: (committeeId, announcementId) =>
+    request(`/api/core/committees/${committeeId}/announcements/${announcementId}`, {
+      method: 'DELETE',
+    }),
+  toggleCommitteeAnnouncementPin: ({ committeeId, announcementId, isPinned }) =>
+    request(`/api/core/committees/${committeeId}/announcements/${announcementId}/pin`, {
+      method: 'PATCH',
+      body: { isPinned },
+    }),
+  getCommitteeAssignments: (committeeId) => request(`/api/core/committees/${committeeId}/assignments`),
+  createCommitteeAssignment: ({ committeeId, title, description, dueDate, maxPoints, attachmentUrl, attachmentName }) =>
+    request(`/api/core/committees/${committeeId}/assignments`, {
+      method: 'POST',
+      body: { title, description, dueDate, maxPoints, attachmentUrl, attachmentName },
+    }),
+  updateCommitteeAssignment: ({ committeeId, assignmentId, title, description, dueDate, maxPoints, attachmentUrl, attachmentName }) =>
+    request(`/api/core/committees/${committeeId}/assignments/${assignmentId}`, {
+      method: 'PATCH',
+      body: { title, description, dueDate, maxPoints, attachmentUrl, attachmentName },
+    }),
+  deleteCommitteeAssignment: (committeeId, assignmentId) =>
+    request(`/api/core/committees/${committeeId}/assignments/${assignmentId}`, {
+      method: 'DELETE',
+    }),
+  submitAssignment: ({ committeeId, assignmentId, fileUrl, fileName, notes }) =>
+    request(`/api/core/committees/${committeeId}/assignments/${assignmentId}/submit`, {
+      method: 'POST',
+      body: { fileUrl, fileName, notes },
+    }),
+  getAssignmentSubmissions: (committeeId, assignmentId) =>
+    request(`/api/core/committees/${committeeId}/assignments/${assignmentId}/submissions`),
+  gradeAssignmentSubmission: ({ committeeId, assignmentId, submissionId, grade, feedback, status }) =>
+    request(`/api/core/committees/${committeeId}/assignments/${assignmentId}/submissions/${submissionId}/grade`, {
+      method: 'PATCH',
+      body: { grade, feedback, status },
+    }),
 };

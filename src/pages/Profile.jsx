@@ -51,9 +51,9 @@ export default function Profile() {
     setSearchParams(newTab === 'settings' ? { tab: 'settings' } : {});
   };
 
-  // Dashboard data
-  const [dashboardData, setDashboardData] = useState(null);
-  const [loadingDashboard, setLoadingDashboard] = useState(true);
+  // Stats data
+  const [statsData, setStatsData] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(true);
 
   // Avatar upload
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
@@ -84,20 +84,20 @@ export default function Profile() {
   const [savedPassword, setSavedPassword] = useState(false);
   const [savedAvatar, setSavedAvatar] = useState(false);
 
-  // Fetch dashboard data
+  // Fetch dedicated profile stats
   useEffect(() => {
     let cancelled = false;
-    async function fetchDashboard() {
+    async function fetchStats() {
       try {
-        const data = await api.getMyDashboard();
-        if (!cancelled) setDashboardData(data);
+        const stats = await api.getMyStats();
+        if (!cancelled) setStatsData(stats);
       } catch (err) {
-        console.error('Failed to load dashboard:', err);
+        console.error('Failed to load profile stats:', err);
       } finally {
-        if (!cancelled) setLoadingDashboard(false);
+        if (!cancelled) setLoadingStats(false);
       }
     }
-    fetchDashboard();
+    fetchStats();
     return () => { cancelled = true; };
   }, []);
 
@@ -129,12 +129,12 @@ export default function Profile() {
   };
 
   const getDaysSince = (dateStr) => {
-    if (!dateStr) return 0;
+    if (!dateStr) return 1;
     try {
-      const diff = Date.now() - new Date(dateStr).getTime();
-      return Math.max(0, Math.floor(diff / (1000 * 60 * 60 * 24)));
+      const diff = Math.max(0, Date.now() - new Date(dateStr).getTime());
+      return Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
     } catch {
-      return 0;
+      return 1;
     }
   };
 
@@ -268,11 +268,21 @@ export default function Profile() {
   }
 
   // Derived data
-  const taskStats = dashboardData?.taskStats || { total: 0, todo: 0, inProgress: 0, done: 0 };
-  const committees = dashboardData?.committees || [];
-  const memberSince = user.createdAt || dashboardData?.user?.createdAt;
-  const daysMember = getDaysSince(memberSince);
+  const taskStats = statsData?.tasks || { total: 0, todo: 0, inProgress: 0, done: 0 };
+  const assignmentStats = statsData?.assignments || { total: 0, pending: 0, submitted: 0, graded: 0 };
+  const memberSince = user.createdAt;
+  const daysMember = statsData?.daysMember || getDaysSince(memberSince);
   const pwStrength = getPasswordStrength(newPassword);
+
+  const userCommittees = (user?.availableScopes || [])
+    .filter((s) => s.scopeType === 'committee' || s.committeeId)
+    .map((s) => ({
+      id: s.committeeId || s.scopeId,
+      scopeId: s.id || s.scopeId,
+      name: s.committeeName || s.label || 'Committee',
+      slug: s.committeeSlug || s.slug || 'committee',
+      role: s.role || 'member',
+    }));
 
   return (
     <div className="section" style={{ minHeight: '80vh' }}>
@@ -380,8 +390,8 @@ export default function Profile() {
                 <div className="profile-stat-card__label">Tasks Completed</div>
               </div>
               <div className="profile-stat-card">
-                <div className="profile-stat-card__value">{committees.length}</div>
-                <div className="profile-stat-card__label">Committees</div>
+                <div className="profile-stat-card__value">{assignmentStats.graded}</div>
+                <div className="profile-stat-card__label">Graded Assignments</div>
               </div>
               <div className="profile-stat-card">
                 <div className="profile-stat-card__value">{daysMember}</div>
@@ -395,51 +405,45 @@ export default function Profile() {
               <span>My Committees</span>
             </div>
 
-            {committees.length > 0 ? (
+            {userCommittees.length > 0 ? (
               <div className="profile-committees">
-                {committees.map((c) => {
-                  // Find matching scope for this committee
-                  const matchingScope = user.availableScopes?.find(
-                    (s) => s.committeeId === c.id || s.scopeId === c.id
-                  );
-                  const isActive = matchingScope &&
-                    (user.scopeId === matchingScope.scopeId || user.scopeId === matchingScope.id) &&
-                    user.role === matchingScope.role;
-                  const isSwitching = matchingScope && switchingScopeId === (matchingScope.id || matchingScope.scopeId);
+                {userCommittees.map((c) => {
+                  const isActive =
+                    (user.scopeId === c.scopeId || user.scopeId === c.id) &&
+                    user.role === c.role;
+                  const isSwitching = switchingScopeId === c.scopeId;
 
                   return (
                     <div
-                      key={c.id}
+                      key={c.id || c.scopeId}
                       className={`profile-committee-card ${isActive ? 'profile-committee-card--active' : ''}`}
                     >
                       <div className="profile-committee-card__info">
                         <div className="profile-committee-card__name">{c.name}</div>
                         <div className="profile-committee-card__role">
-                          <span className={`badge ${getRoleBadgeClass(matchingScope?.role || 'member')}`} style={{ fontSize: '0.65rem' }}>
-                            {matchingScope?.role?.toUpperCase() || 'MEMBER'}
+                          <span className={`badge ${getRoleBadgeClass(c.role || 'member')}`} style={{ fontSize: '0.65rem' }}>
+                            {(c.role || 'MEMBER').toUpperCase()}
                           </span>
                         </div>
                       </div>
-                      {matchingScope && (
-                        isActive ? (
-                          <span className="badge badge-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700 }}>
-                            <Check size={11} /> ACTIVE
-                          </span>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => handleScopeSwitch(matchingScope)}
-                            disabled={isSwitching}
-                            className="btn btn-outline btn-sm"
-                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
-                          >
-                            {isSwitching ? (
-                              <div className="spinner" style={{ width: '0.875rem', height: '0.875rem' }} />
-                            ) : (
-                              <>Switch <ChevronRight size={12} /></>
-                            )}
-                          </button>
-                        )
+                      {isActive ? (
+                        <span className="badge badge-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.7rem', fontWeight: 700 }}>
+                          <Check size={11} /> ACTIVE
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => handleScopeSwitch(c)}
+                          disabled={isSwitching}
+                          className="btn btn-outline btn-sm"
+                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
+                        >
+                          {isSwitching ? (
+                            <div className="spinner" style={{ width: '0.875rem', height: '0.875rem' }} />
+                          ) : (
+                            <>Switch <ChevronRight size={12} /></>
+                          )}
+                        </button>
                       )}
                     </div>
                   );

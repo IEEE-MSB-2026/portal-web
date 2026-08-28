@@ -212,7 +212,7 @@ export default function Register() {
                   id="reg-membership"
                   name="membershipId"
                   type="text"
-                  placeholder="IEEE Membership ID"
+                  placeholder="IEEE Membership ID (optional)"
                   value={membershipId}
                   onChange={(e) => setMembershipId(e.target.value)}
                 />

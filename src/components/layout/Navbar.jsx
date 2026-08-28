@@ -387,7 +387,7 @@ export default function Navbar() {
                     >
                       <div className="nav-profile-link__left">
                         <LayoutDashboard size={15} />
-                        <span>Member Dashboard</span>
+                        <span>Dashboard</span>
                       </div>
                       <ChevronRight size={13} className="nav-profile-link__arrow" />
                     </Link>
