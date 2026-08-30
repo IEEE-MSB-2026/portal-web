@@ -81,7 +81,7 @@ export default function App() {
           <Route
             path="dashboard"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireCommittee>
                 <Dashboard />
               </ProtectedRoute>
             }
@@ -89,7 +89,7 @@ export default function App() {
           <Route
             path="workspace"
             element={
-              <ProtectedRoute>
+              <ProtectedRoute requireCommittee>
                 <Workspace />
               </ProtectedRoute>
             }

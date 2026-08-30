@@ -65,6 +65,9 @@ export default function Dashboard() {
   // Onboarding Items State
   const [onboardingItems, setOnboardingItems] = useState([]);
   const [updatingOnboardingId, setUpdatingOnboardingId] = useState(null);
+  const [dismissedOnboarding, setDismissedOnboarding] = useState(() => {
+    return localStorage.getItem('dismiss_onboarding_completed') === 'true';
+  });
 
   const fetchDashboard = async () => {
     try {
@@ -163,6 +166,10 @@ export default function Dashboard() {
 
     if (!deliveryFile) {
       toast.error('File Required', 'Please choose a solution file to upload.');
+      return;
+    }
+    if (deliveryFile.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Maximum solution file size is 10MB.');
       return;
     }
 
@@ -801,7 +808,7 @@ export default function Dashboard() {
         {/* RIGHT / SIDEBAR COLUMN */}
         <div className="dashboard-bento-sidebar">
           {/* ONBOARDING CHECKLIST (For New Members) */}
-          {onboardingItems.length > 0 && (
+          {onboardingItems.length > 0 && !dismissedOnboarding && (
             <div className="dashboard-card" id="onboarding-checklist-card">
               <div className="dashboard-card__header">
                 <div className="dashboard-card__title-wrap">
@@ -810,9 +817,24 @@ export default function Dashboard() {
                     Onboarding Checklist
                   </h3>
                 </div>
-                <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>
-                  {onboardingItems.filter((i) => i.status === 'done').length}/{onboardingItems.length}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                  <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>
+                    {onboardingItems.filter((i) => i.status === 'done').length}/{onboardingItems.length}
+                  </span>
+                  {onboardingItems.every((i) => i.status === 'done') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setDismissedOnboarding(true);
+                        localStorage.setItem('dismiss_onboarding_completed', 'true');
+                      }}
+                      title="Dismiss completed checklist"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', padding: '0.1rem' }}
+                    >
+                      <X size={13} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Progress bar */}
@@ -880,6 +902,22 @@ export default function Dashboard() {
                   );
                 })}
               </div>
+
+              {onboardingItems.every((i) => i.status === 'done') && (
+                <div style={{ marginTop: '0.75rem', padding: '0.45rem 0.65rem', borderRadius: 'var(--radius-sm)', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', color: '#10b981', fontSize: '0.78rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span>🎉 Onboarding complete! Welcome!</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDismissedOnboarding(true);
+                      localStorage.setItem('dismiss_onboarding_completed', 'true');
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#10b981', fontSize: '0.75rem', fontWeight: 700, padding: 0 }}
+                  >
+                    Hide
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

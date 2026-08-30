@@ -493,11 +493,13 @@ export const api = {
       body: { status },
     }),
 
-  // ── HR Applications ───────────────────────────────────────────────────────
   getHRApplications: (params = {}) => {
     const query = new URLSearchParams();
     if (params.committeeId) query.append('committeeId', params.committeeId);
     if (params.campaignId) query.append('campaignId', params.campaignId);
+    if (params.stage) query.append('stage', params.stage);
+    if (params.includeRejected) query.append('includeRejected', 'true');
+    if (params.includeAccepted) query.append('includeAccepted', 'true');
     if (params.limit) query.append('limit', params.limit);
     const qs = query.toString();
     return request(`/api/core/hr/applications${qs ? `?${qs}` : ''}`);
@@ -550,7 +552,9 @@ export const api = {
     return request(`/api/core/hr/reports/pipeline-timeline${qs ? `?${qs}` : ''}`);
   },
 
-  // ── Roster Management (Direct Add / Remove / Role Change) ─────────────────
+  // ── Member Management (Direct Add / Remove / Role Change) ─────────────────
+  getAllCommitteeMemberships: () => request('/api/core/committees/memberships/all'),
+  searchRegisteredUsers: (q) => request(`/api/core/users/search?q=${encodeURIComponent(q)}`),
   upsertCommitteeMembership: ({ committeeId, externalUserId, email, roleInCommittee }) =>
     request(`/api/core/committees/${committeeId}/memberships`, {
       method: 'POST',

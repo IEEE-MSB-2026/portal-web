@@ -163,22 +163,18 @@ export default function Join() {
 
     setUploadingCv(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await fetch('/api/files/upload', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${useAuthStore.getState().token}`,
-        },
-        body: formData,
+      const uploadRes = await api.uploadDirectToCloudinary({
+        file,
+        folder: 'applications',
+        purpose: 'candidate_cv',
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Upload failed');
-      setCvUrl(data.url || data.fileUrl);
+      const resolvedUrl = uploadRes.secureUrl || uploadRes.url;
+      if (!resolvedUrl) throw new Error('Upload succeeded but no secure URL returned');
+      setCvUrl(resolvedUrl);
       setCvFile(file);
       toast.success('CV Uploaded', `${file.name} uploaded successfully.`);
     } catch (err) {
-      toast.error('Upload Failed', err.message);
+      toast.error('Upload Failed', err.message || 'Failed to upload CV.');
     } finally {
       setUploadingCv(false);
     }
@@ -259,7 +255,7 @@ export default function Join() {
             Authentication Required
           </h2>
           <p style={{ color: 'var(--color-text-muted)', maxWidth: 360, margin: '0 auto var(--space-6)' }}>
-            You need to be logged in to submit a recruitment application. Your profile information will be used for your application.
+            You need to be logged in to submit a recruitment application.
           </p>
           <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
             <Link to="/login" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>

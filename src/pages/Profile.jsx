@@ -157,8 +157,8 @@ export default function Profile() {
       toast.error('Invalid File Type', 'Please select a valid image file (PNG, JPG, WebP).');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File Too Large', 'Avatar image must be smaller than 5MB.');
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Avatar image must be smaller than 10MB.');
       return;
     }
 

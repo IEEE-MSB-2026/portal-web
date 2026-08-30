@@ -385,6 +385,38 @@ img, svg {
   color: var(--color-primary);
 }
 
+.btn-danger,
+.btn-destructive {
+  background-color: var(--color-destructive, #ef4444) !important;
+  border: 1px solid var(--color-destructive, #ef4444) !important;
+  color: #ffffff !important;
+  font-weight: 600;
+}
+
+.btn-danger:hover,
+.btn-destructive:hover {
+  background-color: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.4);
+  transform: translateY(-1px);
+}
+
+.btn-danger-outline,
+.btn-destructive-outline {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+  border: 1px solid rgba(239, 68, 68, 0.3) !important;
+  color: var(--color-destructive, #ef4444) !important;
+  font-weight: 600;
+}
+
+.btn-danger-outline:hover,
+.btn-destructive-outline:hover {
+  background-color: var(--color-destructive, #ef4444) !important;
+  border-color: var(--color-destructive, #ef4444) !important;
+  color: #ffffff !important;
+}
+
 .btn-xs {
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;

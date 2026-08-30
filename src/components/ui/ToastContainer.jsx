@@ -92,12 +92,16 @@ export default function ToastContainer() {
               border: 'none',
               cursor: 'pointer',
               color: 'var(--color-text-muted)',
-              padding: '0.125rem',
-              display: 'flex',
+              padding: '0.2rem',
+              display: 'inline-flex',
               alignItems: 'center',
+              justifyContent: 'center',
+              flexShrink: 0,
+              alignSelf: 'flex-start',
+              marginLeft: 'auto',
             }}
           >
-            <X size={14} />
+            <X size={14} style={{ flexShrink: 0 }} />
           </button>
         </div>
       ))}

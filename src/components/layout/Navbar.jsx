@@ -54,9 +54,17 @@ export default function Navbar() {
     };
   }, []);
 
+  // Committee & Workspace permissions
+  const hasCommitteeAccess = Boolean(
+    user?.scopeType === 'committee' ||
+    user?.committeeId ||
+    (user?.availableScopes && user.availableScopes.some((s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName)) ||
+    ['admin', 'officer'].includes(user?.role)
+  );
+
   const navLinks = [
     { to: '/', label: 'Home' },
-    ...(isAuthenticated
+    ...(isAuthenticated && hasCommitteeAccess
       ? [
           { to: '/dashboard', label: 'Dashboard' },
         ]
@@ -387,29 +395,33 @@ export default function Navbar() {
 
                   {/* Quick Navigation Links */}
                   <div className="nav-profile-links">
-                    <Link
-                      to="/dashboard"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="nav-profile-link"
-                    >
-                      <div className="nav-profile-link__left">
-                        <LayoutDashboard size={15} />
-                        <span>Dashboard</span>
-                      </div>
-                      <ChevronRight size={13} className="nav-profile-link__arrow" />
-                    </Link>
+                    {hasCommitteeAccess && (
+                      <>
+                        <Link
+                          to="/dashboard"
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="nav-profile-link"
+                        >
+                          <div className="nav-profile-link__left">
+                            <LayoutDashboard size={15} />
+                            <span>Dashboard</span>
+                          </div>
+                          <ChevronRight size={13} className="nav-profile-link__arrow" />
+                        </Link>
 
-                    <Link
-                      to="/workspace"
-                      onClick={() => setUserDropdownOpen(false)}
-                      className="nav-profile-link"
-                    >
-                      <div className="nav-profile-link__left">
-                        <Layers size={15} />
-                        <span>Committee Workspace</span>
-                      </div>
-                      <ChevronRight size={13} className="nav-profile-link__arrow" />
-                    </Link>
+                        <Link
+                          to="/workspace"
+                          onClick={() => setUserDropdownOpen(false)}
+                          className="nav-profile-link"
+                        >
+                          <div className="nav-profile-link__left">
+                            <Layers size={15} />
+                            <span>Committee Workspace</span>
+                          </div>
+                          <ChevronRight size={13} className="nav-profile-link__arrow" />
+                        </Link>
+                      </>
+                    )}
 
                     {isHrAuthorized && (
                       <Link

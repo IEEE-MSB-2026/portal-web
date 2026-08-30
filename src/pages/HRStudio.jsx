@@ -15,6 +15,7 @@ import {
   X,
   UserPlus,
   UserMinus,
+  UserX,
   Shield,
   ShieldAlert,
   Star,
@@ -31,9 +32,15 @@ import {
   RefreshCw,
   Edit2,
   GripVertical,
+  Filter,
+  FileSpreadsheet,
+  CheckSquare,
+  Square,
+  AlertCircle,
+  ExternalLink,
 } from 'lucide-react';
 
-const PIPELINE_STAGES = [
+const BASE_PIPELINE_STAGES = [
   { key: 'applied', label: 'Applied', color: '#3b82f6' },
   { key: 'screening', label: 'Screening', color: '#f59e0b' },
   { key: 'interview', label: 'Interview', color: '#8b5cf6' },
@@ -63,9 +70,9 @@ export default function HRStudio() {
   const { user } = useAuthStore();
   const toast = useToastStore();
 
-  const isHrAuthorized =
-    (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
-    (user?.role === 'lead' && user?.committeeSlug === 'hr');
+  const isGlobalAdminOrOfficer = user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role);
+  const isHrLead = user?.role === 'lead' && user?.committeeSlug === 'hr';
+  const isHrAuthorized = isGlobalAdminOrOfficer || isHrLead;
 
   if (!isHrAuthorized) {
     return (
@@ -80,8 +87,8 @@ export default function HRStudio() {
           <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: 'var(--space-6)' }}>
             The HR Studio is restricted to Global Administrators, Officers, and Human Resources Committee Leads.
           </p>
-          <Link to="/dashboard" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-            Return to Dashboard
+          <Link to="/" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+            Return to Home
           </Link>
         </div>
       </div>
@@ -94,6 +101,8 @@ export default function HRStudio() {
   const [campaigns, setCampaigns] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [committees, setCommittees] = useState([]);
+  const [campaignStatusFilter, setCampaignStatusFilter] = useState('');
+  const [campaignCommitteeFilter, setCampaignCommitteeFilter] = useState('');
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
   const [newCampaign, setNewCampaign] = useState({ title: '', committeeIds: [], description: '', opensAt: '', closesAt: '', status: 'draft' });
   const [editingCampaign, setEditingCampaign] = useState(null);
@@ -111,26 +120,40 @@ export default function HRStudio() {
   const [processingAction, setProcessingAction] = useState(false);
   const [draggedCandidate, setDraggedCandidate] = useState(null);
 
-  // ── Roster Tab ────────────────────────────────────────────────────────────
-  const [rosterCommitteeId, setRosterCommitteeId] = useState('');
-  const [rosterMembers, setRosterMembers] = useState([]);
-  const [loadingRoster, setLoadingRoster] = useState(false);
-  const [rosterSearch, setRosterSearch] = useState('');
+  // ── Dedicated Rejected Modal State ────────────────────────────────────────
+  const [showRejectedModal, setShowRejectedModal] = useState(false);
+  const [rejectedApplications, setRejectedApplications] = useState([]);
+  const [loadingRejected, setLoadingRejected] = useState(false);
+  const [rejectedSearch, setRejectedSearch] = useState('');
+
+  // ── Member Management Tab ─────────────────────────────────────────────────
+  const [allMembers, setAllMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [memberCommitteeFilter, setMemberCommitteeFilter] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
-  const [addMemberData, setAddMemberData] = useState({ externalUserId: '', email: '', roleInCommittee: 'member' });
-  const [savingMember, setSavingMember] = useState(false);
+
+  // Add Member Modal State
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userSearchResults, setUserSearchResults] = useState([]);
+  const [searchingUsers, setSearchingUsers] = useState(false);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [targetCommitteeId, setTargetCommitteeId] = useState('');
+  const [targetRole, setTargetRole] = useState('member');
+  const [savingMembers, setSavingMembers] = useState(false);
 
   // ── Onboarding Tab ────────────────────────────────────────────────────────
   const [pipelineSummary, setPipelineSummary] = useState(null);
 
-  // ── Load committees ───────────────────────────────────────────────────────
+  // ── Load Committees ───────────────────────────────────────────────────────
   useEffect(() => {
     async function loadCommittees() {
       try {
         const data = await api.getPublicCommittees();
-        setCommittees(data.committees || []);
-        if (data.committees?.length > 0 && !rosterCommitteeId) {
-          setRosterCommitteeId(data.committees[0].id);
+        const comms = data.committees || [];
+        setCommittees(comms);
+        if (comms.length > 0 && !targetCommitteeId) {
+          setTargetCommitteeId(comms[0].id);
         }
       } catch (err) {
         console.error('Failed to load committees:', err);
@@ -139,7 +162,7 @@ export default function HRStudio() {
     loadCommittees();
   }, []);
 
-  // ── Load campaigns ────────────────────────────────────────────────────────
+  // ── Load Campaigns ────────────────────────────────────────────────────────
   const loadCampaigns = useCallback(async () => {
     setLoadingCampaigns(true);
     try {
@@ -156,7 +179,7 @@ export default function HRStudio() {
     loadCampaigns();
   }, [loadCampaigns]);
 
-  // ── Load applications ─────────────────────────────────────────────────────
+  // ── Load Applications (Active Stages) ─────────────────────────────────────
   const loadApplications = useCallback(async () => {
     setLoadingApplications(true);
     try {
@@ -175,35 +198,72 @@ export default function HRStudio() {
     if (activeTab === 'pipeline') loadApplications();
   }, [activeTab, loadApplications]);
 
-  // ── Load roster ───────────────────────────────────────────────────────────
-  const loadRoster = useCallback(async () => {
-    if (!rosterCommitteeId) {
-      setRosterMembers([]);
-      return;
-    }
-    setLoadingRoster(true);
+  // ── Load Rejected Applications ────────────────────────────────────────────
+  const loadRejectedApplications = useCallback(async () => {
+    setLoadingRejected(true);
     try {
-      const data = await api.getCommitteeMemberships(rosterCommitteeId);
-      setRosterMembers(data.memberships || []);
+      const params = { includeRejected: true };
+      if (pipelineFilter) params.committeeId = pipelineFilter;
+      const data = await api.getHRApplications(params);
+      const rejectedList = (data.applications || []).filter((a) => a.currentStage === 'rejected');
+      setRejectedApplications(rejectedList);
     } catch (err) {
       toast.error('Load Failed', err.message);
     } finally {
-      setLoadingRoster(false);
+      setLoadingRejected(false);
     }
-  }, [rosterCommitteeId]);
+  }, [pipelineFilter]);
+
+  const handleOpenRejectedModal = () => {
+    setShowRejectedModal(true);
+    loadRejectedApplications();
+  };
+
+  // ── Load All Members (Branch-wide) ────────────────────────────────────────
+  const loadMembers = useCallback(async () => {
+    setLoadingMembers(true);
+    try {
+      const data = await api.getAllCommitteeMemberships();
+      setAllMembers(data.memberships || []);
+    } catch (err) {
+      toast.error('Load Failed', err.message);
+    } finally {
+      setLoadingMembers(false);
+    }
+  }, []);
 
   useEffect(() => {
-    if (activeTab === 'roster') loadRoster();
-  }, [activeTab, loadRoster]);
+    if (activeTab === 'members') loadMembers();
+  }, [activeTab, loadMembers]);
 
-  // ── Load pipeline summary ─────────────────────────────────────────────────
+  // ── Load Pipeline Summary ─────────────────────────────────────────────────
   useEffect(() => {
     if (activeTab === 'onboarding') {
       api.getHRPipelineSummary().then((data) => setPipelineSummary(data)).catch(() => {});
     }
   }, [activeTab]);
 
-  // ── Candidate Notes & Score Auto-Save in Local Storage ─────────────────────
+  // ── User Search in Add Member Modal ───────────────────────────────────────
+  useEffect(() => {
+    if (!userSearchQuery.trim() || !showAddMember) {
+      setUserSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchingUsers(true);
+      try {
+        const data = await api.searchRegisteredUsers(userSearchQuery);
+        setUserSearchResults(data.users || []);
+      } catch (err) {
+        console.error('Failed to search users:', err);
+      } finally {
+        setSearchingUsers(false);
+      }
+    }, 250);
+    return () => clearTimeout(timer);
+  }, [userSearchQuery, showAddMember]);
+
+  // ── Candidate Notes & Score Local Storage ─────────────────────────────────
   const handleOpenCandidate = (candidate) => {
     setSelectedCandidate(candidate);
     const savedNotes = localStorage.getItem(`hr_notes_${candidate.id}`) || '';
@@ -238,7 +298,7 @@ export default function HRStudio() {
     localStorage.removeItem(`hr_score_${id}`);
   };
 
-  // ── Campaign Actions ──────────────────────────────────────────────────────
+  // ── Campaign CRUD ─────────────────────────────────────────────────────────
   const handleCreateCampaign = async (e) => {
     e.preventDefault();
     if (!newCampaign.committeeIds.length) {
@@ -389,7 +449,7 @@ export default function HRStudio() {
     try {
       await api.rejectApplication(app.id, { notes: candidateNotes.trim() || null });
       clearCandidateDraft(app.id);
-      toast.success('Rejected', 'Application has been rejected.');
+      toast.success('Rejected', 'Application has been moved to Rejected archive.');
       setSelectedCandidate(null);
       loadApplications();
     } catch (err) {
@@ -399,34 +459,57 @@ export default function HRStudio() {
     }
   };
 
-  // ── Roster Actions ────────────────────────────────────────────────────────
-  const handleAddMember = async (e) => {
+  // ── Batch Add Members ─────────────────────────────────────────────────────
+  const toggleUserSelection = (u) => {
+    setSelectedUsers((prev) => {
+      const exists = prev.some((item) => item.id === u.id);
+      if (exists) return prev.filter((item) => item.id !== u.id);
+      return [...prev, u];
+    });
+  };
+
+  const handleBatchAddMembers = async (e) => {
     e.preventDefault();
-    setSavingMember(true);
+    if (!selectedUsers.length) {
+      toast.error('Validation Error', 'Please select at least one user.');
+      return;
+    }
+    if (!targetCommitteeId) {
+      toast.error('Validation Error', 'Please select a target committee.');
+      return;
+    }
+
+    setSavingMembers(true);
+    let successCount = 0;
     try {
-      await api.upsertCommitteeMembership({
-        committeeId: rosterCommitteeId,
-        externalUserId: addMemberData.externalUserId.trim(),
-        email: addMemberData.email.trim(),
-        roleInCommittee: addMemberData.roleInCommittee,
-      });
-      toast.success('Member Added', 'New member has been added to the committee.');
+      for (const u of selectedUsers) {
+        await api.upsertCommitteeMembership({
+          committeeId: targetCommitteeId,
+          externalUserId: u.externalUserId || u.id,
+          email: u.email,
+          roleInCommittee: targetRole,
+        });
+        successCount++;
+      }
+      toast.success('Members Added', `Successfully added ${successCount} member(s) and synchronized IAM scopes.`);
       setShowAddMember(false);
-      setAddMemberData({ externalUserId: '', email: '', roleInCommittee: 'member' });
-      loadRoster();
+      setSelectedUsers([]);
+      setUserSearchQuery('');
+      setUserSearchResults([]);
+      loadMembers();
     } catch (err) {
-      toast.error('Add Failed', err.message);
+      toast.error('Add Members Failed', err.message);
     } finally {
-      setSavingMember(false);
+      setSavingMembers(false);
     }
   };
 
   const handleRemoveMember = async (member) => {
-    if (!confirm(`Remove ${member.name || member.email} from the committee?`)) return;
+    if (!confirm(`Remove ${member.name || member.email} from ${member.committeeName || 'the committee'}?`)) return;
     try {
-      await api.removeCommitteeMembership(rosterCommitteeId, member.externalUserId);
-      toast.success('Removed', `${member.name || 'Member'} has been removed.`);
-      loadRoster();
+      await api.removeCommitteeMembership(member.committeeId, member.externalUserId);
+      toast.success('Removed', `${member.name || 'Member'} has been removed and permissions revoked.`);
+      loadMembers();
     } catch (err) {
       toast.error('Remove Failed', err.message);
     }
@@ -435,16 +518,43 @@ export default function HRStudio() {
   const handleChangeRole = async (member, newRole) => {
     try {
       await api.upsertCommitteeMembership({
-        committeeId: rosterCommitteeId,
+        committeeId: member.committeeId,
         externalUserId: member.externalUserId,
         email: member.email,
         roleInCommittee: newRole,
       });
       toast.success('Role Updated', `${member.name} is now ${newRole}.`);
-      loadRoster();
+      loadMembers();
     } catch (err) {
       toast.error('Update Failed', err.message);
     }
+  };
+
+  // ── Export Members CSV ────────────────────────────────────────────────────
+  const handleExportCSV = () => {
+    if (!filteredMembers.length) {
+      toast.error('No Data', 'No member records to export.');
+      return;
+    }
+    const headers = ['Name', 'Email', 'Committee', 'Role', 'Joined Date'];
+    const rows = filteredMembers.map((m) => [
+      `"${(m.name || 'Member').replace(/"/g, '""')}"`,
+      `"${(m.email || '').replace(/"/g, '""')}"`,
+      `"${(m.committeeName || '').replace(/"/g, '""')}"`,
+      `"${(m.roleInCommittee || 'member').toUpperCase()}"`,
+      `"${formatDate(m.createdAt)}"`,
+    ]);
+
+    const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `ieee_members_${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success('Export Complete', 'Downloaded member roster CSV.');
   };
 
   // ── Helpers ───────────────────────────────────────────────────────────────
@@ -457,6 +567,15 @@ export default function HRStudio() {
     return getCommitteeName(camp.committeeId);
   };
 
+  const filteredCampaigns = campaigns.filter((camp) => {
+    if (campaignStatusFilter && camp.status !== campaignStatusFilter) return false;
+    if (campaignCommitteeFilter) {
+      const matchInList = camp.committees?.some((c) => c.id === campaignCommitteeFilter);
+      if (!matchInList && camp.committeeId !== campaignCommitteeFilter) return false;
+    }
+    return true;
+  });
+
   const filteredApplications = applications.filter((a) => {
     if (pipelineSearch) {
       const q = pipelineSearch.toLowerCase();
@@ -468,14 +587,27 @@ export default function HRStudio() {
   });
 
   const appsByStage = {};
-  for (const stage of PIPELINE_STAGES) {
+  for (const stage of BASE_PIPELINE_STAGES) {
     appsByStage[stage.key] = filteredApplications.filter((a) => a.currentStage === stage.key);
   }
 
-  const filteredRoster = rosterMembers.filter((m) => {
-    if (!rosterSearch) return true;
-    const q = rosterSearch.toLowerCase();
-    return (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q);
+  const filteredRejectedApplications = rejectedApplications.filter((a) => {
+    if (rejectedSearch) {
+      const q = rejectedSearch.toLowerCase();
+      const name = (a.answers?.fullName || a.applicantEmail || '').toLowerCase();
+      const email = (a.applicantEmail || '').toLowerCase();
+      return name.includes(q) || email.includes(q);
+    }
+    return true;
+  });
+
+  const filteredMembers = allMembers.filter((m) => {
+    if (memberCommitteeFilter && m.committeeId !== memberCommitteeFilter) return false;
+    if (memberSearch) {
+      const q = memberSearch.toLowerCase();
+      return (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.roleInCommittee || '').toLowerCase().includes(q);
+    }
+    return true;
   });
 
   const toggleCommitteeSelection = (committeeId, isEdit = false) => {
@@ -511,8 +643,9 @@ export default function HRStudio() {
           <Users size={16} /> Candidate Pipeline
           <span className="hr-tab__badge">{applications.length}</span>
         </button>
-        <button type="button" className={`hr-tab ${activeTab === 'roster' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('roster')}>
-          <Shield size={16} /> Roster Management
+        <button type="button" className={`hr-tab ${activeTab === 'members' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('members')}>
+          <Shield size={16} /> Member Management
+          <span className="hr-tab__badge">{allMembers.length}</span>
         </button>
         <button type="button" className={`hr-tab ${activeTab === 'onboarding' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('onboarding')}>
           <ListChecks size={16} /> Onboarding
@@ -528,23 +661,34 @@ export default function HRStudio() {
             <button type="button" className="btn btn-primary" onClick={() => setShowCreateCampaign(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <Plus size={16} /> New Campaign
             </button>
+            <select className="form-input" style={{ width: 'auto', minWidth: 150 }} value={campaignStatusFilter} onChange={(e) => setCampaignStatusFilter(e.target.value)}>
+              <option value="">All Statuses</option>
+              <option value="open">Open</option>
+              <option value="draft">Draft</option>
+              <option value="closed">Closed</option>
+            </select>
+            <select className="form-input" style={{ width: 'auto', minWidth: 180 }} value={campaignCommitteeFilter} onChange={(e) => setCampaignCommitteeFilter(e.target.value)}>
+              <option value="">All Committees</option>
+              {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
             <button type="button" className="btn btn-secondary" onClick={loadCampaigns} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
 
           {loadingCampaigns ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
-              <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} /> Loading campaigns...
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-12)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span>Loading campaigns...</span>
             </div>
-          ) : campaigns.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
-              <ClipboardList size={36} style={{ marginBottom: 'var(--space-2)', opacity: 0.5 }} />
-              <p>No recruitment campaigns yet. Create your first campaign to start recruiting.</p>
+          ) : filteredCampaigns.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-12)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
+              <ClipboardList size={20} style={{ opacity: 0.7, flexShrink: 0 }} />
+              <span>No campaigns matching the selected filters.</span>
             </div>
           ) : (
             <div className="hr-campaign-grid">
-              {campaigns.map((camp) => (
+              {filteredCampaigns.map((camp) => (
                 <div key={camp.id} className="hr-campaign-card">
                   <div className="hr-campaign-card__header">
                     <h4 className="hr-campaign-card__title">{camp.title}</h4>
@@ -717,31 +861,43 @@ export default function HRStudio() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB 2: Candidate Pipeline Kanban (with Drag and Drop)                */}
+      {/* TAB 2: Candidate Pipeline Kanban                                    */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'pipeline' && (
         <>
-          <div className="hr-toolbar">
-            <div className="hr-search-wrap">
-              <Search size={15} />
-              <input className="hr-search-input" placeholder="Search candidates by name or email..." value={pipelineSearch} onChange={(e) => setPipelineSearch(e.target.value)} />
+          <div className="hr-toolbar" style={{ justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-3)', flex: 1, flexWrap: 'wrap' }}>
+              <div className="hr-search-wrap">
+                <Search size={15} />
+                <input className="hr-search-input" placeholder="Search candidates by name or email..." value={pipelineSearch} onChange={(e) => setPipelineSearch(e.target.value)} />
+              </div>
+              <select className="form-input" style={{ width: 'auto', minWidth: 180 }} value={pipelineFilter} onChange={(e) => setPipelineFilter(e.target.value)}>
+                <option value="">All Committees</option>
+                {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={handleOpenRejectedModal}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}
+              >
+                <UserX size={15} style={{ color: 'var(--color-danger, #ef4444)' }} />
+                <span>Rejected Applications</span>
+              </button>
             </div>
-            <select className="form-input" style={{ width: 'auto', minWidth: 180 }} value={pipelineFilter} onChange={(e) => setPipelineFilter(e.target.value)}>
-              <option value="">All Committees</option>
-              {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
             <button type="button" className="btn btn-secondary" onClick={loadApplications} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
 
           {loadingApplications ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
-              <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} /> Loading applications...
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-12)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span>Loading applications...</span>
             </div>
           ) : (
             <div className="hr-pipeline">
-              {PIPELINE_STAGES.map((stage) => (
+              {BASE_PIPELINE_STAGES.map((stage) => (
                 <div
                   key={stage.key}
                   className="hr-pipeline-column"
@@ -800,74 +956,91 @@ export default function HRStudio() {
             </div>
           )}
 
-          {/* Candidate Detail Modal */}
-          {selectedCandidate && (
-            <div className="modal-overlay" onClick={() => setSelectedCandidate(null)}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, margin: 'auto' }}>
+          {/* Dedicated Rejected Applications Modal */}
+          {showRejectedModal && (
+            <div className="modal-overlay" onClick={() => setShowRejectedModal(false)}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
                 <div className="modal-header">
-                  <h3><Eye size={18} /> Candidate Details</h3>
-                  <button type="button" className="modal-close" onClick={() => setSelectedCandidate(null)}><X size={18} /></button>
+                  <h3><UserX size={18} style={{ color: 'var(--color-danger, #ef4444)' }} /> Rejected Applications</h3>
+                  <button type="button" className="modal-close" onClick={() => setShowRejectedModal(false)}><X size={18} /></button>
                 </div>
-                <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-                  <div style={{ marginBottom: 'var(--space-4)' }}>
-                    <h4 style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>{selectedCandidate.answers?.fullName || 'Unknown'}</h4>
-                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{selectedCandidate.applicantEmail}</div>
-                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                      <span className={`hr-status-badge hr-status-badge--${selectedCandidate.currentStage === 'final_review' ? 'open' : 'draft'}`}>{selectedCandidate.currentStage?.replace('_', ' ')}</span>
-                      <span className="hr-candidate-card__committee">{getCommitteeName(selectedCandidate.committeeId)}</span>
-                    </div>
+                <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+                  <div className="hr-search-wrap" style={{ marginBottom: '1rem' }}>
+                    <Search size={15} />
+                    <input
+                      className="hr-search-input"
+                      placeholder="Search rejected candidates by name or email..."
+                      value={rejectedSearch}
+                      onChange={(e) => setRejectedSearch(e.target.value)}
+                    />
                   </div>
 
-                  {/* Application Answers */}
-                  <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-                    <h5 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: 'var(--space-2)' }}>Application Form Responses</h5>
-                    {Object.entries(selectedCandidate.answers || {}).map(([key, val]) => (
-                      val && (
-                        <div key={key} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                          <span style={{ color: 'var(--color-text-muted)', minWidth: 120, textTransform: 'capitalize' }}>{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                          <span style={{ fontWeight: 500 }}>
-                            {key === 'cvUrl' && val ? <a href={val} target="_blank" rel="noopener noreferrer" style={{ color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}><Download size={12} /> Download CV</a> : String(val)}
-                          </span>
-                        </div>
-                      )
-                    ))}
-                  </div>
-
-                  {/* Notes & Score */}
-                  <div className="form-group">
-                    <label className="form-label">Review Notes</label>
-                    <textarea className="form-input" rows={3} value={candidateNotes} onChange={(e) => handleNotesChange(e.target.value)} placeholder="Type interview observations or candidate evaluation..." />
-                  </div>
-                  {selectedCandidate.currentStage !== 'final_review' && (
-                    <div className="form-group">
-                      <label className="form-label">Evaluation Rating (1 to 10)</label>
-                      <input
-                        type="number"
-                        className="form-input"
-                        min="1"
-                        max="10"
-                        value={candidateScore}
-                        onChange={(e) => handleScoreChange(e.target.value)}
-                        placeholder="Rate candidate from 1 to 10"
-                      />
+                  {loadingRejected ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
+                      <Loader2 size={20} style={{ animation: 'spin 1s linear infinite' }} />
+                      <span>Loading rejected archive...</span>
+                    </div>
+                  ) : filteredRejectedApplications.length === 0 ? (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
+                      <UserX size={20} style={{ opacity: 0.6 }} />
+                      <span>No rejected applications found.</span>
+                    </div>
+                  ) : (
+                    <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
+                      <table className="hr-roster" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                        <thead>
+                          <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', background: 'var(--color-bg)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                            <th style={{ padding: '0.65rem 0.85rem' }}>CANDIDATE</th>
+                            <th style={{ padding: '0.65rem 0.85rem' }}>COMMITTEE</th>
+                            <th style={{ padding: '0.65rem 0.85rem' }}>DATE</th>
+                            <th style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>ACTIONS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredRejectedApplications.map((app) => (
+                            <tr key={app.id} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
+                              <td style={{ padding: '0.65rem 0.85rem' }}>
+                                <div style={{ fontWeight: 600 }}>{app.answers?.fullName || 'Unknown'}</div>
+                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{app.applicantEmail}</div>
+                              </td>
+                              <td style={{ padding: '0.65rem 0.85rem' }}>
+                                <span className="badge badge-primary">{getCommitteeName(app.committeeId)}</span>
+                              </td>
+                              <td style={{ padding: '0.65rem 0.85rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                                {formatDate(app.submittedAt)}
+                              </td>
+                              <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>
+                                <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-secondary"
+                                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                                    onClick={() => handleOpenCandidate(app)}
+                                  >
+                                    <Eye size={12} /> Details
+                                  </button>
+                                  {app.answers?.cvUrl && (
+                                    <a
+                                      href={app.answers.cvUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="btn btn-secondary"
+                                      style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                                    >
+                                      <Download size={12} /> CV
+                                    </a>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   )}
                 </div>
-                <div className="modal-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {STAGE_NEXT[selectedCandidate.currentStage] && (
-                    <button type="button" className="btn btn-primary" disabled={processingAction} onClick={() => handleAdvanceStage(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
-                      <ArrowRight size={14} /> Move to {STAGE_NEXT[selectedCandidate.currentStage].replace('_', ' ')}
-                    </button>
-                  )}
-                  {selectedCandidate.currentStage === 'final_review' && (
-                    <button type="button" className="btn btn-primary" disabled={processingAction} onClick={() => handleAccept(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#10b981' }}>
-                      <ThumbsUp size={14} /> Accept & Enroll
-                    </button>
-                  )}
-                  <button type="button" className="btn" disabled={processingAction} onClick={() => handleReject(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'var(--color-destructive)', color: '#fff', border: 'none' }}>
-                    <ThumbsDown size={14} /> Reject
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedCandidate(null)}>Close</button>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={() => setShowRejectedModal(false)}>Close</button>
                 </div>
               </div>
             </div>
@@ -876,34 +1049,39 @@ export default function HRStudio() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {/* TAB 3: Direct Roster Management                                    */}
+      {/* TAB 3: Member Management (Direct Add / Remove / Role Change)       */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
-      {activeTab === 'roster' && (
+      {activeTab === 'members' && (
         <>
           <div className="hr-toolbar">
-            <select className="form-input" style={{ width: 'auto', minWidth: 200, fontWeight: 600 }} value={rosterCommitteeId} onChange={(e) => setRosterCommitteeId(e.target.value)}>
+            <select className="form-input" style={{ width: 'auto', minWidth: 200, fontWeight: 600 }} value={memberCommitteeFilter} onChange={(e) => setMemberCommitteeFilter(e.target.value)}>
+              <option value="">All Committees</option>
               {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
             <div className="hr-search-wrap">
               <Search size={15} />
-              <input className="hr-search-input" placeholder="Search members in this committee..." value={rosterSearch} onChange={(e) => setRosterSearch(e.target.value)} />
+              <input className="hr-search-input" placeholder="Search members across branch by name, email, or role..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} />
             </div>
             <button type="button" className="btn btn-primary" onClick={() => setShowAddMember(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <UserPlus size={16} /> Add Member
             </button>
-            <button type="button" className="btn btn-secondary" onClick={loadRoster} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+            <button type="button" className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+              <FileSpreadsheet size={16} /> Export
+            </button>
+            <button type="button" className="btn btn-secondary" onClick={loadMembers} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <RefreshCw size={14} /> Refresh
             </button>
           </div>
 
-          {loadingRoster ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
-              <Loader2 size={28} style={{ animation: 'spin 1s linear infinite' }} /> Loading roster...
+          {loadingMembers ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-12)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span>Loading members...</span>
             </div>
-          ) : filteredRoster.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
-              <Users size={36} style={{ marginBottom: 'var(--space-2)', opacity: 0.5 }} />
-              <p>No members found for this committee.</p>
+          ) : filteredMembers.length === 0 ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-12)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
+              <Users size={20} style={{ opacity: 0.7, flexShrink: 0 }} />
+              <span>No members found matching the search criteria.</span>
             </div>
           ) : (
             <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
@@ -912,16 +1090,20 @@ export default function HRStudio() {
                   <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', background: 'var(--color-bg)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     <th style={{ padding: '0.75rem 1rem' }}>MEMBER</th>
                     <th style={{ padding: '0.75rem 1rem' }}>EMAIL</th>
+                    <th style={{ padding: '0.75rem 1rem' }}>COMMITTEE</th>
                     <th style={{ padding: '0.75rem 1rem' }}>ROLE</th>
                     <th style={{ padding: '0.75rem 1rem' }}>JOINED</th>
                     <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>ACTIONS</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredRoster.map((m) => (
-                    <tr key={m.id || m.externalUserId} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
+                  {filteredMembers.map((m) => (
+                    <tr key={`${m.committeeId}-${m.externalUserId || m.id}`} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
                       <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{m.name || 'Member'}</td>
                       <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>{m.email}</td>
+                      <td style={{ padding: '0.75rem 1rem' }}>
+                        <span className="badge badge-primary">{m.committeeName || getCommitteeName(m.committeeId)}</span>
+                      </td>
                       <td style={{ padding: '0.75rem 1rem' }}>
                         <span className={`hr-status-badge ${m.roleInCommittee === 'lead' ? 'hr-status-badge--open' : 'hr-status-badge--draft'}`}>
                           {m.roleInCommittee}
@@ -930,18 +1112,29 @@ export default function HRStudio() {
                       <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{formatDate(m.createdAt)}</td>
                       <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                          {m.roleInCommittee !== 'lead' ? (
-                            <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => handleChangeRole(m, 'lead')}>
-                              Promote Lead
-                            </button>
-                          ) : (
-                            <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => handleChangeRole(m, 'member')}>
-                              Demote
+                          {/* Promote/Demote only for Officers & Admins */}
+                          {isGlobalAdminOrOfficer && (
+                            m.roleInCommittee !== 'lead' ? (
+                              <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => handleChangeRole(m, 'lead')}>
+                                Promote Lead
+                              </button>
+                            ) : (
+                              <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => handleChangeRole(m, 'member')}>
+                                Demote
+                              </button>
+                            )
+                          )}
+                          {/* Removing lead requires Officer/Admin */}
+                          {(m.roleInCommittee !== 'lead' || isGlobalAdminOrOfficer) && (
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
+                              onClick={() => handleRemoveMember(m)}
+                            >
+                              <UserMinus size={13} /> Remove
                             </button>
                           )}
-                          <button type="button" className="btn" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }} onClick={() => handleRemoveMember(m)}>
-                            <UserMinus size={13} /> Remove
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -951,36 +1144,110 @@ export default function HRStudio() {
             </div>
           )}
 
-          {/* Add Member Modal */}
+          {/* Add Member Modal with User Search Autocomplete */}
           {showAddMember && (
             <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 480 }}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
                 <div className="modal-header">
-                  <h3><UserPlus size={18} /> Add Member to Roster</h3>
+                  <h3><UserPlus size={18} /> Add Members to Committee</h3>
                   <button type="button" className="modal-close" onClick={() => setShowAddMember(false)}><X size={18} /></button>
                 </div>
-                <form onSubmit={handleAddMember}>
+                <form onSubmit={handleBatchAddMembers}>
                   <div className="modal-body">
                     <div className="form-group">
-                      <label className="form-label">User / External ID *</label>
-                      <input className="form-input" value={addMemberData.externalUserId} onChange={(e) => setAddMemberData((p) => ({ ...p, externalUserId: e.target.value }))} placeholder="e.g. 11111111-0000-4000-8000-000000000009" required />
+                      <label className="form-label">Search Registered Portal Users *</label>
+                      <div className="hr-search-wrap">
+                        <Search size={15} />
+                        <input
+                          className="hr-search-input"
+                          placeholder="Type name or email to search..."
+                          value={userSearchQuery}
+                          onChange={(e) => setUserSearchQuery(e.target.value)}
+                        />
+                      </div>
+
+                      {/* Search Results / Selected Users List */}
+                      {searchingUsers && (
+                        <div style={{ textAlign: 'center', padding: 'var(--space-3)', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                          <Loader2 size={16} style={{ animation: 'spin 1s linear infinite', display: 'inline', marginRight: 4 }} /> Searching users...
+                        </div>
+                      )}
+
+                      {userSearchResults.length > 0 && (
+                        <div className="user-picker-list">
+                          {userSearchResults.map((u) => {
+                            const isSelected = selectedUsers.some((item) => item.id === u.id);
+                            return (
+                              <div
+                                key={u.id}
+                                className={`user-picker-item ${isSelected ? 'user-picker-item--selected' : ''}`}
+                                onClick={() => toggleUserSelection(u)}
+                              >
+                                {isSelected ? <CheckSquare size={16} style={{ color: 'var(--color-primary)' }} /> : <Square size={16} style={{ color: 'var(--color-text-subtle)' }} />}
+                                <div>
+                                  <div className="user-picker-item__name">{u.name}</div>
+                                  <div className="user-picker-item__email">{u.email}</div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+
+                      {selectedUsers.length > 0 && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.35rem' }}>
+                            Selected Users ({selectedUsers.length}):
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem' }}>
+                            {selectedUsers.map((u) => (
+                              <span
+                                key={u.id}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.3rem',
+                                  padding: '0.25rem 0.55rem',
+                                  borderRadius: 'var(--radius-md)',
+                                  background: 'var(--color-primary-light)',
+                                  color: 'var(--color-primary)',
+                                  fontSize: '0.8rem',
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {u.name} ({u.email})
+                                <X size={12} style={{ cursor: 'pointer' }} onClick={() => toggleUserSelection(u)} />
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                     </div>
+
                     <div className="form-group">
-                      <label className="form-label">Member Email *</label>
-                      <input type="email" className="form-input" value={addMemberData.email} onChange={(e) => setAddMemberData((p) => ({ ...p, email: e.target.value }))} placeholder="member@ieee.local" required />
+                      <label className="form-label">Assign To Committee *</label>
+                      <select className="form-input" value={targetCommitteeId} onChange={(e) => setTargetCommitteeId(e.target.value)} required>
+                        {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </select>
                     </div>
+
                     <div className="form-group">
                       <label className="form-label">Role in Committee</label>
-                      <select className="form-input" value={addMemberData.roleInCommittee} onChange={(e) => setAddMemberData((p) => ({ ...p, roleInCommittee: e.target.value }))}>
+                      <select className="form-input" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
                         <option value="member">Member</option>
-                        <option value="lead">Lead</option>
+                        {isGlobalAdminOrOfficer && <option value="lead">Lead</option>}
                       </select>
+                      {!isGlobalAdminOrOfficer && targetRole === 'member' && (
+                        <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
+                          Note: Committee Lead role assignment is reserved for Officers.
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="modal-footer">
                     <button type="button" className="btn btn-secondary" onClick={() => setShowAddMember(false)}>Cancel</button>
-                    <button type="submit" className="btn btn-primary" disabled={savingMember}>
-                      {savingMember ? 'Adding...' : 'Add Member'}
+                    <button type="submit" className="btn btn-primary" disabled={savingMembers || selectedUsers.length === 0}>
+                      {savingMembers ? 'Adding...' : `Add ${selectedUsers.length} Member(s)`}
                     </button>
                   </div>
                 </form>
@@ -995,8 +1262,9 @@ export default function HRStudio() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'onboarding' && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 700, marginBottom: 'var(--space-4)' }}>
-            <BarChart3 size={18} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: 'middle' }} /> Recruitment & Onboarding KPIs
+          <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 700, marginBottom: 'var(--space-4)', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}>
+            <BarChart3 size={20} style={{ flexShrink: 0 }} />
+            <span>Recruitment & Onboarding KPIs</span>
           </h3>
 
           {pipelineSummary ? (
@@ -1004,7 +1272,7 @@ export default function HRStudio() {
               <div className="hr-campaign-card">
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Total Applications</div>
                 <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-primary)', marginTop: '0.25rem' }}>
-                  {pipelineSummary.totalApplications || 0}
+                  {pipelineSummary.totals?.applications ?? pipelineSummary.totalApplications ?? 0}
                 </div>
               </div>
               <div className="hr-campaign-card">
@@ -1022,13 +1290,17 @@ export default function HRStudio() {
               <div className="hr-campaign-card">
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>In Pipeline (Active)</div>
                 <div style={{ fontSize: '2rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.25rem' }}>
-                  {(pipelineSummary.stages?.applied || 0) + (pipelineSummary.stages?.screening || 0) + (pipelineSummary.stages?.interview || 0) + (pipelineSummary.stages?.final_review || 0)}
+                  {(pipelineSummary.stages?.applied || 0) +
+                    (pipelineSummary.stages?.screening || 0) +
+                    (pipelineSummary.stages?.interview || 0) +
+                    (pipelineSummary.stages?.finalReview ?? pipelineSummary.stages?.final_review ?? 0)}
                 </div>
               </div>
             </div>
           ) : (
-            <div style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
-              <Loader2 size={24} style={{ animation: 'spin 1s linear infinite' }} /> Loading summary metrics...
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-8)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
+              <Loader2 size={20} style={{ animation: 'spin 1s linear infinite', flexShrink: 0 }} />
+              <span>Loading summary metrics...</span>
             </div>
           )}
 
@@ -1043,6 +1315,103 @@ export default function HRStudio() {
               <li>Welcome & onboarding email notification is dispatched to the candidate's account.</li>
               <li>A personal 4-step onboarding checklist is provisioned on the member's Dashboard.</li>
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Candidate Detail Modal (Floats globally on top of any active list/modal) */}
+      {selectedCandidate && (
+        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={() => setSelectedCandidate(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, margin: 'auto', zIndex: 1201 }}>
+            <div className="modal-header">
+              <h3><Eye size={18} /> Candidate Details</h3>
+              <button type="button" className="modal-close" onClick={() => setSelectedCandidate(null)}><X size={18} /></button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+              <div style={{ marginBottom: 'var(--space-4)' }}>
+                <h4 style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>{selectedCandidate.answers?.fullName || 'Unknown'}</h4>
+                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{selectedCandidate.applicantEmail}</div>
+                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <span className={`hr-status-badge hr-status-badge--${selectedCandidate.currentStage === 'final_review' || selectedCandidate.currentStage === 'accepted' ? 'open' : 'draft'}`}>
+                    {selectedCandidate.currentStage?.replace('_', ' ')}
+                  </span>
+                  <span className="hr-candidate-card__committee">{getCommitteeName(selectedCandidate.committeeId)}</span>
+                </div>
+              </div>
+
+              {/* CV / Resume Download Button */}
+              {selectedCandidate.answers?.cvUrl && (
+                <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <FileText size={20} style={{ color: 'var(--color-primary)' }} />
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{selectedCandidate.answers.cvFileName || 'Applicant_CV.pdf'}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Curriculum Vitae / Resume</div>
+                    </div>
+                  </div>
+                  <a
+                    href={selectedCandidate.answers.cvUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="btn btn-primary"
+                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                  >
+                    <ExternalLink size={13} /> View / Download
+                  </a>
+                </div>
+              )}
+
+              {/* Application Answers */}
+              <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
+                <h5 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: 'var(--space-2)' }}>Application Form Responses</h5>
+                {Object.entries(selectedCandidate.answers || {}).map(([key, val]) => (
+                  val && key !== 'cvUrl' && key !== 'cvFileName' && (
+                    <div key={key} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--color-text-muted)', minWidth: 120, textTransform: 'capitalize' }}>{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
+                      <span style={{ fontWeight: 500 }}>{String(val)}</span>
+                    </div>
+                  )
+                ))}
+              </div>
+
+              {/* Notes & Score */}
+              <div className="form-group">
+                <label className="form-label">Review Notes</label>
+                <textarea className="form-input" rows={3} value={candidateNotes} onChange={(e) => handleNotesChange(e.target.value)} placeholder="Type interview observations or candidate evaluation..." />
+              </div>
+              {selectedCandidate.currentStage !== 'final_review' && selectedCandidate.currentStage !== 'accepted' && (
+                <div className="form-group">
+                  <label className="form-label">Evaluation Rating (1 to 10)</label>
+                  <input
+                    type="number"
+                    className="form-input"
+                    min="1"
+                    max="10"
+                    value={candidateScore}
+                    onChange={(e) => handleScoreChange(e.target.value)}
+                    placeholder="Rate candidate from 1 to 10"
+                  />
+                </div>
+              )}
+            </div>
+            <div className="modal-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+              {STAGE_NEXT[selectedCandidate.currentStage] && (
+                <button type="button" className="btn btn-primary" disabled={processingAction} onClick={() => handleAdvanceStage(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <ArrowRight size={14} /> Move to {STAGE_NEXT[selectedCandidate.currentStage].replace('_', ' ')}
+                </button>
+              )}
+              {selectedCandidate.currentStage === 'final_review' && (
+                <button type="button" className="btn btn-primary" disabled={processingAction} onClick={() => handleAccept(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: '#10b981' }}>
+                  <ThumbsUp size={14} /> Accept & Enroll
+                </button>
+              )}
+              {selectedCandidate.currentStage !== 'rejected' && selectedCandidate.currentStage !== 'accepted' && (
+                <button type="button" className="btn" disabled={processingAction} onClick={() => handleReject(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'var(--color-destructive)', color: '#fff', border: 'none' }}>
+                  <ThumbsDown size={14} /> Reject
+                </button>
+              )}
+              <button type="button" className="btn btn-secondary" onClick={() => setSelectedCandidate(null)}>Close</button>
+            </div>
           </div>
         </div>
       )}

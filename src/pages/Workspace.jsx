@@ -533,6 +533,11 @@ export default function Workspace() {
           setSavingResource(false);
           return;
         }
+        if (selectedFile.size > 10 * 1024 * 1024) {
+          toast.error('File Too Large', 'Maximum resource file size is 10MB.');
+          setSavingResource(false);
+          return;
+        }
 
         setUploadingFile(true);
         const uploadRes = await api.uploadDirectToCloudinary({
@@ -648,6 +653,11 @@ export default function Workspace() {
       let attachmentName = undefined;
 
       if (assignmentAttachmentFile) {
+        if (assignmentAttachmentFile.size > 10 * 1024 * 1024) {
+          toast.error('File Too Large', 'Maximum assignment attachment size is 10MB.');
+          setSavingAssignment(false);
+          return;
+        }
         const uploadRes = await api.uploadDirectToCloudinary({
           file: assignmentAttachmentFile,
           folder: 'resources',
@@ -763,6 +773,10 @@ export default function Workspace() {
     e.preventDefault();
     if (!memberDeliveryModalAssignment || !deliveryFile) {
       toast.error('File Required', 'Please choose a solution file to upload.');
+      return;
+    }
+    if (deliveryFile.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Maximum solution file size is 10MB.');
       return;
     }
 

@@ -25,7 +25,17 @@ import {
   Handshake,
 } from 'lucide-react';
 
+import { useAuthStore } from '../stores/authStore';
+
 export default function Home() {
+  const { user } = useAuthStore();
+  const hasCommitteeAccess = Boolean(
+    user?.scopeType === 'committee' ||
+    user?.committeeId ||
+    (user?.availableScopes && user.availableScopes.some((s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName)) ||
+    ['admin', 'officer'].includes(user?.role)
+  );
+
   const [committees, setCommittees] = useState([]);
   const [announcements, setAnnouncements] = useState([]);
   const [events, setEvents] = useState([]);
@@ -200,10 +210,17 @@ export default function Home() {
             </p>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 'var(--space-4)', flexWrap: 'wrap' }}>
-              <Link to="/about" className="btn btn-primary btn-lg">
-                <span>Meet the Brains</span>
-                <ArrowRight size={18} />
-              </Link>
+              {hasCommitteeAccess ? (
+                <Link to="/dashboard" className="btn btn-primary btn-lg">
+                  <span>Go to Dashboard</span>
+                  <ArrowRight size={18} />
+                </Link>
+              ) : (
+                <Link to="/join" className="btn btn-primary btn-lg">
+                  <span>Join Us</span>
+                  <ArrowRight size={18} />
+                </Link>
+              )}
               <Link to="/committees" className="btn btn-secondary btn-lg">
                 <span>Explore Committees</span>
               </Link>
