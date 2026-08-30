@@ -467,4 +467,97 @@ export const api = {
       method: 'PATCH',
       body: { grade, feedback, status },
     }),
+
+  // ── HR Campaigns ──────────────────────────────────────────────────────────
+  getHRCampaigns: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.status) query.append('status', params.status);
+    const qs = query.toString();
+    return request(`/api/core/hr/campaigns${qs ? `?${qs}` : ''}`);
+  },
+  getOpenCampaigns: () => request('/api/core/hr/campaigns/open'),
+  createHRCampaign: (data) =>
+    request('/api/core/hr/campaigns', {
+      method: 'POST',
+      body: data,
+    }),
+  updateHRCampaign: (campaignId, data) =>
+    request(`/api/core/hr/campaigns/${campaignId}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  updateHRCampaignStatus: (campaignId, status) =>
+    request(`/api/core/hr/campaigns/${campaignId}/status`, {
+      method: 'PATCH',
+      body: { status },
+    }),
+
+  // ── HR Applications ───────────────────────────────────────────────────────
+  getHRApplications: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.campaignId) query.append('campaignId', params.campaignId);
+    if (params.limit) query.append('limit', params.limit);
+    const qs = query.toString();
+    return request(`/api/core/hr/applications${qs ? `?${qs}` : ''}`);
+  },
+  submitHRApplication: (data) =>
+    request('/api/core/hr/applications', {
+      method: 'POST',
+      body: data,
+    }),
+  updateApplicationStage: (applicationId, data) =>
+    request(`/api/core/hr/applications/${applicationId}/stage`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  acceptApplication: (applicationId, data = {}) =>
+    request(`/api/core/hr/applications/${applicationId}/accept`, {
+      method: 'POST',
+      body: data,
+    }),
+  rejectApplication: (applicationId, data = {}) =>
+    request(`/api/core/hr/applications/${applicationId}/reject`, {
+      method: 'POST',
+      body: data,
+    }),
+
+  // ── HR Onboarding ─────────────────────────────────────────────────────────
+  getHROnboarding: (userId) => request(`/api/core/hr/onboarding/${userId}`),
+  updateOnboardingItem: (itemId, status) =>
+    request(`/api/core/hr/onboarding/${itemId}`, {
+      method: 'PATCH',
+      body: { status },
+    }),
+
+  // ── HR Reports ────────────────────────────────────────────────────────────
+  getHRPipelineSummary: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.campaignId) query.append('campaignId', params.campaignId);
+    const qs = query.toString();
+    return request(`/api/core/hr/reports/pipeline-summary${qs ? `?${qs}` : ''}`);
+  },
+  getHRPipelineTimeline: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.campaignId) query.append('campaignId', params.campaignId);
+    if (params.granularity) query.append('granularity', params.granularity);
+    if (params.from) query.append('from', params.from);
+    if (params.to) query.append('to', params.to);
+    const qs = query.toString();
+    return request(`/api/core/hr/reports/pipeline-timeline${qs ? `?${qs}` : ''}`);
+  },
+
+  // ── Roster Management (Direct Add / Remove / Role Change) ─────────────────
+  upsertCommitteeMembership: ({ committeeId, externalUserId, email, roleInCommittee }) =>
+    request(`/api/core/committees/${committeeId}/memberships`, {
+      method: 'POST',
+      body: { externalUserId, email, roleInCommittee },
+    }),
+  removeCommitteeMembership: (committeeId, userId) =>
+    request(`/api/core/committees/${committeeId}/memberships/${userId}`, {
+      method: 'DELETE',
+    }),
 };

@@ -19,6 +19,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
+import Join from './pages/Join';
+import HRStudio from './pages/HRStudio';
 
 function NotFound() {
   return (
@@ -75,6 +77,7 @@ export default function App() {
           <Route path="events" element={<Events />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="gallery" element={<Gallery />} />
+          <Route path="join" element={<Join />} />
           <Route
             path="dashboard"
             element={
@@ -99,9 +102,18 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="hr"
+            element={
+              <ProtectedRoute>
+                <HRStudio />
+              </ProtectedRoute>
+            }
+          />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>
   );
 }
+

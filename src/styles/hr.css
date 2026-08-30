@@ -1,0 +1,858 @@
+/* ==========================================================================
+   HR STUDIO — Styles
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   HR Studio Layout
+   -------------------------------------------------------------------------- */
+.hr-studio {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.hr-studio__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-8);
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.hr-studio__header h1 {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.hr-studio__header h1 svg {
+  color: var(--color-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Tab Navigation
+   -------------------------------------------------------------------------- */
+.hr-tabs {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 2px solid var(--color-border);
+  margin-bottom: var(--space-6);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hr-tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.hr-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.65rem 1.1rem;
+  font-family: var(--font-body);
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: none;
+  background: none;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all var(--transition-fast);
+  white-space: nowrap;
+}
+
+.hr-tab:hover {
+  color: var(--color-text);
+  background: var(--color-card-hover);
+}
+
+.hr-tab--active {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+.hr-tab__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  border-radius: 9999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Campaign Cards
+   -------------------------------------------------------------------------- */
+.hr-campaign-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-4);
+}
+
+.hr-campaign-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  transition: all var(--transition-fast);
+}
+
+.hr-campaign-card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.hr-campaign-card__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  gap: 0.5rem;
+}
+
+.hr-campaign-card__title {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.hr-campaign-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.hr-campaign-card__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.hr-campaign-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* --------------------------------------------------------------------------
+   Pipeline / Kanban Board
+   -------------------------------------------------------------------------- */
+.hr-pipeline {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  min-height: 400px;
+}
+
+@media (max-width: 1024px) {
+  .hr-pipeline {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .hr-pipeline {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hr-pipeline-column {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  min-height: 300px;
+  transition: border-color var(--transition-fast);
+}
+
+.hr-pipeline-column--drag-over {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.hr-pipeline-column__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hr-pipeline-column__title {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.hr-pipeline-column__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.hr-pipeline-column__dot--applied { background: #3b82f6; }
+.hr-pipeline-column__dot--screening { background: #f59e0b; }
+.hr-pipeline-column__dot--interview { background: #8b5cf6; }
+.hr-pipeline-column__dot--final_review { background: #10b981; }
+
+.hr-pipeline-column__count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 9999px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+}
+
+.hr-pipeline-column__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* --------------------------------------------------------------------------
+   Candidate Cards (in Pipeline)
+   -------------------------------------------------------------------------- */
+.hr-candidate-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.hr-candidate-card:hover {
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
+}
+
+.hr-candidate-card__name {
+  font-weight: 700;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+}
+
+.hr-candidate-card__email {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: 0.5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.hr-candidate-card__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.hr-candidate-card__committee {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.45rem;
+  border-radius: 9999px;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+}
+
+.hr-candidate-card__date {
+  font-size: 0.7rem;
+  color: var(--color-text-subtle);
+}
+
+/* --------------------------------------------------------------------------
+   Roster Table
+   -------------------------------------------------------------------------- */
+.hr-roster {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.hr-roster th {
+  text-align: left;
+  padding: 0.75rem 1rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.hr-roster td {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.hr-roster tr:hover td {
+  background: var(--color-card-hover);
+}
+
+.hr-roster__avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+}
+
+.hr-roster__member-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.hr-roster__member-name {
+  font-weight: 600;
+}
+
+.hr-roster__member-email {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+
+.hr-roster__role-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 9999px;
+}
+
+.hr-roster__role-badge--lead {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.hr-roster__role-badge--member {
+  background: var(--color-primary-light);
+  color: var(--color-primary);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   Onboarding Tracker
+   -------------------------------------------------------------------------- */
+.hr-onboarding-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.hr-onboarding-user {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+}
+
+.hr-onboarding-user__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+}
+
+.hr-onboarding-user__name {
+  font-weight: 700;
+  font-size: 0.95rem;
+}
+
+.hr-onboarding-user__progress {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+  font-weight: 600;
+}
+
+.hr-onboarding-progress-bar {
+  width: 100%;
+  height: 6px;
+  border-radius: 9999px;
+  background: var(--color-bg);
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+}
+
+.hr-onboarding-progress-bar__fill {
+  height: 100%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+  transition: width 0.4s ease;
+}
+
+.hr-onboarding-checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.hr-onboarding-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.hr-onboarding-item:hover {
+  background: var(--color-card-hover);
+}
+
+.hr-onboarding-item--done {
+  color: var(--color-text-muted);
+  text-decoration: line-through;
+}
+
+.hr-onboarding-item__check {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 4px;
+  border: 2px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.hr-onboarding-item--done .hr-onboarding-item__check {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: #fff;
+}
+
+/* --------------------------------------------------------------------------
+   Status Badges
+   -------------------------------------------------------------------------- */
+.hr-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  border-radius: 9999px;
+  letter-spacing: 0.03em;
+}
+
+.hr-status-badge--draft {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--color-text-muted);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+}
+
+.hr-status-badge--open {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.hr-status-badge--closed {
+  background: rgba(239, 68, 68, 0.15);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* --------------------------------------------------------------------------
+   Search & Filters Bar
+   -------------------------------------------------------------------------- */
+.hr-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.hr-search-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 0.55rem 0.85rem;
+  padding-left: 2.2rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  transition: border-color var(--transition-fast);
+}
+
+.hr-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.hr-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.hr-search-wrap svg {
+  position: absolute;
+  left: 0.65rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-subtle);
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   Join / Application Wizard
+   -------------------------------------------------------------------------- */
+.join-page {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-4);
+}
+
+.join-page__header {
+  text-align: center;
+  margin-bottom: var(--space-8);
+}
+
+.join-page__header h1 {
+  font-family: var(--font-heading);
+  font-size: 2rem;
+  font-weight: 800;
+  margin-bottom: var(--space-2);
+}
+
+.join-page__header p {
+  color: var(--color-text-muted);
+  font-size: 1.0625rem;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+.join-steps {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  margin-bottom: var(--space-8);
+}
+
+.join-step {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.join-step__circle {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  border: 2px solid var(--color-border);
+  color: var(--color-text-muted);
+  background: var(--color-bg);
+  transition: all var(--transition-fast);
+}
+
+.join-step--active .join-step__circle {
+  border-color: var(--color-primary);
+  color: var(--color-primary-text);
+  background: var(--color-primary);
+}
+
+.join-step--completed .join-step__circle {
+  border-color: var(--color-accent);
+  background: var(--color-accent);
+  color: #fff;
+}
+
+.join-step__connector {
+  width: 2rem;
+  height: 2px;
+  background: var(--color-border);
+  transition: background var(--transition-fast);
+}
+
+.join-step--completed + .join-step .join-step__connector,
+.join-step--completed .join-step__connector {
+  background: var(--color-accent);
+}
+
+.join-card {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-sm);
+}
+
+.join-card__title {
+  font-family: var(--font-heading);
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin-bottom: var(--space-6);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.join-field {
+  margin-bottom: var(--space-4);
+}
+
+.join-field label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text);
+  margin-bottom: var(--space-1);
+}
+
+.join-field__hint {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-1);
+}
+
+.join-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--space-6);
+}
+
+/* --------------------------------------------------------------------------
+   Summary Review Card
+   -------------------------------------------------------------------------- */
+.join-summary {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.join-summary__section {
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+}
+
+.join-summary__section h4 {
+  font-size: 0.8125rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-text-muted);
+  margin-bottom: var(--space-2);
+}
+
+.join-summary__row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
+  font-size: 0.875rem;
+}
+
+.join-summary__label {
+  color: var(--color-text-muted);
+  min-width: 120px;
+  flex-shrink: 0;
+}
+
+.join-summary__value {
+  font-weight: 600;
+}
+
+/* --------------------------------------------------------------------------
+   Confirmation Screen
+   -------------------------------------------------------------------------- */
+.join-confirmation {
+  text-align: center;
+  padding: var(--space-12) var(--space-4);
+}
+
+.join-confirmation__icon {
+  width: 4rem;
+  height: 4rem;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-4);
+}
+
+.join-confirmation h2 {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  font-weight: 800;
+  margin-bottom: var(--space-2);
+}
+
+.join-confirmation p {
+  color: var(--color-text-muted);
+  max-width: 400px;
+  margin: 0 auto var(--space-6);
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+@media (max-width: 768px) {
+  .hr-studio__header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .hr-campaign-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hr-roster th:nth-child(n+4),
+  .hr-roster td:nth-child(n+4) {
+    display: none;
+  }
+
+  .join-card {
+    padding: var(--space-5);
+  }
+
+  .join-steps {
+    gap: 0.1rem;
+  }
+
+  .join-step__connector {
+    width: 1rem;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Drag and Drop Kanban Styles
+   -------------------------------------------------------------------------- */
+.hr-pipeline-column {
+  transition: background var(--transition-fast), border-color var(--transition-fast), transform var(--transition-fast);
+}
+
+.hr-pipeline-column.drag-over {
+  border-color: var(--color-primary) !important;
+  background: var(--color-primary-light, rgba(59, 130, 246, 0.08)) !important;
+  box-shadow: inset 0 0 0 2px var(--color-primary);
+}
+
+.hr-candidate-card {
+  cursor: pointer;
+  user-select: none;
+}
+
+.hr-candidate-card[draggable="true"] {
+  cursor: grab;
+}
+
+.hr-candidate-card[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.hr-candidate-card.dragging {
+  opacity: 0.35;
+  transform: scale(0.96);
+}
+
+/* --------------------------------------------------------------------------
+   Validation Error States & Tag Multi-Select
+   -------------------------------------------------------------------------- */
+.input-error {
+  border-color: var(--color-destructive, #ef4444) !important;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.15) !important;
+}
+
+.field-error-note {
+  font-size: 0.75rem;
+  color: var(--color-destructive, #ef4444);
+  margin-top: 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.committee-tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+}
+
+.committee-tag-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.committee-tag-btn:hover {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.committee-tag-btn--active {
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+  color: #fff !important;
+  font-weight: 600;
+}
+

@@ -18,6 +18,7 @@ import {
   Check,
   Settings,
   Shield,
+  Briefcase,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -64,6 +65,7 @@ export default function Navbar() {
     { to: '/events', label: 'Events' },
     { to: '/announcements', label: 'Announcements' },
     { to: '/gallery', label: 'Gallery' },
+    { to: '/join', label: 'Join Us' },
     { to: '/about', label: 'About' },
   ];
 
@@ -71,6 +73,11 @@ export default function Navbar() {
   const selectableScopes = (user?.availableScopes || []).filter(
     (s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName || (s.role !== 'applicant' && s.role !== 'member')
   );
+
+  // HR Studio access: strictly Global Admin, Global Officer, or HR Committee Lead
+  const isHrAuthorized =
+    (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
+    (user?.role === 'lead' && user?.committeeSlug === 'hr');
 
   const handleScopeSwitch = async (targetScope) => {
     const targetScopeId = targetScope.id || targetScope.scopeId;
@@ -404,6 +411,20 @@ export default function Navbar() {
                       <ChevronRight size={13} className="nav-profile-link__arrow" />
                     </Link>
 
+                    {isHrAuthorized && (
+                      <Link
+                        to="/hr"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="nav-profile-link"
+                      >
+                        <div className="nav-profile-link__left">
+                          <Briefcase size={15} />
+                          <span>HR Studio</span>
+                        </div>
+                        <ChevronRight size={13} className="nav-profile-link__arrow" />
+                      </Link>
+                    )}
+
                     <Link
                       to="/profile"
                       onClick={() => setUserDropdownOpen(false)}
@@ -606,6 +627,20 @@ export default function Navbar() {
                 </div>
                 <ChevronRight size={14} className="nav-profile-link__arrow" />
               </Link>
+              {isHrAuthorized && (
+                <Link
+                  to="/hr"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="nav-profile-link"
+                  style={{ padding: '0.625rem 0.875rem' }}
+                >
+                  <div className="nav-profile-link__left">
+                    <Briefcase size={16} />
+                    <span>HR Studio</span>
+                  </div>
+                  <ChevronRight size={14} className="nav-profile-link__arrow" />
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={handleLogout}

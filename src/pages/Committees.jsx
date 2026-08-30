@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { api } from '../services/api';
+import { useAuthStore } from '../stores/authStore';
 import {
   Cpu,
   Brain,
@@ -11,25 +13,47 @@ import {
   CheckCircle2,
   ArrowUpRight,
   Sparkles,
+  Lock,
 } from 'lucide-react';
 
 export default function Committees() {
+  const { user } = useAuthStore();
   const [committees, setCommittees] = useState([]);
+  const [openCampaigns, setOpenCampaigns] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchCommittees() {
+    async function fetchData() {
       try {
-        const data = await api.getPublicCommittees();
-        setCommittees(data.committees || []);
+        const [commData, campData] = await Promise.all([
+          api.getPublicCommittees(),
+          api.getOpenCampaigns(),
+        ]);
+        setCommittees(commData.committees || []);
+        setOpenCampaigns(campData.campaigns || []);
       } catch (err) {
-        console.error('Failed to load committees:', err);
+        console.error('Failed to load committee data:', err);
       } finally {
         setLoading(false);
       }
     }
-    fetchCommittees();
+    fetchData();
   }, []);
+
+  const userEnrolledCommitteeIds = new Set();
+  if (user?.availableScopes) {
+    user.availableScopes.forEach((s) => {
+      if (s.scopeType === 'committee' && s.scopeId) {
+        userEnrolledCommitteeIds.add(s.scopeId);
+      }
+    });
+  }
+  if (user?.scopeType === 'committee' && user?.scopeId) {
+    userEnrolledCommitteeIds.add(user.scopeId);
+  }
+  if (user?.committeeId) {
+    userEnrolledCommitteeIds.add(user.committeeId);
+  }
 
   const committeeDetails = {
     ras: {
@@ -139,6 +163,14 @@ export default function Committees() {
               tracks: ['Technical Workshop Series', 'Hands-on Projects', 'Peer Mentorship'],
             };
 
+            const isUserEnrolled = userEnrolledCommitteeIds.has(comm.id);
+            const hasOpenCampaign = openCampaigns.some((camp) => {
+              if (camp.committees && camp.committees.length > 0) {
+                return camp.committees.some((c) => c.id === comm.id);
+              }
+              return camp.committeeId === comm.id;
+            });
+
             return (
               <div
                 key={comm.id || slug}
@@ -172,7 +204,11 @@ export default function Committees() {
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: 'var(--space-2)' }}>
                     <span className="badge badge-primary">{slug.toUpperCase()}</span>
-                    <span className="badge badge-accent">ACTIVE</span>
+                    {hasOpenCampaign ? (
+                      <span className="badge badge-accent">RECRUITING NOW</span>
+                    ) : (
+                      <span className="badge badge-secondary" style={{ opacity: 0.8 }}>APPLICATIONS CLOSED</span>
+                    )}
                   </div>
 
                   <h2 style={{ fontSize: '1.75rem', marginBottom: 'var(--space-3)' }}>{detail.name}</h2>
@@ -180,14 +216,35 @@ export default function Committees() {
                     {detail.tagline}
                   </p>
 
-                  <button
-                    type="button"
-                    className="btn btn-primary"
-                    onClick={() => alert(`Recruitment for ${detail.name} opens during annual recruitment season!`)}
-                  >
-                    <span>Apply for {slug.toUpperCase()}</span>
-                    <ArrowUpRight size={18} />
-                  </button>
+                  {isUserEnrolled ? (
+                    <Link
+                      to={`/workspace/${comm.id}`}
+                      className="btn btn-secondary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <span>Go to Workspace</span>
+                      <ArrowUpRight size={18} />
+                    </Link>
+                  ) : hasOpenCampaign ? (
+                    <Link
+                      to={`/join?committee=${slug}`}
+                      className="btn btn-primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <span>Apply for {slug.toUpperCase()}</span>
+                      <ArrowUpRight size={18} />
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn btn-secondary"
+                      disabled
+                      style={{ opacity: 0.6, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                    >
+                      <Lock size={15} />
+                      <span>Applications Closed</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Technical Focus Tracks */}

@@ -26,6 +26,7 @@ import {
   Eye,
   FolderDown,
   X,
+  ListChecks,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
@@ -61,11 +62,19 @@ export default function Dashboard() {
   // Announcement View Modal
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
+  // Onboarding Items State
+  const [onboardingItems, setOnboardingItems] = useState([]);
+  const [updatingOnboardingId, setUpdatingOnboardingId] = useState(null);
+
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      const data = await api.getMyDashboard();
+      const [data, onboardingRes] = await Promise.all([
+        api.getMyDashboard(),
+        api.getHROnboarding('me').catch(() => ({ onboarding: { items: [] } })),
+      ]);
       setDashboardData(data);
+      setOnboardingItems(onboardingRes?.onboarding?.items || []);
     } catch (err) {
       console.error('Failed to load dashboard:', err);
       toast.error('Dashboard Error', err.message || 'Could not load dashboard data.');
@@ -77,6 +86,25 @@ export default function Dashboard() {
   useEffect(() => {
     fetchDashboard();
   }, []);
+
+  const handleToggleOnboarding = async (item) => {
+    const nextStatus = item.status === 'done' ? 'todo' : 'done';
+    setUpdatingOnboardingId(item.id);
+    try {
+      await api.updateOnboardingItem(item.id, nextStatus);
+      setOnboardingItems((prev) =>
+        prev.map((i) => (i.id === item.id ? { ...i, status: nextStatus } : i))
+      );
+      toast.success(
+        'Onboarding Updated',
+        nextStatus === 'done' ? 'Step marked as completed!' : 'Step marked as to-do.'
+      );
+    } catch (err) {
+      toast.error('Update Failed', err.message || 'Failed to update onboarding step.');
+    } finally {
+      setUpdatingOnboardingId(null);
+    }
+  };
 
   const handleTaskStatusChange = async (taskId, newStatus) => {
     setUpdatingTaskId(taskId);
@@ -772,6 +800,89 @@ export default function Dashboard() {
 
         {/* RIGHT / SIDEBAR COLUMN */}
         <div className="dashboard-bento-sidebar">
+          {/* ONBOARDING CHECKLIST (For New Members) */}
+          {onboardingItems.length > 0 && (
+            <div className="dashboard-card" id="onboarding-checklist-card">
+              <div className="dashboard-card__header">
+                <div className="dashboard-card__title-wrap">
+                  <ListChecks size={17} color="var(--color-primary)" />
+                  <h3 className="dashboard-card__title" style={{ fontSize: '0.9375rem' }}>
+                    Onboarding Checklist
+                  </h3>
+                </div>
+                <span className="badge badge-accent" style={{ fontSize: '0.65rem' }}>
+                  {onboardingItems.filter((i) => i.status === 'done').length}/{onboardingItems.length}
+                </span>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ width: '100%', height: '6px', borderRadius: '9999px', background: 'var(--color-bg)', margin: '0.5rem 0 0.85rem', overflow: 'hidden' }}>
+                <div
+                  style={{
+                    height: '100%',
+                    borderRadius: '9999px',
+                    background: 'linear-gradient(90deg, var(--color-primary), var(--color-accent))',
+                    width: `${Math.round((onboardingItems.filter((i) => i.status === 'done').length / onboardingItems.length) * 100)}%`,
+                    transition: 'width 0.4s ease',
+                  }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {onboardingItems.map((item) => {
+                  const isDone = item.status === 'done';
+                  const isUpdating = updatingOnboardingId === item.id;
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => !isUpdating && handleToggleOnboarding(item)}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '0.5rem',
+                        padding: '0.45rem 0.6rem',
+                        borderRadius: 'var(--radius-sm)',
+                        background: 'var(--color-bg)',
+                        border: '1px solid var(--color-border)',
+                        cursor: isUpdating ? 'wait' : 'pointer',
+                        transition: 'all 0.15s ease',
+                        opacity: isUpdating ? 0.6 : 1,
+                      }}
+                    >
+                      <div
+                        style={{
+                          width: '1.15rem',
+                          height: '1.15rem',
+                          borderRadius: '4px',
+                          border: isDone ? 'none' : '2px solid var(--color-border)',
+                          background: isDone ? 'var(--color-accent)' : 'transparent',
+                          color: '#fff',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {isDone && <CheckCircle2 size={13} />}
+                      </div>
+                      <span
+                        style={{
+                          fontSize: '0.8125rem',
+                          fontWeight: 500,
+                          textDecoration: isDone ? 'line-through' : 'none',
+                          color: isDone ? 'var(--color-text-muted)' : 'var(--color-text)',
+                          flex: 1,
+                        }}
+                      >
+                        {item.title}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* ANNOUNCEMENTS STREAM (Global & Committee) */}
           <div className="dashboard-card">
             <div className="dashboard-card__header">
