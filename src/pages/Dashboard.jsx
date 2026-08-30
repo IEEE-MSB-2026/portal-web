@@ -27,6 +27,9 @@ import {
   FolderDown,
   X,
   ListChecks,
+  Users,
+  Camera,
+  Sparkles,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
@@ -253,6 +256,92 @@ export default function Dashboard() {
   const pendingAssignments = dashboardData?.pendingAssignments || [];
   const recentActivity = dashboardData?.recentActivity || [];
   const taskStats = dashboardData?.taskStats || { total: 0, todo: 0, inProgress: 0, done: 0 };
+
+  // Calculate accessible workspaces (Committees + Specialized Studios)
+  const isGlobalAdminOrOfficer =
+    user?.role === 'admin' ||
+    user?.role === 'officer' ||
+    user?.availableScopes?.some((s) => s.role === 'admin' || s.role === 'officer');
+
+  const hrScope = user?.availableScopes?.find(
+    (s) => s.committeeSlug === 'hr' || s.committeeName?.toLowerCase().includes('human resource')
+  );
+  const prScope = user?.availableScopes?.find(
+    (s) => s.committeeSlug === 'pr' || s.committeeName?.toLowerCase().includes('public relation')
+  );
+  const mediaScope = user?.availableScopes?.find(
+    (s) => s.committeeSlug === 'media' || s.committeeName?.toLowerCase().includes('media')
+  );
+  const eventScope = user?.availableScopes?.find(
+    (s) => s.committeeSlug === 'events' || s.committeeSlug === 'ras' || s.committeeSlug === 'ai'
+  );
+
+  const committeeWorkspaces = committees.map((c) => ({
+    id: c.id,
+    name: c.name,
+    slug: c.slug,
+    role: (c.roleInCommittee || c.role_in_committee || 'member').toUpperCase(),
+    type: 'committee',
+    category: 'COMMITTEE WORKSPACE',
+    isCommittee: true,
+    data: c,
+  }));
+
+  const specializedWorkspaces = [];
+
+  if (isGlobalAdminOrOfficer || hrScope) {
+    specializedWorkspaces.push({
+      id: 'workspace-hr-studio',
+      name: 'HR & Talent Studio',
+      slug: 'hr',
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : (hrScope?.role?.toUpperCase() || 'MEMBER'),
+      type: 'studio',
+      category: 'WORKSPACE',
+      path: '/hr',
+      isCommittee: false,
+    });
+  }
+
+  if (isGlobalAdminOrOfficer || prScope) {
+    specializedWorkspaces.push({
+      id: 'workspace-pr-studio',
+      name: 'PR Broadcasts Studio',
+      slug: 'pr',
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : (prScope?.role?.toUpperCase() || 'MEMBER'),
+      type: 'studio',
+      category: 'WORKSPACE',
+      path: '/announcements',
+      isCommittee: false,
+    });
+  }
+
+  if (isGlobalAdminOrOfficer || mediaScope) {
+    specializedWorkspaces.push({
+      id: 'workspace-media-hub',
+      name: 'Media Operations',
+      slug: 'media',
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : (mediaScope?.role?.toUpperCase() || 'MEMBER'),
+      type: 'studio',
+      category: 'WORKSPACE',
+      path: '/gallery',
+      isCommittee: false,
+    });
+  }
+
+  if (isGlobalAdminOrOfficer || eventScope) {
+    specializedWorkspaces.push({
+      id: 'workspace-event-ops',
+      name: 'Operations Hub',
+      slug: 'events',
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'OPERATOR',
+      type: 'studio',
+      category: 'WORKSPACE',
+      path: '/events',
+      isCommittee: false,
+    });
+  }
+
+  const allWorkspaces = [...committeeWorkspaces, ...specializedWorkspaces];
 
   // Determine which assignments to show on dashboard:
   // - If user is Lead in that committee: show active assignment with "Review Submissions"
@@ -729,68 +818,87 @@ export default function Dashboard() {
             )}
           </div>
 
-          {/* MY COMMITTEES GRID */}
-          <div className="dashboard-card" id="my-committees-card">
+          {/* MY WORKSPACES GRID */}
+          <div className="dashboard-card" id="my-workspaces-card">
             <div className="dashboard-card__header">
               <div className="dashboard-card__title-wrap">
-                <Building size={18} color="var(--color-primary)" />
-                <h2 className="dashboard-card__title">My Committees</h2>
+                <Layers size={18} color="var(--color-primary)" />
+                <h2 className="dashboard-card__title">My Workspaces</h2>
               </div>
               <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
-                {committees.length} Assigned
+                {allWorkspaces.length} Accessible
               </span>
             </div>
 
             {loading ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-                {[1, 2].map((n) => (
-                  <div key={n} className="dashboard-shimmer" style={{ height: '90px' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
+                {[1, 2, 3].map((n) => (
+                  <div key={n} className="dashboard-shimmer" style={{ height: '110px' }} />
                 ))}
               </div>
-            ) : committees.length > 0 ? (
-              <div className="dashboard-committee-grid">
-                {committees.map((c) => {
-                  const isSwitching = switchingScopeId === c.id;
-                  const committeeRole = (c.roleInCommittee || c.role_in_committee || 'member').toUpperCase();
+            ) : allWorkspaces.length > 0 ? (
+              <div className="dashboard-workspace-grid">
+                {allWorkspaces.map((w) => {
+                  const isSwitching = switchingScopeId === w.id;
+                  const isStudio = !w.isCommittee;
 
                   return (
-                    <div key={c.id} className="dashboard-committee-card">
-                      <div className="dashboard-committee-card__header">
+                    <div
+                      key={w.id}
+                      className={`dashboard-workspace-card ${isStudio ? 'dashboard-workspace-card--studio' : ''}`}
+                    >
+                      <div className="dashboard-workspace-card__header">
                         <div>
-                          <div className="dashboard-committee-card__name">{c.name}</div>
-                          <div className="dashboard-committee-card__role">
+                          <div className="dashboard-workspace-card__category">
+                            {w.category}
+                          </div>
+                          <div className="dashboard-workspace-card__name">
+                            {w.name}
+                          </div>
+                          <div className="dashboard-workspace-card__role">
                             Role:{' '}
                             <strong style={{ color: 'var(--color-text)' }}>
-                              {committeeRole}
+                              {w.role}
                             </strong>
                           </div>
                         </div>
-                        <span className="badge badge-outline" style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                          {c.slug}
+                        <span className={`badge ${isStudio ? 'badge-accent' : 'badge-outline'}`} style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
+                          {w.slug}
                         </span>
                       </div>
 
-                      <div className="dashboard-committee-card__footer">
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                          Committee Workspace
+                      <div className="dashboard-workspace-card__footer">
+                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+                          {isStudio ? 'Specialized Workspace' : 'Committee Workspace'}
                         </span>
 
-                        <button
-                          type="button"
-                          className="btn btn-outline btn-xs"
-                          disabled={isSwitching}
-                          onClick={() => handleSwitchAndOpen(c)}
-                          style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
-                        >
-                          {isSwitching ? (
-                            'Opening…'
-                          ) : (
-                            <>
-                              <span>Workspace</span>
-                              <ChevronRight size={13} />
-                            </>
-                          )}
-                        </button>
+                        {isStudio ? (
+                          <Link
+                            to={w.path}
+                            className="btn btn-outline btn-xs"
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
+                          >
+                            <span>Workspace</span>
+                            <ChevronRight size={13} />
+                          </Link>
+                        ) : (
+                          <button
+                            type="button"
+                            className="btn btn-outline btn-xs"
+                            disabled={isSwitching}
+                            onClick={() => handleSwitchAndOpen(w.data)}
+                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
+                          >
+                            {isSwitching ? (
+                              'Opening…'
+                            ) : (
+                              <>
+                                <span>Workspace</span>
+                                <ChevronRight size={13} />
+                              </>
+                            )}
+                          </button>
+                        )}
                       </div>
                     </div>
                   );
@@ -798,8 +906,8 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="dashboard-empty">
-                <Building size={32} />
-                <p>You have not been assigned to any committees yet.</p>
+                <Layers size={32} />
+                <p>No active workspaces or committees assigned to your profile yet.</p>
               </div>
             )}
           </div>
