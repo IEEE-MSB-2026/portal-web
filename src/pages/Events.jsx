@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import {
   Calendar,
   MapPin,
@@ -49,6 +50,10 @@ export default function Events() {
   const [submitting, setSubmitting] = useState(false);
   const [ticketResult, setTicketResult] = useState(null);
   const [formError, setFormError] = useState('');
+
+  const registrationModalBackdrop = useBackdropDismiss(() => setRegistrationModalOpen(false), {
+    isOpen: registrationModalOpen,
+  });
 
   useEffect(() => {
     async function loadEvents() {
@@ -323,7 +328,7 @@ export default function Events() {
 
         {/* Interactive Event Registration Modal with Wide bannerUrl Hero */}
         {registrationModalOpen && selectedEvent && (
-          <div className="modal-backdrop" onClick={() => setRegistrationModalOpen(false)}>
+          <div className="modal-backdrop" {...registrationModalBackdrop.getBackdropProps()}>
             <div
               className="modal-content"
               style={{

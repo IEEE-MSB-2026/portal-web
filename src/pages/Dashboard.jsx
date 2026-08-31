@@ -33,6 +33,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import { api } from '../services/api';
 import '../styles/dashboard.css';
 
@@ -64,6 +65,17 @@ export default function Dashboard() {
 
   // Announcement View Modal
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
+
+  // ── Modal Backdrop Dismiss Hooks ─────────────────────────────────────────
+  const deliveryModalBackdrop = useBackdropDismiss(() => setDeliveryModalAssignment(null), {
+    isOpen: !!deliveryModalAssignment,
+  });
+  const submissionsModalBackdrop = useBackdropDismiss(() => setViewingSubmissionsAssignment(null), {
+    isOpen: !!viewingSubmissionsAssignment,
+  });
+  const announcementModalBackdrop = useBackdropDismiss(() => setSelectedAnnouncement(null), {
+    isOpen: !!selectedAnnouncement,
+  });
 
   // Workspace Hub Category Tab Filter ('all' | 'committees' | 'studios')
   const [workspaceCategoryTab, setWorkspaceCategoryTab] = useState('all');
@@ -1285,7 +1297,7 @@ export default function Dashboard() {
 
       {/* 4. ASSIGNMENT DELIVERY MODAL (Member) */}
       {deliveryModalAssignment && (
-        <div className="workspace-modal-overlay" onClick={() => setDeliveryModalAssignment(null)}>
+        <div className="workspace-modal-overlay" {...deliveryModalBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div className="workspace-modal__header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -1369,7 +1381,7 @@ export default function Dashboard() {
 
       {/* 5. REVIEW SUBMISSIONS MODAL (Lead on Dashboard) */}
       {viewingSubmissionsAssignment && (
-        <div className="workspace-modal-overlay" onClick={() => setViewingSubmissionsAssignment(null)}>
+        <div className="workspace-modal-overlay" {...submissionsModalBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
             <div className="workspace-modal__header">
               <div>
@@ -1583,7 +1595,7 @@ export default function Dashboard() {
 
       {/* 6. ANNOUNCEMENT DETAIL MODAL */}
       {selectedAnnouncement && (
-        <div className="workspace-modal-overlay" onClick={() => setSelectedAnnouncement(null)}>
+        <div className="workspace-modal-overlay" {...announcementModalBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '560px' }}>
             <div className="workspace-modal__header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>

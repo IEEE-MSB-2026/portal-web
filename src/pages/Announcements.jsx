@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { api } from '../services/api';
 import { useAuthStore } from '../stores/authStore';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import {
   Megaphone,
   Calendar,
@@ -49,6 +50,10 @@ export default function Announcements() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  const imageLightboxBackdrop = useBackdropDismiss(() => setSelectedImage(null), {
+    isOpen: !!selectedImage,
+  });
 
   useEffect(() => {
     async function fetchAnnouncements() {
@@ -506,7 +511,7 @@ export default function Announcements() {
 
         {/* Shared Lightbox Fullscreen Modal */}
         {selectedImage && (
-          <div className="pr-lightbox-backdrop" onClick={() => setSelectedImage(null)}>
+          <div className="pr-lightbox-backdrop" {...imageLightboxBackdrop.getBackdropProps()}>
             <div className="pr-lightbox-content" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"

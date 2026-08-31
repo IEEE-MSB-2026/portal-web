@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import { api } from '../services/api';
 import '../styles/hr.css';
 import {
@@ -176,6 +177,23 @@ export default function HRStudio() {
 
   // ── Onboarding Tab ────────────────────────────────────────────────────────
   const [pipelineSummary, setPipelineSummary] = useState(null);
+
+  // ── Modal Backdrop Dismiss Hooks ─────────────────────────────────────────
+  const createCampaignBackdrop = useBackdropDismiss(() => setShowCreateCampaign(false), {
+    isOpen: showCreateCampaign,
+  });
+  const editCampaignBackdrop = useBackdropDismiss(() => setEditingCampaign(null), {
+    isOpen: !!editingCampaign,
+  });
+  const rejectedModalBackdrop = useBackdropDismiss(() => setShowRejectedModal(false), {
+    isOpen: showRejectedModal,
+  });
+  const addMemberBackdrop = useBackdropDismiss(() => setShowAddMember(false), {
+    isOpen: showAddMember,
+  });
+  const candidateDetailsBackdrop = useBackdropDismiss(() => setSelectedCandidate(null), {
+    isOpen: !!selectedCandidate,
+  });
 
   // ── Load Committees ───────────────────────────────────────────────────────
   useEffect(() => {
@@ -793,7 +811,7 @@ export default function HRStudio() {
 
           {/* Create Campaign Modal */}
           {showCreateCampaign && (
-            <div className="modal-overlay" onClick={() => setShowCreateCampaign(false)}>
+            <div className="modal-overlay" {...createCampaignBackdrop.getBackdropProps()}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
                 <div className="modal-header">
                   <h3><Plus size={18} /> New Recruitment Campaign</h3>
@@ -861,7 +879,7 @@ export default function HRStudio() {
 
           {/* Edit Campaign Modal */}
           {editingCampaign && (
-            <div className="modal-overlay" onClick={() => setEditingCampaign(null)}>
+            <div className="modal-overlay" {...editCampaignBackdrop.getBackdropProps()}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
                 <div className="modal-header">
                   <h3><Edit2 size={18} /> Edit Recruitment Campaign</h3>
@@ -1025,7 +1043,7 @@ export default function HRStudio() {
 
           {/* Dedicated Rejected Applications Modal */}
           {showRejectedModal && (
-            <div className="modal-overlay" onClick={() => setShowRejectedModal(false)}>
+            <div className="modal-overlay" {...rejectedModalBackdrop.getBackdropProps()}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
                 <div className="modal-header">
                   <h3><UserX size={18} style={{ color: 'var(--color-danger, #ef4444)' }} /> Rejected Applications</h3>
@@ -1491,7 +1509,7 @@ export default function HRStudio() {
 
           {/* Add Member Modal with User Search Autocomplete */}
           {showAddMember && (
-            <div className="modal-overlay" onClick={() => setShowAddMember(false)}>
+            <div className="modal-overlay" {...addMemberBackdrop.getBackdropProps()}>
               <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 520 }}>
                 <div className="modal-header">
                   <h3><UserPlus size={18} /> Add Members to Committee</h3>
@@ -1667,7 +1685,7 @@ export default function HRStudio() {
 
       {/* Candidate Detail Modal (Floats globally on top of any active list/modal) */}
       {selectedCandidate && (
-        <div className="modal-overlay" style={{ zIndex: 1200 }} onClick={() => setSelectedCandidate(null)}>
+        <div className="modal-overlay" style={{ zIndex: 1200 }} {...candidateDetailsBackdrop.getBackdropProps()}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, margin: 'auto', zIndex: 1201 }}>
             <div className="modal-header">
               <h3><Eye size={18} /> Candidate Details</h3>

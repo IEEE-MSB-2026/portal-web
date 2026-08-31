@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../services/api';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import { Image as ImageIcon, Sparkles, Folder, X, ChevronLeft, ChevronRight, Eye } from 'lucide-react';
 
 export default function Gallery() {
@@ -7,6 +8,10 @@ export default function Gallery() {
   const [loading, setLoading] = useState(true);
   const [activeAlbum, setActiveAlbum] = useState(null);
   const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+  const albumModalBackdrop = useBackdropDismiss(() => setActiveAlbum(null), {
+    isOpen: !!activeAlbum,
+  });
 
   useEffect(() => {
     async function fetchAlbums() {
@@ -113,7 +118,7 @@ export default function Gallery() {
 
         {/* Album Lightbox Modal */}
         {activeAlbum && (
-          <div className="modal-backdrop" onClick={() => setActiveAlbum(null)}>
+          <div className="modal-backdrop" {...albumModalBackdrop.getBackdropProps()}>
             <div
               className="modal-content"
               style={{ maxWidth: '850px', maxHeight: '90vh' }}

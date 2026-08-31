@@ -51,6 +51,7 @@ import {
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
+import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import { api } from '../services/api';
 import '../styles/workspace.css';
 
@@ -157,6 +158,38 @@ export default function Workspace() {
 
   // Roster Search state
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
+
+  // ── Modal Backdrop Dismiss Hooks ─────────────────────────────────────────
+  const createAssignmentBackdrop = useBackdropDismiss(() => setCreateAssignmentModalOpen(false), {
+    isOpen: createAssignmentModalOpen,
+  });
+  const viewSubmissionsBackdrop = useBackdropDismiss(() => setViewingSubmissionsAssignment(null), {
+    isOpen: !!viewingSubmissionsAssignment,
+  });
+  const memberDeliveryBackdrop = useBackdropDismiss(() => setMemberDeliveryModalAssignment(null), {
+    isOpen: !!memberDeliveryModalAssignment,
+  });
+  const createAnnouncementBackdrop = useBackdropDismiss(() => setCreateAnnouncementModalOpen(false), {
+    isOpen: createAnnouncementModalOpen,
+  });
+  const taskDetailsBackdrop = useBackdropDismiss(() => setSelectedTaskDetails(null), {
+    isOpen: !!selectedTaskDetails,
+  });
+  const createTaskBackdrop = useBackdropDismiss(() => setCreateTaskModalOpen(false), {
+    isOpen: createTaskModalOpen,
+  });
+  const editTaskBackdrop = useBackdropDismiss(() => setEditTaskModalOpen(false), {
+    isOpen: editTaskModalOpen,
+  });
+  const deleteConfirmBackdrop = useBackdropDismiss(() => setDeleteConfirmModalOpen(false), {
+    isOpen: deleteConfirmModalOpen,
+  });
+  const addResourceBackdrop = useBackdropDismiss(() => setAddResourceModalOpen(false), {
+    isOpen: addResourceModalOpen,
+  });
+  const editResourceBackdrop = useBackdropDismiss(() => setEditingResource(null), {
+    isOpen: !!editingResource,
+  });
 
   // Active committee ID resolution (supports query param ?committee=<id> for follow-up navigation)
   const queryCommitteeId = searchParams.get('committee') || searchParams.get('committeeId');
@@ -2115,7 +2148,7 @@ export default function Workspace() {
 
       {/* 9. CREATE / EDIT ASSIGNMENT MODAL (Lead) */}
       {createAssignmentModalOpen && (
-        <div className="workspace-modal-overlay" onClick={() => setCreateAssignmentModalOpen(false)}>
+        <div className="workspace-modal-overlay" {...createAssignmentBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
               <h3 className="workspace-modal__title">
@@ -2257,7 +2290,7 @@ export default function Workspace() {
 
       {/* 10. SUBMISSIONS REVIEW MODAL (Lead) */}
       {viewingSubmissionsAssignment && (
-        <div className="workspace-modal-overlay" onClick={() => setViewingSubmissionsAssignment(null)}>
+        <div className="workspace-modal-overlay" {...viewSubmissionsBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '680px' }}>
             <div className="workspace-modal__header">
               <div>
@@ -2462,7 +2495,7 @@ export default function Workspace() {
 
       {/* 11. MEMBER DELIVER ASSIGNMENT MODAL */}
       {memberDeliveryModalAssignment && (
-        <div className="workspace-modal-overlay" onClick={() => setMemberDeliveryModalAssignment(null)}>
+        <div className="workspace-modal-overlay" {...memberDeliveryBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div className="workspace-modal__header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -2540,7 +2573,7 @@ export default function Workspace() {
 
       {/* 12. CREATE COMMITTEE ANNOUNCEMENT MODAL (Lead) */}
       {createAnnouncementModalOpen && (
-        <div className="workspace-modal-overlay" onClick={() => setCreateAnnouncementModalOpen(false)}>
+        <div className="workspace-modal-overlay" {...createAnnouncementBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '520px' }}>
             <div className="workspace-modal__header">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -2625,7 +2658,7 @@ export default function Workspace() {
 
       {/* 13. TASK DETAILS MODAL */}
       {selectedTaskDetails && (
-        <div className="workspace-modal-overlay" onClick={() => setSelectedTaskDetails(null)}>
+        <div className="workspace-modal-overlay" {...taskDetailsBackdrop.getBackdropProps()}>
           <div
             className="workspace-modal workspace-modal--details"
             onClick={(e) => e.stopPropagation()}
@@ -2809,7 +2842,7 @@ export default function Workspace() {
 
       {/* 14. CREATE TASK MODAL */}
       {createTaskModalOpen && (
-        <div className="workspace-modal-overlay" onClick={() => setCreateTaskModalOpen(false)}>
+        <div className="workspace-modal-overlay" {...createTaskBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
               <h3 className="workspace-modal__title">Create Committee Task</h3>
@@ -2922,7 +2955,7 @@ export default function Workspace() {
 
       {/* 15. EDIT TASK MODAL */}
       {editTaskModalOpen && (
-        <div className="workspace-modal-overlay" onClick={() => setEditTaskModalOpen(false)}>
+        <div className="workspace-modal-overlay" {...editTaskBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
               <h3 className="workspace-modal__title">Edit Committee Task</h3>
@@ -3029,7 +3062,7 @@ export default function Workspace() {
 
       {/* 16. DELETE TASK CONFIRM MODAL */}
       {deleteConfirmModalOpen && (
-        <div className="workspace-modal-overlay" onClick={() => setDeleteConfirmModalOpen(false)}>
+        <div className="workspace-modal-overlay" {...deleteConfirmBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '440px' }}>
             <div className="workspace-modal__header">
               <h3 className="workspace-modal__title">Delete Task</h3>
@@ -3070,7 +3103,7 @@ export default function Workspace() {
 
       {/* 17. ADD RESOURCE MODAL (Dual File Upload / Link) */}
       {addResourceModalOpen && (
-        <div className="workspace-modal-overlay" onClick={() => setAddResourceModalOpen(false)}>
+        <div className="workspace-modal-overlay" {...addResourceBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
               <h3 className="workspace-modal__title">Add Committee Resource</h3>
@@ -3186,7 +3219,7 @@ export default function Workspace() {
 
       {/* 18. EDIT RESOURCE MODAL */}
       {editingResource && (
-        <div className="workspace-modal-overlay" onClick={() => setEditingResource(null)}>
+        <div className="workspace-modal-overlay" {...editResourceBackdrop.getBackdropProps()}>
           <div className="workspace-modal" onClick={(e) => e.stopPropagation()}>
             <div className="workspace-modal__header">
               <h3 className="workspace-modal__title">Edit Committee Resource</h3>
