@@ -241,33 +241,7 @@ export default function Join() {
 
   // ── Not authenticated ────────────────────────────────────────────────────
   if (!isAuthenticated) {
-    return (
-      <div className="join-page">
-        <div className="join-page__header">
-          <h1>Join IEEE MSB</h1>
-          <p>Create an account or log in to submit your application to one of our technical committees.</p>
-        </div>
-        <div className="join-card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-4)' }}>
-            <LogIn size={28} />
-          </div>
-          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.35rem', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
-            Authentication Required
-          </h2>
-          <p style={{ color: 'var(--color-text-muted)', maxWidth: 360, margin: '0 auto var(--space-6)' }}>
-            You need to be logged in to submit a recruitment application.
-          </p>
-          <div style={{ display: 'flex', gap: 'var(--space-3)', justifyContent: 'center' }}>
-            <Link to="/login" className="btn btn-primary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-              <LogIn size={16} /> Log In
-            </Link>
-            <Link to="/register" className="btn btn-secondary" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-              Register
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   // ── Submitted confirmation ────────────────────────────────────────────────

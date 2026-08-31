@@ -78,7 +78,14 @@ export default function App() {
           <Route path="events" element={<Events />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="gallery" element={<Gallery />} />
-          <Route path="join" element={<Join />} />
+          <Route
+            path="join"
+            element={
+              <ProtectedRoute>
+                <Join />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="dashboard"
             element={
