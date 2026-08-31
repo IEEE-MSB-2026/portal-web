@@ -72,7 +72,18 @@ export default function Workspace() {
 
   const setActiveTab = (newTab) => {
     setActiveTabState(newTab);
-    setSearchParams(newTab === 'kanban' ? {} : { tab: newTab }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTab === 'kanban') {
+          next.delete('tab');
+        } else {
+          next.set('tab', newTab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
   };
   const [workspaceData, setWorkspaceData] = useState(null);
   const [archivedTasks, setArchivedTasks] = useState([]);

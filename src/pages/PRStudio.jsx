@@ -285,7 +285,18 @@ export default function PRStudio() {
 
   const setActiveTab = (newTab) => {
     setActiveTabState(newTab);
-    setSearchParams(newTab === 'announcements' ? {} : { tab: newTab }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTab === 'announcements') {
+          next.delete('tab');
+        } else {
+          next.set('tab', newTab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
   };
   const [committees, setCommittees] = useState([]);
 

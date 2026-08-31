@@ -48,7 +48,18 @@ export default function Profile() {
 
   const handleTabChange = (newTab) => {
     setActiveTab(newTab);
-    setSearchParams(newTab === 'settings' ? { tab: 'settings' } : {});
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTab === 'settings') {
+          next.set('tab', 'settings');
+        } else {
+          next.delete('tab');
+        }
+        return next;
+      },
+      { replace: true }
+    );
   };
 
   // Stats data

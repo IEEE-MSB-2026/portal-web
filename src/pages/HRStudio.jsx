@@ -111,7 +111,18 @@ export default function HRStudio() {
 
   const setActiveTab = (newTab) => {
     setActiveTabState(newTab);
-    setSearchParams(newTab === 'campaigns' ? {} : { tab: newTab }, { replace: true });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (newTab === 'campaigns') {
+          next.delete('tab');
+        } else {
+          next.set('tab', newTab);
+        }
+        return next;
+      },
+      { replace: true }
+    );
   };
 
   // ── Campaigns Tab ─────────────────────────────────────────────────────────
@@ -448,7 +459,6 @@ export default function HRStudio() {
         toast.success('Application Rejected', `${candidate.answers?.fullName || 'Applicant'} rejected.`);
       } else {
         await api.updateApplicationStage(candidate.id, { stage: targetStage });
-        toast.success('Stage Updated', `Moved to ${targetStage.replace('_', ' ')}.`);
       }
       loadApplications();
     } catch (err) {
