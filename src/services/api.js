@@ -340,6 +340,7 @@ export const api = {
 
   // Public Catalog
   getPublicCommittees: () => request('/api/core/public/committees'),
+  getCommittees: () => request('/api/core/public/committees'),
   getPublicAnnouncements: (params = {}) => {
     const query = new URLSearchParams();
     if (params.category && params.category !== 'All') query.append('category', params.category);
@@ -600,6 +601,7 @@ export const api = {
   getPRCampaigns: (params = {}) => {
     const query = new URLSearchParams();
     if (params.status) query.append('status', params.status);
+    if (params.includeArchived) query.append('includeArchived', 'true');
     if (params.segmentType) query.append('segmentType', params.segmentType);
     if (params.committeeId) query.append('committeeId', params.committeeId);
     if (params.limit) query.append('limit', params.limit);
@@ -620,8 +622,27 @@ export const api = {
     request(`/api/core/pr/campaigns/${id}/send`, {
       method: 'POST',
     }),
+  archivePRCampaign: (id) =>
+    request(`/api/core/pr/campaigns/${id}/archive`, {
+      method: 'POST',
+    }),
+  unarchivePRCampaign: (id) =>
+    request(`/api/core/pr/campaigns/${id}/unarchive`, {
+      method: 'POST',
+    }),
+  duplicatePRCampaign: (id) =>
+    request(`/api/core/pr/campaigns/${id}/duplicate`, {
+      method: 'POST',
+    }),
   deletePRCampaign: (id) =>
     request(`/api/core/pr/campaigns/${id}`, {
       method: 'DELETE',
     }),
+  previewPRCampaignRecipients: (data) =>
+    request('/api/core/pr/campaigns/recipients-preview', {
+      method: 'POST',
+      body: data,
+    }),
+  getPRCampaignDeliveryLogs: (id) =>
+    request(`/api/core/pr/campaigns/${id}/delivery-logs`),
 };
