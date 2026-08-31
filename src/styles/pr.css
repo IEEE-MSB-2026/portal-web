@@ -230,6 +230,116 @@
   box-shadow: var(--shadow-md);
 }
 
+/* Announcements Public Feed Responsive 3-Column Grid */
+.pr-portal-feed-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: var(--space-6);
+  align-items: stretch;
+}
+
+@media (max-width: 768px) {
+  .pr-portal-feed-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-4);
+  }
+}
+
+.pr-portal-feed-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  position: relative;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.22s ease;
+}
+
+.pr-portal-feed-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--color-border-hover);
+  box-shadow: var(--shadow-lg);
+}
+
+.pr-portal-feed-card--pinned {
+  border-left: 3px solid var(--color-primary);
+  box-shadow: 0 4px 20px -4px rgba(0, 98, 155, 0.2);
+}
+
+.pr-portal-feed-card__banner {
+  width: 100%;
+  height: 200px;
+  background: var(--color-surface-hover);
+  position: relative;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.pr-portal-feed-card__banner img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  transition: transform 0.35s ease;
+}
+
+.pr-portal-feed-card:hover .pr-portal-feed-card__banner img {
+  transform: scale(1.03);
+}
+
+.pr-portal-feed-card__body {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+.pr-portal-feed-card__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.pr-portal-feed-card__title {
+  font-size: 1.1875rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: var(--color-text);
+  margin-bottom: var(--space-2);
+  transition: color 0.15s ease;
+}
+
+.pr-portal-feed-card:hover .pr-portal-feed-card__title {
+  color: var(--color-primary);
+}
+
+.pr-portal-feed-card__excerpt {
+  color: var(--color-text-muted);
+  font-size: 0.90625rem;
+  line-height: 1.6;
+  white-space: pre-line;
+  margin-bottom: var(--space-4);
+  flex: 1;
+}
+
+.pr-portal-feed-card__footer {
+  margin-top: auto;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
 .pr-announcement-card__banner {
   width: 100%;
   height: 200px;
@@ -294,14 +404,13 @@
   left: 0.75rem;
   background: #f59e0b;
   color: #000000;
-  font-size: 0.7rem;
-  font-weight: 800;
-  padding: 0.2rem 0.55rem;
-  border-radius: 9999px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
   z-index: 2;
 }
 
@@ -311,21 +420,34 @@
   right: 0.75rem;
   font-size: 0.7rem;
   font-weight: 700;
-  padding: 0.2rem 0.55rem;
+  padding: 0.2rem 0.6rem;
   border-radius: 9999px;
   backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .pr-announcement-card__visibility-badge--public {
-  background: rgba(16, 185, 129, 0.9);
+  background: #10b981;
   color: #ffffff;
 }
 
 .pr-announcement-card__visibility-badge--internal {
-  background: rgba(30, 41, 59, 0.85);
+  background: rgba(15, 23, 42, 0.92);
   color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.pr-uploader-file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem 0.85rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  gap: 0.5rem;
 }
 
 .pr-announcement-card__body {
@@ -665,12 +787,12 @@
    -------------------------------------------------------------------------- */
 .pr-composer-split {
   display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
+  grid-template-columns: 1fr 425px;
   gap: 1.5rem;
   align-items: start;
 }
 
-@media (max-width: 860px) {
+@media (max-width: 960px) {
   .pr-composer-split {
     grid-template-columns: 1fr;
   }
@@ -686,6 +808,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.85rem;
+  width: 100%;
 }
 
 .pr-composer-preview-header {

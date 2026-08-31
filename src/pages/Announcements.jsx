@@ -133,7 +133,7 @@ export default function Announcements() {
 
   return (
     <div className="section" style={{ minHeight: '80vh' }}>
-      <div className="container container-narrow">
+      <div className="container">
         {/* Section Header */}
         <div className="section-title-wrap" style={{ textAlign: 'center', marginBottom: 'var(--space-8)' }}>
           <div className="section-badge" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.375rem' }}>
@@ -146,7 +146,7 @@ export default function Announcements() {
           </p>
         </div>
 
-        {/* Filter & Search Bar */}
+        {/* Filter & Search Toolbar */}
         <div
           className="bento-card"
           style={{
@@ -240,42 +240,51 @@ export default function Announcements() {
             })}
           </div>
 
-          {/* Visibility Filter Pills (Team Members with Dashboard Access Only) */}
-          {hasDashboardAccess && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.5rem',
-                paddingTop: '0.5rem',
-                borderTop: '1px solid var(--color-border)',
-                flexWrap: 'wrap',
-              }}
-            >
-              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginRight: '0.25rem' }}>
-                <Filter size={13} />
-                <span>Audience Visibility:</span>
-              </span>
-              {[
-                { id: 'All', label: 'All Announcements' },
-                { id: 'public', label: 'Public Only' },
-                { id: 'internal', label: 'Internal (Team Only)' },
-              ].map((vis) => {
-                const isActive = selectedVisibility === vis.id;
-                return (
-                  <button
-                    key={vis.id}
-                    type="button"
-                    onClick={() => setSelectedVisibility(vis.id)}
-                    className={`btn btn-xs ${isActive ? 'btn-primary' : 'btn-outline'}`}
-                    style={{ borderRadius: 'var(--radius-full)', fontSize: '0.75rem', padding: '0.2rem 0.65rem' }}
-                  >
-                    {vis.label}
-                  </button>
-                );
-              })}
+          {/* Visibility Filter Bar + Results Counter */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              paddingTop: '0.75rem',
+              borderTop: '1px solid var(--color-border)',
+              flexWrap: 'wrap',
+              gap: '0.65rem',
+            }}
+          >
+            {hasDashboardAccess ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginRight: '0.25rem' }}>
+                  <Filter size={13} />
+                  <span>Audience Visibility:</span>
+                </span>
+                {[
+                  { id: 'All', label: 'All Announcements' },
+                  { id: 'public', label: 'Public Only' },
+                  { id: 'internal', label: 'Internal (Team Only)' },
+                ].map((vis) => {
+                  const isActive = selectedVisibility === vis.id;
+                  return (
+                    <button
+                      key={vis.id}
+                      type="button"
+                      onClick={() => setSelectedVisibility(vis.id)}
+                      className={`btn btn-xs ${isActive ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ borderRadius: 'var(--radius-full)', fontSize: '0.75rem', padding: '0.2rem 0.65rem' }}
+                    >
+                      {vis.label}
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div />
+            )}
+
+            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
+              Showing <strong style={{ color: 'var(--color-text)' }}>{filteredAnnouncements.length}</strong> {filteredAnnouncements.length === 1 ? 'announcement' : 'announcements'}
             </div>
-          )}
+          </div>
         </div>
 
         {/* Loading State */}
@@ -346,9 +355,9 @@ export default function Announcements() {
           </div>
         )}
 
-        {/* Announcements Feed */}
+        {/* Responsive 3-Column Grid Feed */}
         {!loading && !error && filteredAnnouncements.length > 0 && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
+          <div className="pr-portal-feed-grid">
             {filteredAnnouncements.map((ann) => {
               const isPinned = Boolean(ann.isPinned);
               const isInternal = ann.visibility === 'internal';
@@ -357,37 +366,43 @@ export default function Announcements() {
                 <article
                   key={ann.id}
                   id={ann.id}
-                  className="bento-card"
-                  style={{
-                    padding: 0,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    borderLeft: isPinned ? '3px solid var(--color-primary)' : undefined,
-                    boxShadow: isPinned ? '0 0 20px -5px rgba(0, 98, 155, 0.25)' : undefined,
-                    transition: 'transform 0.2s ease, box-shadow 0.2s ease',
-                  }}
+                  className={`pr-portal-feed-card ${isPinned ? 'pr-portal-feed-card--pinned' : ''}`}
                 >
-                  {/* Fixed-Height Centered Banner Header (matching PR Studio card live preview) */}
-                  {ann.imageUrl && (
-                    <div
-                      className="pr-announcement-card__banner"
-                      style={{
-                        height: '220px',
-                        cursor: 'pointer',
-                        borderRadius: 0,
-                        backgroundColor: 'var(--color-surface)',
-                      }}
-                      onClick={() => setSelectedImage(ann.imageUrl)}
-                      title="Click to view full resolution banner"
-                    >
+                  {/* Fixed-Height 200px Banner (Image or Default Placeholder) */}
+                  <div
+                    className="pr-portal-feed-card__banner"
+                    style={{ cursor: ann.imageUrl ? 'pointer' : 'default' }}
+                    onClick={() => {
+                      if (ann.imageUrl) setSelectedImage(ann.imageUrl);
+                    }}
+                    title={ann.imageUrl ? 'Click to view full resolution banner' : undefined}
+                  >
+                    {ann.imageUrl ? (
                       <img
                         src={ann.imageUrl}
                         alt={ann.title}
                         loading="lazy"
-                        className="pr-announcement-card__img"
                       />
+                    ) : (
+                      <div className="pr-announcement-card__placeholder-banner">
+                        <Megaphone size={32} style={{ opacity: 0.4 }} />
+                      </div>
+                    )}
 
-                      {/* Enlarge Banner Action Capsule */}
+                    {/* Top-Left Pinned Badge */}
+                    {isPinned && (
+                      <div className="pr-announcement-card__pinned-badge" title="Pinned Announcement">
+                        <Pin size={13} style={{ transform: 'rotate(45deg)' }} />
+                      </div>
+                    )}
+
+                    {/* Top-Right Visibility Badge */}
+                    <div className={`pr-announcement-card__visibility-badge pr-announcement-card__visibility-badge--${ann.visibility || 'public'}`}>
+                      {ann.visibility === 'public' ? 'Public' : 'Internal'}
+                    </div>
+
+                    {/* Bottom-Right Enlarge Banner Action Pill Button */}
+                    {ann.imageUrl && (
                       <button
                         type="button"
                         className="pr-announcement-card__enlarge-btn"
@@ -397,78 +412,36 @@ export default function Announcements() {
                         }}
                         title="Click to zoom image in full screen"
                       >
-                        <ZoomIn size={13} />
+                        <ZoomIn size={12} />
                         <span>Enlarge Banner</span>
                       </button>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
                   {/* Card Main Body */}
-                  <div style={{ padding: 'var(--space-6)' }}>
-                    {/* Top Bar: Badges + Timestamp + Actions */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        flexWrap: 'wrap',
-                        gap: '0.5rem',
-                        marginBottom: 'var(--space-3)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {isPinned && (
-                          <span
-                            className="badge badge-accent"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '0.25rem',
-                              fontWeight: 700,
-                              letterSpacing: '0.04em',
-                            }}
-                          >
-                            <Pin size={12} style={{ transform: 'rotate(45deg)' }} />
-                            PINNED
-                          </span>
-                        )}
+                  <div className="pr-portal-feed-card__body">
+                    {/* Top Meta Bar: Category + Date + Share */}
+                    <div className="pr-portal-feed-card__meta">
+                      <span className={`badge ${getCategoryBadgeClass(ann.category)}`} style={{ fontSize: '0.71875rem' }}>
+                        {ann.category || 'General'}
+                      </span>
 
-                        <span className={`badge ${getCategoryBadgeClass(ann.category)}`}>
-                          {ann.category || 'General'}
-                        </span>
-
-                        {isInternal && (
-                          <span
-                            className="badge"
-                            style={{
-                              backgroundColor: 'rgba(245, 158, 11, 0.15)',
-                              color: 'var(--color-warning)',
-                              border: '1px solid rgba(245, 158, 11, 0.35)',
-                              fontWeight: 700,
-                              fontSize: '0.71875rem',
-                            }}
-                          >
-                            INTERNAL (TEAM)
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <div
                           style={{
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '0.375rem',
-                            fontSize: '0.8125rem',
+                            gap: '0.3rem',
+                            fontSize: '0.75rem',
                             color: 'var(--color-text-muted)',
                           }}
                         >
-                          <Calendar size={13} />
+                          <Calendar size={12} />
                           <span>
                             {new Date(ann.createdAt).toLocaleDateString(undefined, {
-                              year: 'numeric',
                               month: 'short',
                               day: 'numeric',
+                              year: 'numeric',
                             })}
                           </span>
                         </div>
@@ -477,18 +450,18 @@ export default function Announcements() {
                         <button
                           type="button"
                           onClick={() => handleCopyLink(ann.id)}
-                          className="btn btn-ghost btn-sm"
-                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', gap: '0.25rem' }}
+                          className="btn btn-ghost btn-xs"
+                          style={{ padding: '0.2rem 0.45rem', fontSize: '0.71875rem', gap: '0.25rem' }}
                           title="Copy direct link to this announcement"
                         >
                           {copiedId === ann.id ? (
                             <>
-                              <Check size={13} style={{ color: 'var(--color-success)' }} />
+                              <Check size={12} style={{ color: 'var(--color-success)' }} />
                               <span style={{ color: 'var(--color-success)' }}>Copied</span>
                             </>
                           ) : (
                             <>
-                              <Share2 size={13} />
+                              <Share2 size={12} />
                               <span>Share</span>
                             </>
                           )}
@@ -497,46 +470,20 @@ export default function Announcements() {
                     </div>
 
                     {/* Announcement Title */}
-                    <h2
-                      style={{
-                        fontSize: '1.375rem',
-                        fontWeight: 700,
-                        lineHeight: 1.35,
-                        marginBottom: ann.body ? 'var(--space-3)' : 'var(--space-4)',
-                        color: 'var(--color-text)',
-                      }}
-                    >
+                    <h2 className="pr-portal-feed-card__title" title={ann.title}>
                       {ann.title}
                     </h2>
 
-                    {/* Announcement Body (Optional) */}
+                    {/* Announcement Body / Excerpt (Optional) */}
                     {ann.body && (
-                      <p
-                        style={{
-                          color: 'var(--color-text-muted)',
-                          fontSize: '0.9875rem',
-                          lineHeight: 1.65,
-                          whiteSpace: 'pre-line',
-                          marginBottom: 'var(--space-5)',
-                        }}
-                      >
+                      <p className="pr-portal-feed-card__excerpt">
                         {ann.body}
                       </p>
                     )}
 
                     {/* Author Signature Footer */}
-                    <div
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        paddingTop: 'var(--space-3)',
-                        borderTop: '1px solid var(--color-border)',
-                        fontSize: '0.8125rem',
-                        color: 'var(--color-text-muted)',
-                      }}
-                    >
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                    <div className="pr-portal-feed-card__footer">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                         <User size={13} style={{ color: 'var(--color-primary)' }} />
                         <span>
                           Published by:{' '}
@@ -546,7 +493,7 @@ export default function Announcements() {
                         </span>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', opacity: 0.75 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', opacity: 0.75, fontSize: '0.75rem' }}>
                         <span>Menoufia SB</span>
                       </div>
                     </div>

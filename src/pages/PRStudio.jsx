@@ -31,6 +31,7 @@ import {
   Sparkles,
   Info,
   ZoomIn,
+  User,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
@@ -45,6 +46,23 @@ const ANNOUNCEMENT_CATEGORIES = [
   'Event',
   'Announcement',
 ];
+
+const getCategoryBadgeClass = (category) => {
+  switch ((category || '').toLowerCase()) {
+    case 'event':
+      return 'badge-warning';
+    case 'recruitment':
+      return 'badge-success';
+    case 'technical':
+    case 'workshop':
+      return 'badge-info';
+    case 'competition':
+      return 'badge-purple';
+    case 'general':
+    default:
+      return 'badge-primary';
+  }
+};
 
 const TARGET_SEGMENTS = [
   { value: 'all_members', label: 'All Branch Members', desc: 'Broadcast to all registered IEEE members' },
@@ -630,19 +648,20 @@ export default function PRStudio() {
               <p style={{ margin: 0, fontSize: '0.875rem' }}>Try adjusting your search criteria or publish a new broadcast.</p>
             </div>
           ) : (
-            <div className="pr-announcement-grid">
+            <div className="pr-portal-feed-grid">
               {filteredAnnouncements.map((ann) => (
-                <div key={ann.id} className="pr-announcement-card">
+                <article key={ann.id} className={`pr-portal-feed-card ${ann.isPinned ? 'pr-portal-feed-card--pinned' : ''}`}>
                   {/* Banner Image */}
                   <div
-                    className="pr-announcement-card__banner"
+                    className="pr-portal-feed-card__banner"
                     style={{ cursor: ann.imageUrl ? 'pointer' : 'default' }}
                     onClick={() => {
                       if (ann.imageUrl) setSelectedImage(ann.imageUrl);
                     }}
+                    title={ann.imageUrl ? 'Click to view full resolution banner' : undefined}
                   >
                     {ann.imageUrl ? (
-                      <img src={ann.imageUrl} alt={ann.title} className="pr-announcement-card__img" />
+                      <img src={ann.imageUrl} alt={ann.title} loading="lazy" />
                     ) : (
                       <div className="pr-announcement-card__placeholder-banner">
                         <Megaphone size={32} style={{ opacity: 0.4 }} />
@@ -650,9 +669,8 @@ export default function PRStudio() {
                     )}
 
                     {ann.isPinned && (
-                      <div className="pr-announcement-card__pinned-badge">
-                        <Pin size={11} />
-                        <span>PINNED</span>
+                      <div className="pr-announcement-card__pinned-badge" title="Pinned Announcement">
+                        <Pin size={13} style={{ transform: 'rotate(45deg)' }} />
                       </div>
                     )}
 
@@ -677,27 +695,35 @@ export default function PRStudio() {
                   </div>
 
                   {/* Body Content */}
-                  <div className="pr-announcement-card__body">
-                    <div className="pr-announcement-card__meta">
-                      <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
+                  <div className="pr-portal-feed-card__body">
+                    <div className="pr-portal-feed-card__meta">
+                      <span className={`badge ${getCategoryBadgeClass(ann.category)}`} style={{ fontSize: '0.71875rem' }}>
                         {ann.category || 'General'}
                       </span>
-                      <span style={{ fontSize: '0.75rem', color: 'var(--color-text-subtle)' }}>
-                        {formatDate(ann.createdAt)}
-                      </span>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                        <Calendar size={12} />
+                        <span>{formatDate(ann.createdAt)}</span>
+                      </div>
                     </div>
 
-                    <h3 className="pr-announcement-card__title" title={ann.title}>
+                    <h3 className="pr-portal-feed-card__title" title={ann.title}>
                       {ann.title}
                     </h3>
 
-                    <p className="pr-announcement-card__excerpt">
-                      {ann.body}
-                    </p>
+                    {ann.body && (
+                      <p className="pr-portal-feed-card__excerpt">
+                        {ann.body}
+                      </p>
+                    )}
 
                     {/* Footer & Actions */}
-                    <div className="pr-announcement-card__footer">
-                      <span>By {ann.authorName || 'Executive Board'}</span>
+                    <div className="pr-portal-feed-card__footer">
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <User size={13} style={{ color: 'var(--color-primary)' }} />
+                        <span>
+                          Published by: <strong style={{ color: 'var(--color-text)' }}>{ann.authorName || 'Branch Executive Board'}</strong>
+                        </span>
+                      </div>
 
                       <div className="pr-action-menu-wrap">
                         <button
@@ -764,7 +790,7 @@ export default function PRStudio() {
                       </div>
                     </div>
                   </div>
-                </div>
+                </article>
               ))}
             </div>
           )}
@@ -1061,35 +1087,34 @@ export default function PRStudio() {
                     <div className="form-group" style={{ margin: 0 }}>
                       <label className="form-label">Banner Image</label>
                       {bannerPreview ? (
-                        <div className="pr-uploader-preview">
-                          <img
-                            src={bannerPreview}
-                            alt="Banner Preview"
-                            style={{ cursor: 'pointer' }}
-                            onClick={() => setSelectedImage(bannerPreview)}
-                            title="Click to preview full resolution banner"
-                          />
-                          <div style={{ position: 'absolute', top: '0.45rem', right: '0.45rem', display: 'flex', gap: '0.35rem' }}>
+                        <div className="pr-uploader-file-bar">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', minWidth: 0, overflow: 'hidden' }}>
+                            <FileText size={16} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />
+                            <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                              Banner Image Attached
+                            </span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}>
+                            <label className="btn btn-ghost btn-xs" style={{ cursor: 'pointer', fontSize: '0.75rem' }}>
+                              Change
+                              <input
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                disabled={uploadingBanner}
+                                onChange={(e) => handleBannerUpload(e.target.files?.[0])}
+                              />
+                            </label>
                             <button
                               type="button"
-                              className="pr-uploader-remove-btn"
-                              style={{ position: 'static' }}
-                              onClick={() => setSelectedImage(bannerPreview)}
-                              title="Enlarge Banner"
-                            >
-                              <ZoomIn size={14} />
-                            </button>
-                            <button
-                              type="button"
-                              className="pr-uploader-remove-btn"
-                              style={{ position: 'static' }}
+                              className="btn btn-ghost btn-xs text-danger"
                               onClick={() => {
                                 setBannerPreview(null);
                                 setAnnouncementForm((p) => ({ ...p, imageUrl: null }));
                               }}
-                              title="Remove image"
+                              title="Remove banner image"
                             >
-                              <X size={14} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </div>
@@ -1167,25 +1192,25 @@ export default function PRStudio() {
                       <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>Live</span>
                     </div>
 
-                    <div className="pr-announcement-card" style={{ boxShadow: 'var(--shadow-md)' }}>
+                    <article className={`pr-portal-feed-card ${announcementForm.isPinned ? 'pr-portal-feed-card--pinned' : ''}`}>
                       <div
-                        className="pr-announcement-card__banner"
+                        className="pr-portal-feed-card__banner"
                         style={{ cursor: bannerPreview ? 'pointer' : 'default' }}
                         onClick={() => {
                           if (bannerPreview) setSelectedImage(bannerPreview);
                         }}
+                        title={bannerPreview ? 'Click to view full resolution banner' : undefined}
                       >
                         {bannerPreview ? (
-                          <img src={bannerPreview} alt="Preview" className="pr-announcement-card__img" />
+                          <img src={bannerPreview} alt="Preview" loading="lazy" />
                         ) : (
                           <div className="pr-announcement-card__placeholder-banner">
                             <Megaphone size={32} style={{ opacity: 0.4 }} />
                           </div>
                         )}
                         {announcementForm.isPinned && (
-                          <div className="pr-announcement-card__pinned-badge">
-                            <Pin size={11} />
-                            <span>PINNED</span>
+                          <div className="pr-announcement-card__pinned-badge" title="Pinned Announcement">
+                            <Pin size={13} style={{ transform: 'rotate(45deg)' }} />
                           </div>
                         )}
                         <div className={`pr-announcement-card__visibility-badge pr-announcement-card__visibility-badge--${announcementForm.visibility}`}>
@@ -1207,29 +1232,36 @@ export default function PRStudio() {
                         )}
                       </div>
 
-                      <div className="pr-announcement-card__body">
-                        <div className="pr-announcement-card__meta">
-                          <span className="badge badge-primary" style={{ fontSize: '0.7rem' }}>
-                            {announcementForm.category}
+                      <div className="pr-portal-feed-card__body">
+                        <div className="pr-portal-feed-card__meta">
+                          <span className={`badge ${getCategoryBadgeClass(announcementForm.category)}`} style={{ fontSize: '0.71875rem' }}>
+                            {announcementForm.category || 'General'}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-subtle)' }}>
-                            Today
-                          </span>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            <Calendar size={12} />
+                            <span>Today</span>
+                          </div>
                         </div>
 
-                        <h3 className="pr-announcement-card__title">
+                        <h3 className="pr-portal-feed-card__title">
                           {announcementForm.title || 'Untitled Announcement'}
                         </h3>
 
-                        <p className="pr-announcement-card__excerpt">
+                        <p className="pr-portal-feed-card__excerpt">
                           {announcementForm.body || 'No description provided (optional).'}
                         </p>
 
-                        <div className="pr-announcement-card__footer">
-                          <span>By {announcementForm.authorName || 'Executive Board'}</span>
+                        <div className="pr-portal-feed-card__footer">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                            <User size={13} style={{ color: 'var(--color-primary)' }} />
+                            <span>
+                              Published by: <strong style={{ color: 'var(--color-text)' }}>{announcementForm.authorName || 'Branch Executive Board'}</strong>
+                            </span>
+                          </div>
+                          <span style={{ opacity: 0.75, fontSize: '0.75rem' }}>Menoufia SB</span>
                         </div>
                       </div>
-                    </div>
+                    </article>
                   </div>
                 </div>
               </div>
