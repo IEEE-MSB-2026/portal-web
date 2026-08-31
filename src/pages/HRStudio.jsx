@@ -38,6 +38,7 @@ import {
   Square,
   AlertCircle,
   ExternalLink,
+  MoreVertical,
 } from 'lucide-react';
 
 const BASE_PIPELINE_STAGES = [
@@ -129,9 +130,14 @@ export default function HRStudio() {
   // ── Member Management Tab ─────────────────────────────────────────────────
   const [allMembers, setAllMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
-  const [memberCommitteeFilter, setMemberCommitteeFilter] = useState('');
   const [memberSearch, setMemberSearch] = useState('');
   const [showAddMember, setShowAddMember] = useState(false);
+  const [selectedCommitteeFilters, setSelectedCommitteeFilters] = useState([]);
+  const [selectedRoleFilters, setSelectedRoleFilters] = useState([]);
+  const [joinedDateFrom, setJoinedDateFrom] = useState('');
+  const [joinedDateTo, setJoinedDateTo] = useState('');
+  const [openColumnFilter, setOpenColumnFilter] = useState(null);
+  const [committeeFilterSearch, setCommitteeFilterSearch] = useState('');
 
   // Add Member Modal State
   const [userSearchQuery, setUserSearchQuery] = useState('');
@@ -141,6 +147,17 @@ export default function HRStudio() {
   const [targetCommitteeId, setTargetCommitteeId] = useState('');
   const [targetRole, setTargetRole] = useState('member');
   const [savingMembers, setSavingMembers] = useState(false);
+  const [openActionMenuKey, setOpenActionMenuKey] = useState(null);
+
+  // Close 3-dots action menu and column filters when clicking anywhere outside
+  useEffect(() => {
+    const handleOutsideClick = () => {
+      setOpenActionMenuKey(null);
+      setOpenColumnFilter(null);
+    };
+    window.addEventListener('click', handleOutsideClick);
+    return () => window.removeEventListener('click', handleOutsideClick);
+  }, []);
 
   // ── Onboarding Tab ────────────────────────────────────────────────────────
   const [pipelineSummary, setPipelineSummary] = useState(null);
@@ -601,11 +618,46 @@ export default function HRStudio() {
     return true;
   });
 
+  const hasActiveColumnFilters =
+    selectedCommitteeFilters.length > 0 ||
+    selectedRoleFilters.length > 0 ||
+    Boolean(joinedDateFrom) ||
+    Boolean(joinedDateTo);
+
+  const resetAllColumnFilters = () => {
+    setSelectedCommitteeFilters([]);
+    setSelectedRoleFilters([]);
+    setJoinedDateFrom('');
+    setJoinedDateTo('');
+    setOpenColumnFilter(null);
+  };
+
   const filteredMembers = allMembers.filter((m) => {
-    if (memberCommitteeFilter && m.committeeId !== memberCommitteeFilter) return false;
-    if (memberSearch) {
-      const q = memberSearch.toLowerCase();
-      return (m.name || '').toLowerCase().includes(q) || (m.email || '').toLowerCase().includes(q) || (m.roleInCommittee || '').toLowerCase().includes(q);
+    if (memberSearch.trim()) {
+      const q = memberSearch.trim().toLowerCase();
+      const match =
+        (m.name && m.name.toLowerCase().includes(q)) ||
+        (m.email && m.email.toLowerCase().includes(q)) ||
+        (m.roleInCommittee && m.roleInCommittee.toLowerCase().includes(q)) ||
+        (m.committeeName && m.committeeName.toLowerCase().includes(q));
+      if (!match) return false;
+    }
+    if (selectedCommitteeFilters.length > 0 && !selectedCommitteeFilters.includes(m.committeeId)) {
+      return false;
+    }
+    if (selectedRoleFilters.length > 0) {
+      const r = (m.roleInCommittee || 'member').toLowerCase();
+      if (!selectedRoleFilters.includes(r)) return false;
+    }
+    if (joinedDateFrom) {
+      const created = new Date(m.createdAt);
+      const fromDate = new Date(joinedDateFrom);
+      if (created < fromDate) return false;
+    }
+    if (joinedDateTo) {
+      const created = new Date(m.createdAt);
+      const toDate = new Date(`${joinedDateTo}T23:59:59.999Z`);
+      if (created > toDate) return false;
     }
     return true;
   });
@@ -1054,14 +1106,20 @@ export default function HRStudio() {
       {activeTab === 'members' && (
         <>
           <div className="hr-toolbar">
-            <select className="form-input" style={{ width: 'auto', minWidth: 200, fontWeight: 600 }} value={memberCommitteeFilter} onChange={(e) => setMemberCommitteeFilter(e.target.value)}>
-              <option value="">All Committees</option>
-              {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
             <div className="hr-search-wrap">
               <Search size={15} />
-              <input className="hr-search-input" placeholder="Search members across branch by name, email, or role..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} />
+              <input className="hr-search-input" placeholder="Search members by name, email, or role..." value={memberSearch} onChange={(e) => setMemberSearch(e.target.value)} />
             </div>
+            {hasActiveColumnFilters && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={resetAllColumnFilters}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: '#ef4444', borderColor: 'rgba(239,68,68,0.3)' }}
+              >
+                <X size={14} /> Clear Filters
+              </button>
+            )}
             <button type="button" className="btn btn-primary" onClick={() => setShowAddMember(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <UserPlus size={16} /> Add Member
             </button>
@@ -1081,18 +1139,240 @@ export default function HRStudio() {
           ) : filteredMembers.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-12)', color: 'var(--color-text-muted)', fontSize: '0.9375rem' }}>
               <Users size={20} style={{ opacity: 0.7, flexShrink: 0 }} />
-              <span>No members found matching the search criteria.</span>
+              <span>No members found matching the search or filter criteria.</span>
             </div>
           ) : (
-            <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'hidden' }}>
+            <div style={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)', overflow: 'visible' }}>
               <table className="hr-roster" style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', background: 'var(--color-bg)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
                     <th style={{ padding: '0.75rem 1rem' }}>MEMBER</th>
                     <th style={{ padding: '0.75rem 1rem' }}>EMAIL</th>
-                    <th style={{ padding: '0.75rem 1rem' }}>COMMITTEE</th>
-                    <th style={{ padding: '0.75rem 1rem' }}>ROLE</th>
-                    <th style={{ padding: '0.75rem 1rem' }}>JOINED</th>
+                    
+                    {/* COMMITTEE COLUMN WITH FILTER */}
+                    <th style={{ padding: '0.75rem 1rem', position: 'relative' }}>
+                      <div
+                        className="hr-col-header-filter"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenColumnFilter(openColumnFilter === 'committee' ? null : 'committee');
+                        }}
+                      >
+                        <span>COMMITTEE</span>
+                        <button
+                          type="button"
+                          className={`hr-col-filter-btn ${selectedCommitteeFilters.length > 0 ? 'hr-col-filter-btn--active' : ''}`}
+                          aria-label="Filter committees"
+                        >
+                          <Filter size={13} />
+                          {selectedCommitteeFilters.length > 0 && (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800 }}>({selectedCommitteeFilters.length})</span>
+                          )}
+                        </button>
+                      </div>
+
+                      {openColumnFilter === 'committee' && (
+                        <div className="hr-col-filter-popover" onClick={(e) => e.stopPropagation()}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--color-text)' }}>
+                            Filter by Committee
+                          </div>
+                          <input
+                            type="text"
+                            className="form-input"
+                            placeholder="Search committees..."
+                            value={committeeFilterSearch}
+                            onChange={(e) => setCommitteeFilterSearch(e.target.value)}
+                            style={{ padding: '0.35rem 0.6rem', fontSize: '0.75rem', marginBottom: '0.4rem' }}
+                          />
+                          <div className="hr-col-filter-list">
+                            {committees
+                              .filter((c) => !committeeFilterSearch || c.name.toLowerCase().includes(committeeFilterSearch.toLowerCase()))
+                              .map((c) => {
+                                const isChecked = selectedCommitteeFilters.includes(c.id);
+                                return (
+                                  <label key={c.id} className="hr-col-filter-item">
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => {
+                                        setSelectedCommitteeFilters((prev) =>
+                                          isChecked ? prev.filter((id) => id !== c.id) : [...prev, c.id]
+                                        );
+                                      }}
+                                    />
+                                    <span>{c.name}</span>
+                                  </label>
+                                );
+                              })}
+                          </div>
+                          <div className="hr-col-filter-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-xs"
+                              onClick={() => setSelectedCommitteeFilters([])}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              Clear
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-xs"
+                              onClick={() => setOpenColumnFilter(null)}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </th>
+
+                    {/* ROLE COLUMN WITH FILTER */}
+                    <th style={{ padding: '0.75rem 1rem', position: 'relative' }}>
+                      <div
+                        className="hr-col-header-filter"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenColumnFilter(openColumnFilter === 'role' ? null : 'role');
+                        }}
+                      >
+                        <span>ROLE</span>
+                        <button
+                          type="button"
+                          className={`hr-col-filter-btn ${selectedRoleFilters.length > 0 ? 'hr-col-filter-btn--active' : ''}`}
+                          aria-label="Filter roles"
+                        >
+                          <Filter size={13} />
+                          {selectedRoleFilters.length > 0 && (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800 }}>({selectedRoleFilters.length})</span>
+                          )}
+                        </button>
+                      </div>
+
+                      {openColumnFilter === 'role' && (
+                        <div className="hr-col-filter-popover" onClick={(e) => e.stopPropagation()}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.4rem', color: 'var(--color-text)' }}>
+                            Filter by Role
+                          </div>
+                          <div className="hr-col-filter-list">
+                            {[
+                              { key: 'lead', label: 'Lead' },
+                              { key: 'member', label: 'Member' },
+                              { key: 'hr', label: 'HR' },
+                            ].map((r) => {
+                              const isChecked = selectedRoleFilters.includes(r.key);
+                              return (
+                                <label key={r.key} className="hr-col-filter-item">
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      setSelectedRoleFilters((prev) =>
+                                        isChecked ? prev.filter((k) => k !== r.key) : [...prev, r.key]
+                                      );
+                                    }}
+                                  />
+                                  <span>{r.label}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <div className="hr-col-filter-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-xs"
+                              onClick={() => setSelectedRoleFilters([])}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              Clear
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-xs"
+                              onClick={() => setOpenColumnFilter(null)}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </th>
+
+                    {/* JOINED COLUMN WITH FILTER */}
+                    <th style={{ padding: '0.75rem 1rem', position: 'relative' }}>
+                      <div
+                        className="hr-col-header-filter"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOpenColumnFilter(openColumnFilter === 'joined' ? null : 'joined');
+                        }}
+                      >
+                        <span>JOINED</span>
+                        <button
+                          type="button"
+                          className={`hr-col-filter-btn ${joinedDateFrom || joinedDateTo ? 'hr-col-filter-btn--active' : ''}`}
+                          aria-label="Filter joined date"
+                        >
+                          <Filter size={13} />
+                          {(joinedDateFrom || joinedDateTo) && (
+                            <span style={{ fontSize: '0.65rem', fontWeight: 800 }}>•</span>
+                          )}
+                        </button>
+                      </div>
+
+                      {openColumnFilter === 'joined' && (
+                        <div className="hr-col-filter-popover hr-col-filter-popover--right" onClick={(e) => e.stopPropagation()}>
+                          <div style={{ fontSize: '0.75rem', fontWeight: 700, marginBottom: '0.5rem', color: 'var(--color-text)' }}>
+                            Filter Joined Date
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                            <div>
+                              <label style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>From:</label>
+                              <input
+                                type="date"
+                                className="form-input"
+                                value={joinedDateFrom}
+                                onChange={(e) => setJoinedDateFrom(e.target.value)}
+                                style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}
+                              />
+                            </div>
+                            <div>
+                              <label style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>To:</label>
+                              <input
+                                type="date"
+                                className="form-input"
+                                value={joinedDateTo}
+                                onChange={(e) => setJoinedDateTo(e.target.value)}
+                                style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}
+                              />
+                            </div>
+                          </div>
+                          <div className="hr-col-filter-actions">
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-xs"
+                              onClick={() => {
+                                setJoinedDateFrom('');
+                                setJoinedDateTo('');
+                              }}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              Reset
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-primary btn-xs"
+                              onClick={() => setOpenColumnFilter(null)}
+                              style={{ fontSize: '0.7rem' }}
+                            >
+                              Done
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </th>
+
                     <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>ACTIONS</th>
                   </tr>
                 </thead>
@@ -1102,38 +1382,88 @@ export default function HRStudio() {
                       <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{m.name || 'Member'}</td>
                       <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>{m.email}</td>
                       <td style={{ padding: '0.75rem 1rem' }}>
-                        <span className="badge badge-primary">{m.committeeName || getCommitteeName(m.committeeId)}</span>
+                        <span className="badge badge-committee">{m.committeeName || getCommitteeName(m.committeeId)}</span>
                       </td>
                       <td style={{ padding: '0.75rem 1rem' }}>
-                        <span className={`hr-status-badge ${m.roleInCommittee === 'lead' ? 'hr-status-badge--open' : 'hr-status-badge--draft'}`}>
-                          {m.roleInCommittee}
+                        <span className={`badge ${m.roleInCommittee === 'lead' ? 'badge-warning' : m.roleInCommittee === 'hr' ? 'badge-hr' : 'badge-outline'}`}>
+                          {m.roleInCommittee === 'hr' ? 'HR' : m.roleInCommittee === 'lead' ? 'Lead' : 'Member'}
                         </span>
                       </td>
                       <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>{formatDate(m.createdAt)}</td>
-                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>
-                        <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                          {/* Promote/Demote only for Officers & Admins */}
-                          {isGlobalAdminOrOfficer && (
-                            m.roleInCommittee !== 'lead' ? (
-                              <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => handleChangeRole(m, 'lead')}>
-                                Promote Lead
-                              </button>
-                            ) : (
-                              <button type="button" className="btn btn-secondary" style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem' }} onClick={() => handleChangeRole(m, 'member')}>
-                                Demote
-                              </button>
-                            )
-                          )}
-                          {/* Removing lead requires Officer/Admin */}
-                          {(m.roleInCommittee !== 'lead' || isGlobalAdminOrOfficer) && (
-                            <button
-                              type="button"
-                              className="btn"
-                              style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)' }}
-                              onClick={() => handleRemoveMember(m)}
-                            >
-                              <UserMinus size={13} /> Remove
-                            </button>
+                      <td style={{ padding: '0.75rem 1rem', textAlign: 'right', position: 'relative' }}>
+                        <div className="hr-action-menu-wrap">
+                          <button
+                            type="button"
+                            className="hr-action-menu-btn"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const key = `${m.committeeId}-${m.externalUserId || m.id}`;
+                              setOpenActionMenuKey(openActionMenuKey === key ? null : key);
+                            }}
+                            aria-label="More actions"
+                          >
+                            <MoreVertical size={16} />
+                          </button>
+
+                          {openActionMenuKey === `${m.committeeId}-${m.externalUserId || m.id}` && (
+                            <div className="hr-action-menu-dropdown" onClick={(e) => e.stopPropagation()}>
+                              {/* Set as Member */}
+                              {m.roleInCommittee !== 'member' && (
+                                <div
+                                  className="hr-action-menu-item"
+                                  onClick={() => {
+                                    setOpenActionMenuKey(null);
+                                    handleChangeRole(m, 'member');
+                                  }}
+                                >
+                                  Set as member
+                                </div>
+                              )}
+
+                              {/* Set as HR */}
+                              {m.roleInCommittee !== 'hr' && (
+                                <div
+                                  className="hr-action-menu-item"
+                                  onClick={() => {
+                                    setOpenActionMenuKey(null);
+                                    handleChangeRole(m, 'hr');
+                                  }}
+                                >
+                                  Set as HR
+                                </div>
+                              )}
+
+                              {/* Set as Lead (Admins & Officers only) */}
+                              {isGlobalAdminOrOfficer && m.roleInCommittee !== 'lead' && (
+                                <div
+                                  className="hr-action-menu-item"
+                                  onClick={() => {
+                                    setOpenActionMenuKey(null);
+                                    handleChangeRole(m, 'lead');
+                                  }}
+                                >
+                                  Set as Lead
+                                </div>
+                              )}
+
+                              {/* Divider */}
+                              {(m.roleInCommittee !== 'lead' || isGlobalAdminOrOfficer) && (
+                                <div className="hr-action-menu-divider" />
+                              )}
+
+                              {/* Remove Member */}
+                              {(m.roleInCommittee !== 'lead' || isGlobalAdminOrOfficer) && (
+                                <div
+                                  className="hr-action-menu-item hr-action-menu-item--danger"
+                                  onClick={() => {
+                                    setOpenActionMenuKey(null);
+                                    handleRemoveMember(m);
+                                  }}
+                                >
+                                  Remove member
+                                </div>
+                              )}
+                            </div>
                           )}
                         </div>
                       </td>
@@ -1235,9 +1565,10 @@ export default function HRStudio() {
                       <label className="form-label">Role in Committee</label>
                       <select className="form-input" value={targetRole} onChange={(e) => setTargetRole(e.target.value)}>
                         <option value="member">Member</option>
+                        <option value="hr">HR</option>
                         {isGlobalAdminOrOfficer && <option value="lead">Lead</option>}
                       </select>
-                      {!isGlobalAdminOrOfficer && targetRole === 'member' && (
+                      {!isGlobalAdminOrOfficer && targetRole !== 'lead' && (
                         <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
                           Note: Committee Lead role assignment is reserved for Officers.
                         </p>
@@ -1268,7 +1599,7 @@ export default function HRStudio() {
           </h3>
 
           {pipelineSummary ? (
-            <div className="hr-campaign-grid" style={{ marginBottom: 'var(--space-8)' }}>
+            <div className="hr-campaign-grid hr-onboarding-kpi-grid" style={{ marginBottom: 'var(--space-8)' }}>
               <div className="hr-campaign-card">
                 <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Total Applications</div>
                 <div style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--color-primary)', marginTop: '0.25rem' }}>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import {
   Layers,
   ListTodo,
@@ -43,6 +43,11 @@ import {
   Pin,
   PinOff,
   UserPlus,
+  ShieldCheck,
+  UserMinus,
+  UserCheck,
+  CheckSquare,
+  Square,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
@@ -52,6 +57,7 @@ import '../styles/workspace.css';
 export default function Workspace() {
   const { user, updateUser } = useAuthStore();
   const toast = useToastStore();
+  const [searchParams] = useSearchParams();
 
   // Navigation tabs: 'kanban' | 'assignments' | 'announcements' | 'resources' | 'roster' | 'archived'
   const [activeTab, setActiveTab] = useState('kanban');
@@ -140,22 +146,42 @@ export default function Workspace() {
   // Roster Search state
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
-  // Active committee ID resolution
-  const activeCommitteeId = user?.committeeId || (user?.scopeType === 'committee' ? user?.scopeId : null);
+  // Active committee ID resolution (supports query param ?committee=<id> for follow-up navigation)
+  const queryCommitteeId = searchParams.get('committee') || searchParams.get('committeeId');
+  const activeCommitteeId = queryCommitteeId || user?.committeeId || (user?.scopeType === 'committee' ? user?.scopeId : null);
   
+  // Committee & Follow-up permissions resolution
+  const isAdmin = user?.role === 'admin' || user?.availableScopes?.some((s) => s.role === 'admin');
+  const isOfficer = user?.role === 'officer' || user?.availableScopes?.some((s) => s.role === 'officer');
+  const isHRLead = user?.availableScopes?.some(
+    (s) => (s.committeeSlug === 'hr' || s.committeeName?.toLowerCase().includes('human resource')) && s.role === 'lead'
+  );
+  const myRoleInCommittee = workspaceData?.committee?.myRole || user?.role;
+  const isHRObserver = myRoleInCommittee === 'hr';
+  const isCommitteeLead = myRoleInCommittee === 'lead';
+  const isCommitteeMember = myRoleInCommittee === 'member';
+
+  const isHR = isHRObserver || isHRLead;
+
+  // Read-only follow-up mode is active if user is HR Observer OR (Officer / HR Lead viewing this committee without being its lead/member)
+  const isReadOnlyHR =
+    !isAdmin &&
+    (isHRObserver || (!isCommitteeLead && !isCommitteeMember && (isHRLead || isOfficer)));
+
   // Committee-accurate lead detection (resolves 403 error across committees)
-  const isLead =
-    user?.role === 'admin' ||
-    user?.role === 'officer' ||
-    workspaceData?.committee?.myRole === 'lead';
+  const isLead = !isReadOnlyHR && (isAdmin || isCommitteeLead);
+  const canManageContent = isLead || isHR || isAdmin || isOfficer;
 
   const canMoveTask = (task) => {
+    if (isReadOnlyHR) return false;
     if (!task) return false;
     if (isLead) return true;
     const myId = user?.id || user?.userRefId || user?.externalUserId;
     const taskAssignee = task.assigneeUserId || task.assignee_user_id;
     return !!(taskAssignee && myId && taskAssignee === myId);
   };
+
+  const hrObservers = memberships.filter((m) => m.roleInCommittee === 'hr');
 
   const fetchWorkspace = async (cid) => {
     if (!cid) {
@@ -251,9 +277,11 @@ export default function Workspace() {
     if (activeTab === 'announcements' && activeCommitteeId) {
       fetchAnnouncements(activeCommitteeId);
     }
+    if (activeTab === 'roster' && activeCommitteeId) {
+      fetchRoster(activeCommitteeId);
+    }
   }, [activeTab, activeCommitteeId]);
 
-  // Handle Roster Search
   const handleSearchMembers = (e) => {
     const q = e.target.value;
     setMemberSearchQuery(q);
@@ -941,16 +969,18 @@ export default function Workspace() {
               <h1 className="workspace-header__title">{committee.name || 'Committee Workspace'}</h1>
               <div className="workspace-header__badges">
                 <span
-                  className={`workspace-header__badge ${
+                  className={`badge ${
                     isLead
-                      ? 'workspace-header__badge--role-lead'
-                      : 'workspace-header__badge--role-member'
+                      ? 'badge-warning'
+                      : isReadOnlyHR
+                      ? 'badge-hr'
+                      : 'badge-outline'
                   }`}
                 >
-                  {isLead ? <Shield size={12} /> : <User size={12} />}
-                  {isLead ? 'TEAM LEAD' : 'MEMBER'}
+                  {isLead ? <Shield size={12} /> : isReadOnlyHR ? <ShieldCheck size={12} /> : <User size={12} />}
+                  {isLead ? 'TEAM LEAD' : isReadOnlyHR ? 'HR' : 'MEMBER'}
                 </span>
-                <span className="badge badge-outline" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                <span className="badge badge-committee" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
                   {workspaceData?.committee?.slug || user?.committeeSlug}
                 </span>
                 <span style={{ fontSize: '0.8125rem', opacity: 0.9 }}>
@@ -987,6 +1017,61 @@ export default function Workspace() {
           </div>
         </div>
       </header>
+
+      {/* HR Banner */}
+      {isReadOnlyHR && (
+        <div
+          className="workspace-hr-banner"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '1rem',
+            padding: '0.85rem 1.25rem',
+            marginBottom: '1.5rem',
+            borderRadius: 'var(--radius-lg)',
+            background: 'var(--color-card)',
+            border: '1px solid rgba(124, 58, 237, 0.35)',
+            boxShadow: '0 4px 16px -2px rgba(124, 58, 237, 0.12)',
+            color: 'var(--color-text)',
+            fontSize: '0.875rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            <div
+              style={{
+                width: '28px',
+                height: '28px',
+                borderRadius: '6px',
+                background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                flexShrink: 0,
+              }}
+            >
+              <Eye size={16} />
+            </div>
+            <span>
+              <strong>HR:</strong> You are viewing this workspace as HR. Task board editing is restricted to committee team members.
+            </span>
+          </div>
+          <span
+            className="badge"
+            style={{
+              background: 'linear-gradient(135deg, #7c3aed, #6366f1)',
+              color: '#ffffff',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              padding: '0.25rem 0.65rem',
+              borderRadius: '999px',
+            }}
+          >
+            HR
+          </span>
+        </div>
+      )}
 
       {/* 2. TAB NAVIGATION */}
       <nav className="workspace-tabs" aria-label="Workspace Sections">
@@ -1390,7 +1475,7 @@ export default function Workspace() {
               </p>
             </div>
 
-            {isLead && (
+            {canManageContent && (
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -1429,7 +1514,7 @@ export default function Workspace() {
                   <div key={assignment.id} className="workspace-resource-card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
                     <div>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.4rem' }}>
-                        {isLead ? (
+                        {canManageContent ? (
                           <>
                             <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>
                               Max {assignment.maxPoints} Points
@@ -1495,7 +1580,7 @@ export default function Workspace() {
                     </div>
 
                     <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                      {isLead ? (
+                      {canManageContent ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', width: '100%', justifyContent: 'space-between' }}>
                           <button
                             type="button"
@@ -1506,35 +1591,37 @@ export default function Workspace() {
                             <span>Review Submissions ({assignment.totalSubmissionsCount || 0})</span>
                           </button>
 
-                          <div style={{ display: 'flex', gap: '0.35rem' }}>
-                            <button
-                              type="button"
-                              className="btn-icon-subtle"
-                              title="Edit Assignment"
-                              onClick={() => {
-                                setEditingAssignment(assignment);
-                                setAssignmentTitle(assignment.title || '');
-                                setAssignmentDesc(assignment.description || '');
-                                setAssignmentDueDate(assignment.dueDate ? new Date(assignment.dueDate).toISOString().split('T')[0] : '');
-                                setAssignmentMaxPoints(assignment.maxPoints || 100);
-                                setExistingAttachmentUrl(assignment.attachmentUrl || null);
-                                setExistingAttachmentName(assignment.attachmentName || null);
-                                setRemoveExistingAttachment(false);
-                                setAssignmentAttachmentFile(null);
-                                setCreateAssignmentModalOpen(true);
-                              }}
-                            >
-                              <Edit3 size={13} />
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-icon-subtle"
-                              title="Delete Assignment"
-                              onClick={() => handleDeleteAssignment(assignment.id)}
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
+                          {isLead && (
+                            <div style={{ display: 'flex', gap: '0.35rem' }}>
+                              <button
+                                type="button"
+                                className="btn-icon-subtle"
+                                title="Edit Assignment"
+                                onClick={() => {
+                                  setEditingAssignment(assignment);
+                                  setAssignmentTitle(assignment.title || '');
+                                  setAssignmentDesc(assignment.description || '');
+                                  setAssignmentDueDate(assignment.dueDate ? new Date(assignment.dueDate).toISOString().split('T')[0] : '');
+                                  setAssignmentMaxPoints(assignment.maxPoints || 100);
+                                  setExistingAttachmentUrl(assignment.attachmentUrl || null);
+                                  setExistingAttachmentName(assignment.attachmentName || null);
+                                  setRemoveExistingAttachment(false);
+                                  setAssignmentAttachmentFile(null);
+                                  setCreateAssignmentModalOpen(true);
+                                }}
+                              >
+                                <Edit3 size={13} />
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-icon-subtle"
+                                title="Delete Assignment"
+                                onClick={() => handleDeleteAssignment(assignment.id)}
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end' }}>
@@ -1565,8 +1652,8 @@ export default function Workspace() {
               <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
                 No Assignments Created Yet
               </h3>
-              <p>Committee leads can post exercises, challenges, and review member solutions here.</p>
-              {isLead && (
+              <p>Committee leads and HR can post exercises, challenges, and review member solutions here.</p>
+              {canManageContent && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1604,7 +1691,7 @@ export default function Workspace() {
               </p>
             </div>
 
-            {isLead && (
+            {canManageContent && (
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -1707,11 +1794,16 @@ export default function Workspace() {
               <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
                 No Committee Announcements Yet
               </h3>
-              <p>Team leads can post internal reminders, meeting times, and updates here.</p>
-              {isLead && (
+              <p>Post official committee announcements, notices, and updates for all members.</p>
+              {canManageContent && (
                 <button
                   type="button"
-                  onClick={() => setCreateAnnouncementModalOpen(true)}
+                  onClick={() => {
+                    setAnnouncementTitle('');
+                    setAnnouncementBody('');
+                    setAnnouncementPinned(false);
+                    setCreateAnnouncementModalOpen(true);
+                  }}
                   className="btn btn-outline btn-sm"
                   style={{ marginTop: '0.5rem' }}
                 >
@@ -1735,7 +1827,7 @@ export default function Workspace() {
               </p>
             </div>
 
-            {isLead && (
+            {canManageContent && (
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
@@ -1786,7 +1878,7 @@ export default function Workspace() {
                         <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
                           {formatDate(res.created_at)}
                         </span>
-                        {isLead && (
+                        {canManageContent && (
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
                             <button
                               type="button"
@@ -1818,8 +1910,8 @@ export default function Workspace() {
               <h3 style={{ fontSize: '1rem', fontWeight: 600, color: 'var(--color-text)' }}>
                 No Resources Uploaded Yet
               </h3>
-              <p>Committee leads can upload training materials, drive links, and project repositories.</p>
-              {isLead && (
+              <p>Share learning resources, documentation, design files, and guides with the committee.</p>
+              {canManageContent && (
                 <button
                   type="button"
                   onClick={() => setAddResourceModalOpen(true)}
@@ -1835,26 +1927,28 @@ export default function Workspace() {
         </section>
       )}
 
-      {/* 7. TAB 5: MEMBERS ROSTER & SEARCH */}
+      {/* 7. TAB 5: MEMBERS ROSTER & SEARCH (Merged with HR Observers) */}
       {activeTab === 'roster' && (
-        <section className="workspace-roster-section" aria-label="Committee Roster Directory">
+        <section className="workspace-roster-section" aria-label="Committee Team Directory">
           <div className="workspace-section-header">
             <div>
-              <h2 className="workspace-section-title">Committee Members Directory</h2>
+              <h2 className="workspace-section-title">Committee Team Directory</h2>
               <p className="workspace-section-subtitle">
-                Official team and active contributor registry for {committee.name}.
+                Official team members, active leads, and assigned HR for {committee.name}.
               </p>
             </div>
 
-            <div className="workspace-search-bar">
-              <Search size={16} className="workspace-search-icon" />
-              <input
-                type="text"
-                placeholder="Search member name, email or role..."
-                value={memberSearchQuery}
-                onChange={handleSearchMembers}
-                className="workspace-search-input"
-              />
+            <div className="workspace-roster-actions">
+              <div className="workspace-search-bar">
+                <Search size={16} className="workspace-search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search members or roles..."
+                  value={memberSearchQuery}
+                  onChange={handleSearchMembers}
+                  className="workspace-search-input"
+                />
+              </div>
             </div>
           </div>
 
@@ -1868,25 +1962,33 @@ export default function Workspace() {
             <div className="workspace-roster-grid">
               {memberships.map((m) => {
                 const memberName = m.name || m.userName || 'Member';
-                const memberRole = m.roleInCommittee || m.role_in_committee || 'member';
+                const memberRole = (m.roleInCommittee || m.role_in_committee || 'member').toLowerCase();
+                const isMemberHR = memberRole === 'hr';
+                const isMemberLead = memberRole === 'lead';
+
                 return (
                   <div key={m.id || m.userId} className="workspace-member-card">
                     <div className="workspace-member-card__avatar">
-                      {memberName.charAt(0).toUpperCase()}
+                      {m.avatarUrl ? (
+                        <img src={m.avatarUrl} alt={memberName} />
+                      ) : (
+                        <span>{memberName.charAt(0).toUpperCase()}</span>
+                      )}
                     </div>
                     <div className="workspace-member-card__info">
                       <div className="workspace-member-card__name-wrap">
                         <span className="workspace-member-card__name">{memberName}</span>
-                        {memberRole === 'lead' && (
-                          <span className="badge badge-warning" style={{ fontSize: '0.65rem' }}>
+                        {isMemberLead && (
+                          <span className="badge badge-warning" style={{ fontSize: '0.65rem', fontWeight: 700 }}>
                             LEAD
                           </span>
                         )}
+                        {isMemberHR && (
+                          <span className="badge badge-hr" style={{ fontSize: '0.65rem', fontWeight: 700 }}>
+                            HR
+                          </span>
+                        )}
                       </div>
-                      <span className="workspace-member-card__email">{m.email}</span>
-                      {m.membershipId && (
-                        <span className="workspace-member-card__mid">MID: {m.membershipId}</span>
-                      )}
                     </div>
                   </div>
                 );
@@ -2265,19 +2367,21 @@ export default function Workspace() {
                                 <em>Feedback: {sub.feedback}</em>
                               </span>
                             )}
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-xs"
-                              style={{ marginLeft: 'auto' }}
-                              onClick={() => {
-                                setGradingSubmissionId(sub.id);
-                                setGradeInput(sub.grade !== null ? String(sub.grade) : '');
-                                setFeedbackInput(sub.feedback || '');
-                              }}
-                            >
-                              <Award size={12} />
-                              <span>{isGraded ? 'Update Grade' : 'Grade Solution'}</span>
-                            </button>
+                            {isLead && (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                style={{ marginLeft: 'auto' }}
+                                onClick={() => {
+                                  setGradingSubmissionId(sub.id);
+                                  setGradeInput(sub.grade !== null ? String(sub.grade) : '');
+                                  setFeedbackInput(sub.feedback || '');
+                                }}
+                              >
+                                <Award size={12} />
+                                <span>{isGraded ? 'Update Grade' : 'Grade Solution'}</span>
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>

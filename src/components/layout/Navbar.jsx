@@ -62,18 +62,20 @@ export default function Navbar() {
     ['admin', 'officer'].includes(user?.role)
   );
 
+  const showDashboard = isAuthenticated && hasCommitteeAccess;
+
   const navLinks = [
     { to: '/', label: 'Home' },
-    ...(isAuthenticated && hasCommitteeAccess
-      ? [
-          { to: '/dashboard', label: 'Dashboard' },
-        ]
+    ...(showDashboard
+      ? [{ to: '/dashboard', label: 'Dashboard' }]
       : []),
     { to: '/committees', label: 'Committees' },
     { to: '/events', label: 'Events' },
     { to: '/announcements', label: 'Announcements' },
     { to: '/gallery', label: 'Gallery' },
-    { to: '/join', label: 'Join Us' },
+    ...(!showDashboard
+      ? [{ to: '/join', label: 'Join Us' }]
+      : []),
     { to: '/about', label: 'About' },
   ];
 

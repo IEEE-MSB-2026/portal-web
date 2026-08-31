@@ -79,6 +79,11 @@
   --shadow-bento: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02);
 
   --navbar-bg: rgba(255, 255, 255, 0.88);
+
+  --badge-hr-bg: #ede9fe;
+  --badge-hr-text: #4c1d95;
+  --badge-committee-bg: #f1f5f9;
+  --badge-committee-text: #475569;
 }
 
 /* --------------------------------------------------------------------------
@@ -126,6 +131,11 @@
   --shadow-bento: 0 4px 12px rgba(0, 0, 0, 0.3);
 
   --navbar-bg: rgba(11, 15, 25, 0.88);
+
+  --badge-hr-bg: #3b1f78;
+  --badge-hr-text: #ddd6fe;
+  --badge-committee-bg: #1e293b;
+  --badge-committee-text: #cbd5e1;
 }
 
 /* --------------------------------------------------------------------------
@@ -481,6 +491,19 @@ img, svg {
   background-color: var(--color-destructive-light);
   color: var(--color-destructive);
   border-color: transparent;
+}
+
+.badge-hr,
+.hr-status-badge--hr {
+  background-color: var(--badge-hr-bg) !important;
+  color: var(--badge-hr-text) !important;
+  border: 1px solid transparent !important;
+}
+
+.badge-committee {
+  background-color: var(--badge-committee-bg) !important;
+  color: var(--badge-committee-text) !important;
+  border: 1px solid transparent !important;
 }
 
 /* --------------------------------------------------------------------------

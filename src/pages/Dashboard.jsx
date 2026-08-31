@@ -65,6 +65,9 @@ export default function Dashboard() {
   // Announcement View Modal
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
+  // Workspace Hub Category Tab Filter ('all' | 'committees' | 'studios')
+  const [workspaceCategoryTab, setWorkspaceCategoryTab] = useState('all');
+
   // Onboarding Items State
   const [onboardingItems, setOnboardingItems] = useState([]);
   const [updatingOnboardingId, setUpdatingOnboardingId] = useState(null);
@@ -143,23 +146,28 @@ export default function Dashboard() {
     const matchingScope = user?.availableScopes?.find(
       (s) => s.committeeId === committee.id || s.scopeId === committee.id
     );
-    const targetScopeId = matchingScope?.id || matchingScope?.scopeId || committee.id;
 
-    if (user?.scopeId === targetScopeId) {
-      navigate('/workspace');
+    if (matchingScope) {
+      const targetScopeId = matchingScope.id || matchingScope.scopeId;
+      if (user?.scopeId === targetScopeId) {
+        navigate('/workspace');
+        return;
+      }
+
+      setSwitchingScopeId(committee.id);
+      try {
+        const res = await api.switchContext({ targetScopeId });
+        if (res?.user) updateUser(res.user);
+        navigate('/workspace');
+      } catch (err) {
+        navigate(`/workspace?committee=${committee.id}`);
+      } finally {
+        setSwitchingScopeId(null);
+      }
       return;
     }
 
-    setSwitchingScopeId(committee.id);
-    try {
-      const res = await api.switchContext({ targetScopeId });
-      if (res?.user) updateUser(res.user);
-      navigate('/workspace');
-    } catch (err) {
-      toast.error('Switch Failed', err.message || 'Could not switch active workspace.');
-    } finally {
-      setSwitchingScopeId(null);
-    }
+    navigate(`/workspace?committee=${committee.id}`);
   };
 
   // Submit Assignment Delivery
@@ -257,35 +265,97 @@ export default function Dashboard() {
   const recentActivity = dashboardData?.recentActivity || [];
   const taskStats = dashboardData?.taskStats || { total: 0, todo: 0, inProgress: 0, done: 0 };
 
-  // Calculate accessible workspaces (Committees + Specialized Studios)
-  const isGlobalAdminOrOfficer =
+  // Calculate accessible workspaces (Committees from scopes + DB committees + Specialized Studios)
+  const isGlobalAdmin =
     user?.role === 'admin' ||
+    user?.availableScopes?.some((s) => s.role === 'admin');
+
+  const isOfficer =
     user?.role === 'officer' ||
-    user?.availableScopes?.some((s) => s.role === 'admin' || s.role === 'officer');
+    user?.availableScopes?.some((s) => s.role === 'officer');
+
+  const isHRLead = user?.availableScopes?.some(
+    (s) => (s.committeeSlug === 'hr' || s.committeeName?.toLowerCase().includes('human resource')) && s.role === 'lead'
+  );
+
+  const isGlobalAdminOrOfficer = isGlobalAdmin || isOfficer;
 
   const hrScope = user?.availableScopes?.find(
-    (s) => s.committeeSlug === 'hr' || s.committeeName?.toLowerCase().includes('human resource')
+    (s) =>
+      (s.committeeSlug === 'hr' || s.committeeName?.toLowerCase().includes('human resource')) &&
+      s.role === 'lead'
   );
   const prScope = user?.availableScopes?.find(
-    (s) => s.committeeSlug === 'pr' || s.committeeName?.toLowerCase().includes('public relation')
+    (s) =>
+      (s.committeeSlug === 'pr' || s.committeeName?.toLowerCase().includes('public relation')) &&
+      s.role === 'lead'
   );
   const mediaScope = user?.availableScopes?.find(
-    (s) => s.committeeSlug === 'media' || s.committeeName?.toLowerCase().includes('media')
+    (s) =>
+      (s.committeeSlug === 'media' || s.committeeName?.toLowerCase().includes('media')) &&
+      s.role === 'lead'
   );
-  const eventScope = user?.availableScopes?.find(
-    (s) => s.committeeSlug === 'events' || s.committeeSlug === 'ras' || s.committeeSlug === 'ai'
+  const ocScope = user?.availableScopes?.find(
+    (s) =>
+      (s.committeeSlug === 'oc' || s.committeeSlug === 'operations' || s.committeeName?.toLowerCase().includes('operation')) &&
+      s.role === 'lead'
   );
 
-  const committeeWorkspaces = committees.map((c) => ({
-    id: c.id,
-    name: c.name,
-    slug: c.slug,
-    role: (c.roleInCommittee || c.role_in_committee || 'member').toUpperCase(),
-    type: 'committee',
-    category: 'COMMITTEE WORKSPACE',
-    isCommittee: true,
-    data: c,
-  }));
+  const workspaceMap = new Map();
+
+  // 1. Direct committee scopes from user.availableScopes
+  const committeeScopes = (user?.availableScopes || []).filter((s) => s.scopeType === 'committee');
+  for (const s of committeeScopes) {
+    const committeeId = s.committeeId || s.scopeId;
+    if (committeeId) {
+      workspaceMap.set(committeeId, {
+        id: committeeId,
+        name: s.committeeName || (s.committeeSlug ? s.committeeSlug.toUpperCase() : 'Committee'),
+        slug: s.committeeSlug || 'committee',
+        role: isGlobalAdmin ? 'FULL ACCESS' : (s.role || 'member').toUpperCase(),
+        type: 'committee',
+        category: 'COMMITTEE WORKSPACE',
+        isCommittee: true,
+        data: {
+          id: committeeId,
+          name: s.committeeName || s.committeeSlug,
+          slug: s.committeeSlug,
+          roleInCommittee: s.role,
+        },
+      });
+    }
+  }
+
+  // 2. Database committees returned from getMyDashboard (HR observers, Officer/HR Lead follow-ups, Admin full-access)
+  for (const c of committees) {
+    const rawRole = (c.roleInCommittee || c.role_in_committee || 'member').toLowerCase();
+    let displayRole = rawRole.toUpperCase();
+    if (rawRole === 'hr') {
+      displayRole = 'HR';
+    } else if (rawRole === 'admin' || isGlobalAdmin) {
+      displayRole = 'FULL ACCESS';
+    }
+
+    if (workspaceMap.has(c.id)) {
+      const existing = workspaceMap.get(c.id);
+      if (isGlobalAdmin) {
+        existing.role = 'FULL ACCESS';
+      }
+    } else {
+      workspaceMap.set(c.id, {
+        id: c.id,
+        name: c.name,
+        slug: c.slug,
+        role: displayRole,
+        type: 'committee',
+        category: 'COMMITTEE WORKSPACE',
+        isCommittee: true,
+        data: c,
+      });
+    }
+  }
+
+  const committeeWorkspaces = Array.from(workspaceMap.values());
 
   const specializedWorkspaces = [];
 
@@ -294,7 +364,7 @@ export default function Dashboard() {
       id: 'workspace-hr-studio',
       name: 'HR & Talent Studio',
       slug: 'hr',
-      role: isGlobalAdminOrOfficer ? 'OFFICER' : (hrScope?.role?.toUpperCase() || 'MEMBER'),
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'LEAD',
       type: 'studio',
       category: 'WORKSPACE',
       path: '/hr',
@@ -307,10 +377,10 @@ export default function Dashboard() {
       id: 'workspace-pr-studio',
       name: 'PR Broadcasts Studio',
       slug: 'pr',
-      role: isGlobalAdminOrOfficer ? 'OFFICER' : (prScope?.role?.toUpperCase() || 'MEMBER'),
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'LEAD',
       type: 'studio',
       category: 'WORKSPACE',
-      path: '/announcements',
+      path: '/pr',
       isCommittee: false,
     });
   }
@@ -320,23 +390,23 @@ export default function Dashboard() {
       id: 'workspace-media-hub',
       name: 'Media Operations',
       slug: 'media',
-      role: isGlobalAdminOrOfficer ? 'OFFICER' : (mediaScope?.role?.toUpperCase() || 'MEMBER'),
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'LEAD',
       type: 'studio',
       category: 'WORKSPACE',
-      path: '/gallery',
+      path: '/media',
       isCommittee: false,
     });
   }
 
-  if (isGlobalAdminOrOfficer || eventScope) {
+  if (isGlobalAdminOrOfficer || ocScope) {
     specializedWorkspaces.push({
-      id: 'workspace-event-ops',
-      name: 'Operations Hub',
-      slug: 'events',
-      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'OPERATOR',
+      id: 'workspace-operations-studio',
+      name: 'Operations Studio',
+      slug: 'oc',
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'LEAD',
       type: 'studio',
       category: 'WORKSPACE',
-      path: '/events',
+      path: '/operations',
       isCommittee: false,
     });
   }
@@ -820,94 +890,148 @@ export default function Dashboard() {
 
           {/* MY WORKSPACES GRID */}
           <div className="dashboard-card" id="my-workspaces-card">
-            <div className="dashboard-card__header">
+            <div className="dashboard-card__header" style={{ flexWrap: 'wrap', gap: '0.75rem' }}>
               <div className="dashboard-card__title-wrap">
                 <Layers size={18} color="var(--color-primary)" />
                 <h2 className="dashboard-card__title">My Workspaces</h2>
+                <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
+                  {allWorkspaces.length}
+                </span>
               </div>
-              <span className="badge badge-primary" style={{ fontSize: '0.75rem' }}>
-                {allWorkspaces.length} Accessible
-              </span>
+
+              {/* Workspace Category Segmented Tabs */}
+              <div className="dashboard-pill-tabs">
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceCategoryTab('all')}
+                  className={`dashboard-pill-tab ${workspaceCategoryTab === 'all' ? 'dashboard-pill-tab--active' : ''}`}
+                >
+                  <span>All</span>
+                  <span className="badge" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: workspaceCategoryTab === 'all' ? 'rgba(255,255,255,0.25)' : 'var(--color-bg-alt)', color: workspaceCategoryTab === 'all' ? '#fff' : 'inherit' }}>
+                    {allWorkspaces.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceCategoryTab('committees')}
+                  className={`dashboard-pill-tab ${workspaceCategoryTab === 'committees' ? 'dashboard-pill-tab--active' : ''}`}
+                >
+                  <span>Committees</span>
+                  <span className="badge" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: workspaceCategoryTab === 'committees' ? 'rgba(255,255,255,0.25)' : 'var(--color-bg-alt)', color: workspaceCategoryTab === 'committees' ? '#fff' : 'inherit' }}>
+                    {committeeWorkspaces.length}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWorkspaceCategoryTab('studios')}
+                  className={`dashboard-pill-tab ${workspaceCategoryTab === 'studios' ? 'dashboard-pill-tab--active' : ''}`}
+                >
+                  <span>Studios</span>
+                  <span className="badge" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem', background: workspaceCategoryTab === 'studios' ? 'rgba(255,255,255,0.25)' : 'var(--color-bg-alt)', color: workspaceCategoryTab === 'studios' ? '#fff' : 'inherit' }}>
+                    {specializedWorkspaces.length}
+                  </span>
+                </button>
+              </div>
             </div>
 
             {loading ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
-                {[1, 2, 3].map((n) => (
-                  <div key={n} className="dashboard-shimmer" style={{ height: '110px' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '0.85rem' }}>
+                {[1, 2, 3, 4].map((n) => (
+                  <div key={n} className="dashboard-shimmer" style={{ height: '78px' }} />
                 ))}
               </div>
-            ) : allWorkspaces.length > 0 ? (
+            ) : allWorkspaces.filter((w) => workspaceCategoryTab === 'all' || (workspaceCategoryTab === 'committees' ? w.isCommittee : !w.isCommittee)).length > 0 ? (
               <div className="dashboard-workspace-grid">
-                {allWorkspaces.map((w) => {
-                  const isSwitching = switchingScopeId === w.id;
-                  const isStudio = !w.isCommittee;
+                {allWorkspaces
+                  .filter((w) => workspaceCategoryTab === 'all' || (workspaceCategoryTab === 'committees' ? w.isCommittee : !w.isCommittee))
+                  .map((w) => {
+                    const isSwitching = switchingScopeId === w.id;
+                    const isStudio = !w.isCommittee;
+                    const isHRRole = w.role === 'HR';
+                    const isLeadRole = w.role === 'LEAD';
+                    const isFullAccess = w.role === 'FULL ACCESS';
 
-                  return (
-                    <div
-                      key={w.id}
-                      className={`dashboard-workspace-card ${isStudio ? 'dashboard-workspace-card--studio' : ''}`}
-                    >
-                      <div className="dashboard-workspace-card__header">
-                        <div>
-                          <div className="dashboard-workspace-card__category">
-                            {w.category}
+                    return (
+                      <div
+                        key={w.id}
+                        className={`dashboard-workspace-card ${isStudio ? 'dashboard-workspace-card--studio' : ''}`}
+                      >
+                        {/* Top Line: Slug Badge + Name on Left, Role Badge on Right */}
+                        <div className="dashboard-workspace-card__top">
+                          <div className="dashboard-workspace-card__title-group">
+                            <span
+                              className={`badge ${isStudio ? 'badge-accent' : 'badge-committee'}`}
+                              style={{ fontSize: '0.65rem', textTransform: 'uppercase', fontWeight: 700, flexShrink: 0 }}
+                            >
+                              {w.slug}
+                            </span>
+                            <span className="dashboard-workspace-card__name" title={w.name}>
+                              {w.name}
+                            </span>
                           </div>
-                          <div className="dashboard-workspace-card__name">
-                            {w.name}
-                          </div>
-                          <div className="dashboard-workspace-card__role">
-                            Role:{' '}
-                            <strong style={{ color: 'var(--color-text)' }}>
-                              {w.role}
-                            </strong>
-                          </div>
+
+                          <span
+                            className={`badge ${
+                              isFullAccess
+                                ? 'badge-primary'
+                                : isLeadRole
+                                ? 'badge-warning'
+                                : isHRRole
+                                ? 'badge-hr'
+                                : 'badge-outline'
+                            }`}
+                            style={{
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              flexShrink: 0,
+                            }}
+                          >
+                            {w.role}
+                          </span>
                         </div>
-                        <span className={`badge ${isStudio ? 'badge-accent' : 'badge-outline'}`} style={{ fontSize: '0.65rem', textTransform: 'uppercase' }}>
-                          {w.slug}
-                        </span>
-                      </div>
 
-                      <div className="dashboard-workspace-card__footer">
-                        <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>
-                          {isStudio ? 'Specialized Workspace' : 'Committee Workspace'}
-                        </span>
+                        {/* Bottom Line: Category Description on Left, Quick Action on Right */}
+                        <div className="dashboard-workspace-card__bottom">
+                          <span className="dashboard-workspace-card__type">
+                            {isStudio ? 'Specialized Studio' : 'Committee Workspace'}
+                          </span>
 
-                        {isStudio ? (
-                          <Link
-                            to={w.path}
-                            className="btn btn-outline btn-xs"
-                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
-                          >
-                            <span>Workspace</span>
-                            <ChevronRight size={13} />
-                          </Link>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-xs"
-                            disabled={isSwitching}
-                            onClick={() => handleSwitchAndOpen(w.data)}
-                            style={{ fontSize: '0.75rem', padding: '0.25rem 0.65rem' }}
-                          >
-                            {isSwitching ? (
-                              'Opening…'
-                            ) : (
-                              <>
-                                <span>Workspace</span>
-                                <ChevronRight size={13} />
-                              </>
-                            )}
-                          </button>
-                        )}
+                          {isStudio ? (
+                            <Link
+                              to={w.path}
+                              className="btn btn-outline btn-xs"
+                              style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem', height: '26px' }}
+                            >
+                              <span>Open</span>
+                              <ChevronRight size={12} />
+                            </Link>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-outline btn-xs"
+                              disabled={isSwitching}
+                              onClick={() => handleSwitchAndOpen(w.data)}
+                              style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem', height: '26px' }}
+                            >
+                              {isSwitching ? (
+                                'Opening…'
+                              ) : (
+                                <>
+                                  <span>Open</span>
+                                  <ChevronRight size={12} />
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             ) : (
-              <div className="dashboard-empty">
-                <Layers size={32} />
-                <p>No active workspaces or committees assigned to your profile yet.</p>
+              <div className="dashboard-empty" style={{ padding: '2rem 1rem' }}>
+                <Layers size={28} />
+                <p>No workspaces found in this category.</p>
               </div>
             )}
           </div>
