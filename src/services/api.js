@@ -564,4 +564,64 @@ export const api = {
     request(`/api/core/committees/${committeeId}/memberships/${userId}`, {
       method: 'DELETE',
     }),
+
+  // ── PR Announcements (Public & Internal Broadcasts) ───────────────────────
+  getPRAnnouncements: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.category) query.append('category', params.category);
+    if (params.visibility) query.append('visibility', params.visibility);
+    if (params.search) query.append('search', params.search);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.cursor) query.append('cursor', params.cursor);
+    const qs = query.toString();
+    return request(`/api/core/pr/announcements${qs ? `?${qs}` : ''}`);
+  },
+  createPRAnnouncement: (data) =>
+    request('/api/core/pr/announcements', {
+      method: 'POST',
+      body: data,
+    }),
+  updatePRAnnouncement: (id, data) =>
+    request(`/api/core/pr/announcements/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  togglePinPRAnnouncement: (id, isPinned) =>
+    request(`/api/core/pr/announcements/${id}/pin`, {
+      method: 'PATCH',
+      body: { isPinned },
+    }),
+  deletePRAnnouncement: (id) =>
+    request(`/api/core/pr/announcements/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // ── PR Email Outreach Campaigns ───────────────────────────────────────────
+  getPRCampaigns: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.status) query.append('status', params.status);
+    if (params.segmentType) query.append('segmentType', params.segmentType);
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.limit) query.append('limit', params.limit);
+    const qs = query.toString();
+    return request(`/api/core/pr/campaigns${qs ? `?${qs}` : ''}`);
+  },
+  createPRCampaign: (data) =>
+    request('/api/core/pr/campaigns', {
+      method: 'POST',
+      body: data,
+    }),
+  updatePRCampaign: (id, data) =>
+    request(`/api/core/pr/campaigns/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  sendPRCampaign: (id) =>
+    request(`/api/core/pr/campaigns/${id}/send`, {
+      method: 'POST',
+    }),
+  deletePRCampaign: (id) =>
+    request(`/api/core/pr/campaigns/${id}`, {
+      method: 'DELETE',
+    }),
 };

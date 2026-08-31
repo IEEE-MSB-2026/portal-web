@@ -57,10 +57,22 @@ import '../styles/workspace.css';
 export default function Workspace() {
   const { user, updateUser } = useAuthStore();
   const toast = useToastStore();
-  const [searchParams] = useSearchParams();
+  const VALID_WORKSPACE_TABS = ['kanban', 'assignments', 'announcements', 'resources', 'roster', 'archived'];
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = VALID_WORKSPACE_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'kanban';
+  const [activeTab, setActiveTabState] = useState(initialTab);
 
-  // Navigation tabs: 'kanban' | 'assignments' | 'announcements' | 'resources' | 'roster' | 'archived'
-  const [activeTab, setActiveTab] = useState('kanban');
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (VALID_WORKSPACE_TABS.includes(tabParam) && tabParam !== activeTab) {
+      setActiveTabState(tabParam);
+    }
+  }, [searchParams]);
+
+  const setActiveTab = (newTab) => {
+    setActiveTabState(newTab);
+    setSearchParams(newTab === 'kanban' ? {} : { tab: newTab }, { replace: true });
+  };
   const [workspaceData, setWorkspaceData] = useState(null);
   const [archivedTasks, setArchivedTasks] = useState([]);
   const [memberships, setMemberships] = useState([]);
@@ -773,6 +785,16 @@ export default function Workspace() {
       toast.error('Grade Required', 'Please enter a valid numeric grade.');
       return;
     }
+    const numGrade = Number(gradeInput);
+    if (numGrade < 0) {
+      toast.error('Invalid Grade', 'Grade cannot be negative.');
+      return;
+    }
+    const maxPoints = viewingSubmissionsAssignment?.maxPoints || 100;
+    if (numGrade > maxPoints) {
+      toast.error('Invalid Grade', `Grade cannot exceed maximum points (${maxPoints}).`);
+      return;
+    }
 
     setSavingGrade(true);
     try {
@@ -780,7 +802,7 @@ export default function Workspace() {
         committeeId: activeCommitteeId,
         assignmentId: viewingSubmissionsAssignment.id,
         submissionId,
-        grade: Number(gradeInput),
+        grade: numGrade,
         feedback: feedbackInput.trim() || null,
         status: 'graded',
       });
@@ -2321,24 +2343,54 @@ export default function Workspace() {
 
                         {isCurrentlyGrading ? (
                           <div style={{ background: 'var(--color-card)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginTop: '0.5rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                              <input
-                                type="number"
-                                className="workspace-form-input"
-                                placeholder={`Grade (out of ${viewingSubmissionsAssignment.maxPoints})`}
-                                value={gradeInput}
-                                onChange={(e) => setGradeInput(e.target.value)}
-                                min={0}
-                                max={viewingSubmissionsAssignment.maxPoints}
-                                style={{ width: '130px' }}
-                              />
+                            <div style={{ display: 'flex', gap: '0.65rem', marginBottom: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.35rem 0.65rem', gap: '0.35rem' }}>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  value={gradeInput}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                      setGradeInput('');
+                                      return;
+                                    }
+                                    const num = Number(val);
+                                    const max = viewingSubmissionsAssignment.maxPoints || 100;
+                                    if (num > max) {
+                                      setGradeInput(String(max));
+                                    } else if (num < 0) {
+                                      setGradeInput('0');
+                                    } else {
+                                      setGradeInput(val);
+                                    }
+                                  }}
+                                  min={0}
+                                  max={viewingSubmissionsAssignment.maxPoints}
+                                  style={{
+                                    width: '65px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    padding: '0',
+                                    fontSize: '0.9375rem',
+                                    fontWeight: 700,
+                                    color: 'var(--color-text)',
+                                    textAlign: 'center',
+                                    outline: 'none',
+                                  }}
+                                />
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                                  / {viewingSubmissionsAssignment.maxPoints} Pts
+                                </span>
+                              </div>
+
                               <input
                                 type="text"
                                 className="workspace-form-input"
                                 placeholder="Feedback / Comments for student..."
                                 value={feedbackInput}
                                 onChange={(e) => setFeedbackInput(e.target.value)}
-                                style={{ flex: 1 }}
+                                style={{ flex: 1, minWidth: '200px' }}
                               />
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -3079,7 +3131,7 @@ export default function Workspace() {
                       required
                     />
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                      Files are delivered directly to committee members via IEEE Cloudinary CDN.
+                      Files are delivered directly to committee members.
                     </span>
                   </div>
                 ) : (
@@ -3124,7 +3176,7 @@ export default function Workspace() {
                   className="btn btn-primary btn-sm"
                   disabled={savingResource || uploadingFile}
                 >
-                  {uploadingFile ? 'Uploading to CDN…' : savingResource ? 'Adding Resource…' : 'Publish Resource'}
+                  {uploadingFile ? 'Uploading…' : savingResource ? 'Adding Resource…' : 'Publish Resource'}
                 </button>
               </div>
             </form>

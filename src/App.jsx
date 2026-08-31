@@ -21,6 +21,7 @@ import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
 import Join from './pages/Join';
 import HRStudio from './pages/HRStudio';
+import PRStudio from './pages/PRStudio';
 
 function NotFound() {
   return (
@@ -107,6 +108,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <HRStudio />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="pr"
+            element={
+              <ProtectedRoute>
+                <PRStudio />
               </ProtectedRoute>
             }
           />

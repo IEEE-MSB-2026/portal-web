@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { api } from '../services/api';
@@ -96,7 +96,22 @@ export default function HRStudio() {
     );
   }
 
-  const [activeTab, setActiveTab] = useState('campaigns');
+  const VALID_HR_TABS = ['campaigns', 'pipeline', 'members', 'onboarding'];
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialTab = VALID_HR_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'campaigns';
+  const [activeTab, setActiveTabState] = useState(initialTab);
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (VALID_HR_TABS.includes(tabParam) && tabParam !== activeTab) {
+      setActiveTabState(tabParam);
+    }
+  }, [searchParams]);
+
+  const setActiveTab = (newTab) => {
+    setActiveTabState(newTab);
+    setSearchParams(newTab === 'campaigns' ? {} : { tab: newTab }, { replace: true });
+  };
 
   // ── Campaigns Tab ─────────────────────────────────────────────────────────
   const [campaigns, setCampaigns] = useState([]);

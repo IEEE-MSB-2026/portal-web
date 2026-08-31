@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo } from 'react';
 import { api } from '../services/api';
+import { useAuthStore } from '../stores/authStore';
 import {
   Megaphone,
   Calendar,
@@ -14,7 +15,10 @@ import {
   User,
   ExternalLink,
   ChevronRight,
+  ShieldAlert,
+  Layers,
 } from 'lucide-react';
+import '../styles/pr.css';
 
 const CATEGORIES = [
   { id: 'All', label: 'All Announcements', color: 'badge-accent' },
@@ -26,10 +30,22 @@ const CATEGORIES = [
 ];
 
 export default function Announcements() {
+  const { user, isAuthenticated } = useAuthStore();
+
+  // Determine if the current user is a team member with dashboard access
+  const hasCommitteeAccess = Boolean(
+    user?.scopeType === 'committee' ||
+    user?.committeeId ||
+    (user?.availableScopes && user.availableScopes.some((s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName)) ||
+    ['admin', 'officer'].includes(user?.role)
+  );
+  const hasDashboardAccess = isAuthenticated && hasCommitteeAccess;
+
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [selectedVisibility, setSelectedVisibility] = useState('All'); // 'All' | 'public' | 'internal'
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -39,8 +55,17 @@ export default function Announcements() {
       setLoading(true);
       setError(null);
       try {
-        const data = await api.getPublicAnnouncements();
-        setAnnouncements(data.announcements || []);
+        if (hasDashboardAccess) {
+          // Team members receive both public and internal announcements
+          const data = await api.getPRAnnouncements({ limit: 100 });
+          const list = data?.announcements || data?.data || (Array.isArray(data) ? data : []);
+          setAnnouncements(list);
+        } else {
+          // Visitors receive public broadcasts only
+          const data = await api.getPublicAnnouncements({ limit: 100 });
+          const list = data?.announcements || data?.data || (Array.isArray(data) ? data : []);
+          setAnnouncements(list);
+        }
       } catch (err) {
         console.error('Failed to fetch announcements:', err);
         setError('Failed to load official announcements. Please try again later.');
@@ -49,7 +74,7 @@ export default function Announcements() {
       }
     }
     fetchAnnouncements();
-  }, []);
+  }, [hasDashboardAccess]);
 
   // Keyboard shortcut (ESC) to close Lightbox modal
   useEffect(() => {
@@ -66,6 +91,11 @@ export default function Announcements() {
         selectedCategory === 'All' ||
         (ann.category || 'General').toLowerCase() === selectedCategory.toLowerCase();
 
+      const matchesVisibility =
+        !hasDashboardAccess ||
+        selectedVisibility === 'All' ||
+        (ann.visibility || 'public') === selectedVisibility;
+
       const query = searchQuery.trim().toLowerCase();
       const matchesSearch =
         !query ||
@@ -74,9 +104,9 @@ export default function Announcements() {
         ann.authorName?.toLowerCase().includes(query) ||
         ann.category?.toLowerCase().includes(query);
 
-      return matchesCategory && matchesSearch;
+      return matchesCategory && matchesVisibility && matchesSearch;
     });
-  }, [announcements, selectedCategory, searchQuery]);
+  }, [announcements, selectedCategory, selectedVisibility, searchQuery, hasDashboardAccess]);
 
   const handleCopyLink = (id) => {
     const url = `${window.location.origin}/announcements#${id}`;
@@ -209,6 +239,43 @@ export default function Announcements() {
               );
             })}
           </div>
+
+          {/* Visibility Filter Pills (Team Members with Dashboard Access Only) */}
+          {hasDashboardAccess && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem',
+                paddingTop: '0.5rem',
+                borderTop: '1px solid var(--color-border)',
+                flexWrap: 'wrap',
+              }}
+            >
+              <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', display: 'flex', alignItems: 'center', gap: '0.35rem', marginRight: '0.25rem' }}>
+                <Filter size={13} />
+                <span>Audience Visibility:</span>
+              </span>
+              {[
+                { id: 'All', label: 'All Announcements' },
+                { id: 'public', label: 'Public Only' },
+                { id: 'internal', label: 'Internal (Team Only)' },
+              ].map((vis) => {
+                const isActive = selectedVisibility === vis.id;
+                return (
+                  <button
+                    key={vis.id}
+                    type="button"
+                    onClick={() => setSelectedVisibility(vis.id)}
+                    className={`btn btn-xs ${isActive ? 'btn-primary' : 'btn-outline'}`}
+                    style={{ borderRadius: 'var(--radius-full)', fontSize: '0.75rem', padding: '0.2rem 0.65rem' }}
+                  >
+                    {vis.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {/* Loading State */}
@@ -259,16 +326,17 @@ export default function Announcements() {
               No Announcements Found
             </h3>
             <p style={{ fontSize: '0.9375rem', maxWidth: '440px', margin: '0 auto var(--space-6)' }}>
-              {searchQuery || selectedCategory !== 'All'
-                ? `No results matched your filter "${selectedCategory}" ${searchQuery ? `and search "${searchQuery}"` : ''}.`
-                : 'There are no official public announcements at this time.'}
+              {searchQuery || selectedCategory !== 'All' || selectedVisibility !== 'All'
+                ? `No results matched your filter criteria.`
+                : 'There are no official announcements at this time.'}
             </p>
-            {(searchQuery || selectedCategory !== 'All') && (
+            {(searchQuery || selectedCategory !== 'All' || selectedVisibility !== 'All') && (
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={() => {
                   setSelectedCategory('All');
+                  setSelectedVisibility('All');
                   setSearchQuery('');
                 }}
               >
@@ -278,208 +346,209 @@ export default function Announcements() {
           </div>
         )}
 
-        {/* Announcements List */}
+        {/* Announcements Feed */}
         {!loading && !error && filteredAnnouncements.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
             {filteredAnnouncements.map((ann) => {
               const isPinned = Boolean(ann.isPinned);
+              const isInternal = ann.visibility === 'internal';
+
               return (
                 <article
                   key={ann.id}
                   id={ann.id}
                   className="bento-card"
                   style={{
-                    padding: 'var(--space-6)',
+                    padding: 0,
+                    overflow: 'hidden',
                     position: 'relative',
                     borderLeft: isPinned ? '3px solid var(--color-primary)' : undefined,
                     boxShadow: isPinned ? '0 0 20px -5px rgba(0, 98, 155, 0.25)' : undefined,
                     transition: 'transform 0.2s ease, box-shadow 0.2s ease',
                   }}
                 >
-                  {/* Top Bar: Badges + Timestamp + Actions */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '0.5rem',
-                      marginBottom: 'var(--space-3)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      {isPinned && (
-                        <span
-                          className="badge badge-accent"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '0.25rem',
-                            fontWeight: 700,
-                            letterSpacing: '0.04em',
-                          }}
-                        >
-                          <Pin size={12} style={{ transform: 'rotate(45deg)' }} />
-                          PINNED
-                        </span>
-                      )}
-                      <span className={`badge ${getCategoryBadgeClass(ann.category)}`}>
-                        {ann.category || 'General'}
-                      </span>
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                      <div
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.375rem',
-                          fontSize: '0.8125rem',
-                          color: 'var(--color-text-muted)',
-                        }}
-                      >
-                        <Calendar size={13} />
-                        <span>
-                          {new Date(ann.createdAt).toLocaleDateString(undefined, {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
-                        </span>
-                      </div>
-
-                      {/* Copy Link Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleCopyLink(ann.id)}
-                        className="btn btn-ghost btn-sm"
-                        style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', gap: '0.25rem' }}
-                        title="Copy direct link to this announcement"
-                      >
-                        {copiedId === ann.id ? (
-                          <>
-                            <Check size={13} style={{ color: 'var(--color-success)' }} />
-                            <span style={{ color: 'var(--color-success)' }}>Copied</span>
-                          </>
-                        ) : (
-                          <>
-                            <Share2 size={13} />
-                            <span>Share</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Announcement Title */}
-                  <h2
-                    style={{
-                      fontSize: '1.375rem',
-                      fontWeight: 700,
-                      lineHeight: 1.35,
-                      marginBottom: 'var(--space-3)',
-                      color: 'var(--color-text)',
-                    }}
-                  >
-                    {ann.title}
-                  </h2>
-
-                  {/* Announcement Body */}
-                  <p
-                    style={{
-                      color: 'var(--color-text-muted)',
-                      fontSize: '0.9875rem',
-                      lineHeight: 1.65,
-                      whiteSpace: 'pre-line',
-                      marginBottom: ann.imageUrl ? 'var(--space-4)' : 'var(--space-4)',
-                    }}
-                  >
-                    {ann.body}
-                  </p>
-
-                  {/* Attached Banner Image with Lightbox zoom */}
+                  {/* Fixed-Height Centered Banner Header (matching PR Studio card live preview) */}
                   {ann.imageUrl && (
                     <div
+                      className="pr-announcement-card__banner"
                       style={{
-                        marginTop: 'var(--space-4)',
-                        marginBottom: 'var(--space-4)',
-                        borderRadius: 'var(--radius-md)',
-                        overflow: 'hidden',
-                        border: '1px solid var(--color-border)',
-                        position: 'relative',
+                        height: '220px',
                         cursor: 'pointer',
-                        maxHeight: '360px',
+                        borderRadius: 0,
                         backgroundColor: 'var(--color-surface)',
                       }}
                       onClick={() => setSelectedImage(ann.imageUrl)}
-                      title="Click to zoom image in full screen"
+                      title="Click to view full resolution banner"
                     >
                       <img
                         src={ann.imageUrl}
                         alt={ann.title}
                         loading="lazy"
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          display: 'block',
-                          transition: 'transform 0.3s ease',
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.transform = 'scale(1.015)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.transform = 'scale(1)';
-                        }}
+                        className="pr-announcement-card__img"
                       />
-                      <div
-                        style={{
-                          position: 'absolute',
-                          bottom: '0.75rem',
-                          right: '0.75rem',
-                          backgroundColor: 'rgba(0, 0, 0, 0.75)',
-                          backdropFilter: 'blur(4px)',
-                          color: '#ffffff',
-                          padding: '0.35rem 0.65rem',
-                          borderRadius: 'var(--radius-sm)',
-                          fontSize: '0.75rem',
-                          fontWeight: 500,
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.35rem',
-                          boxShadow: 'var(--shadow-sm)',
+
+                      {/* Enlarge Banner Action Capsule */}
+                      <button
+                        type="button"
+                        className="pr-announcement-card__enlarge-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedImage(ann.imageUrl);
                         }}
+                        title="Click to zoom image in full screen"
                       >
                         <ZoomIn size={13} />
                         <span>Enlarge Banner</span>
-                      </div>
+                      </button>
                     </div>
                   )}
 
-                  {/* Author Signature Footer */}
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      paddingTop: 'var(--space-3)',
-                      borderTop: '1px solid var(--color-border)',
-                      fontSize: '0.8125rem',
-                      color: 'var(--color-text-muted)',
-                    }}
-                  >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-                      <User size={13} style={{ color: 'var(--color-primary)' }} />
-                      <span>
-                        Published by:{' '}
-                        <strong style={{ color: 'var(--color-text)' }}>
-                          {ann.authorName || 'Branch Executive Board'}
-                        </strong>
-                      </span>
+                  {/* Card Main Body */}
+                  <div style={{ padding: 'var(--space-6)' }}>
+                    {/* Top Bar: Badges + Timestamp + Actions */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        flexWrap: 'wrap',
+                        gap: '0.5rem',
+                        marginBottom: 'var(--space-3)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        {isPinned && (
+                          <span
+                            className="badge badge-accent"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              fontWeight: 700,
+                              letterSpacing: '0.04em',
+                            }}
+                          >
+                            <Pin size={12} style={{ transform: 'rotate(45deg)' }} />
+                            PINNED
+                          </span>
+                        )}
+
+                        <span className={`badge ${getCategoryBadgeClass(ann.category)}`}>
+                          {ann.category || 'General'}
+                        </span>
+
+                        {isInternal && (
+                          <span
+                            className="badge"
+                            style={{
+                              backgroundColor: 'rgba(245, 158, 11, 0.15)',
+                              color: 'var(--color-warning)',
+                              border: '1px solid rgba(245, 158, 11, 0.35)',
+                              fontWeight: 700,
+                              fontSize: '0.71875rem',
+                            }}
+                          >
+                            INTERNAL (TEAM)
+                          </span>
+                        )}
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                        <div
+                          style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '0.375rem',
+                            fontSize: '0.8125rem',
+                            color: 'var(--color-text-muted)',
+                          }}
+                        >
+                          <Calendar size={13} />
+                          <span>
+                            {new Date(ann.createdAt).toLocaleDateString(undefined, {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
+                          </span>
+                        </div>
+
+                        {/* Copy Link Button */}
+                        <button
+                          type="button"
+                          onClick={() => handleCopyLink(ann.id)}
+                          className="btn btn-ghost btn-sm"
+                          style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem', gap: '0.25rem' }}
+                          title="Copy direct link to this announcement"
+                        >
+                          {copiedId === ann.id ? (
+                            <>
+                              <Check size={13} style={{ color: 'var(--color-success)' }} />
+                              <span style={{ color: 'var(--color-success)' }}>Copied</span>
+                            </>
+                          ) : (
+                            <>
+                              <Share2 size={13} />
+                              <span>Share</span>
+                            </>
+                          )}
+                        </button>
+                      </div>
                     </div>
 
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', opacity: 0.75 }}>
-                      <span>Menoufia SB</span>
+                    {/* Announcement Title */}
+                    <h2
+                      style={{
+                        fontSize: '1.375rem',
+                        fontWeight: 700,
+                        lineHeight: 1.35,
+                        marginBottom: ann.body ? 'var(--space-3)' : 'var(--space-4)',
+                        color: 'var(--color-text)',
+                      }}
+                    >
+                      {ann.title}
+                    </h2>
+
+                    {/* Announcement Body (Optional) */}
+                    {ann.body && (
+                      <p
+                        style={{
+                          color: 'var(--color-text-muted)',
+                          fontSize: '0.9875rem',
+                          lineHeight: 1.65,
+                          whiteSpace: 'pre-line',
+                          marginBottom: 'var(--space-5)',
+                        }}
+                      >
+                        {ann.body}
+                      </p>
+                    )}
+
+                    {/* Author Signature Footer */}
+                    <div
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        paddingTop: 'var(--space-3)',
+                        borderTop: '1px solid var(--color-border)',
+                        fontSize: '0.8125rem',
+                        color: 'var(--color-text-muted)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <User size={13} style={{ color: 'var(--color-primary)' }} />
+                        <span>
+                          Published by:{' '}
+                          <strong style={{ color: 'var(--color-text)' }}>
+                            {ann.authorName || 'Branch Executive Board'}
+                          </strong>
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', opacity: 0.75 }}>
+                        <span>Menoufia SB</span>
+                      </div>
                     </div>
                   </div>
                 </article>
@@ -488,70 +557,22 @@ export default function Announcements() {
           </div>
         )}
 
-        {/* Fullscreen Lightbox Modal */}
+        {/* Shared Lightbox Fullscreen Modal */}
         {selectedImage && (
-          <div
-            className="modal-backdrop"
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              width: '100vw',
-              height: '100vh',
-              backgroundColor: 'rgba(0, 0, 0, 0.85)',
-              backdropFilter: 'blur(8px)',
-              zIndex: 1000,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              padding: 'var(--space-6)',
-            }}
-            onClick={() => setSelectedImage(null)}
-          >
-            <div
-              style={{
-                position: 'relative',
-                maxWidth: '92vw',
-                maxHeight: '90vh',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
+          <div className="pr-lightbox-backdrop" onClick={() => setSelectedImage(null)}>
+            <div className="pr-lightbox-content" onClick={(e) => e.stopPropagation()}>
               <button
                 type="button"
-                className="btn btn-secondary btn-icon"
+                className="pr-lightbox-close"
                 onClick={() => setSelectedImage(null)}
                 aria-label="Close enlarged banner"
-                style={{
-                  position: 'absolute',
-                  top: '-1.25rem',
-                  right: '-1.25rem',
-                  zIndex: 20,
-                  boxShadow: 'var(--shadow-lg)',
-                  borderRadius: 'var(--radius-full)',
-                  width: '2.5rem',
-                  height: '2.5rem',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  backgroundColor: 'var(--color-surface)',
-                }}
               >
                 <X size={18} />
               </button>
               <img
                 src={selectedImage}
                 alt="Enlarged announcement banner"
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: '85vh',
-                  borderRadius: 'var(--radius-lg)',
-                  boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.7)',
-                  border: '1px solid var(--color-border)',
-                  objectFit: 'contain',
-                }}
+                className="pr-lightbox-img"
               />
             </div>
           </div>

@@ -232,6 +232,16 @@ export default function Dashboard() {
       toast.error('Grade Required', 'Please enter a valid numeric grade.');
       return;
     }
+    const numGrade = Number(gradeInput);
+    if (numGrade < 0) {
+      toast.error('Invalid Grade', 'Grade cannot be negative.');
+      return;
+    }
+    const maxPoints = viewingSubmissionsAssignment?.maxPoints || 100;
+    if (numGrade > maxPoints) {
+      toast.error('Invalid Grade', `Grade cannot exceed maximum points (${maxPoints}).`);
+      return;
+    }
 
     setSavingGrade(true);
     try {
@@ -239,7 +249,7 @@ export default function Dashboard() {
         committeeId: viewingSubmissionsAssignment.committeeId,
         assignmentId: viewingSubmissionsAssignment.id,
         submissionId,
-        grade: Number(gradeInput),
+        grade: numGrade,
         feedback: feedbackInput.trim() || null,
         status: 'graded',
       });
@@ -414,17 +424,19 @@ export default function Dashboard() {
   const allWorkspaces = [...committeeWorkspaces, ...specializedWorkspaces];
 
   // Determine which assignments to show on dashboard:
-  // - If user is Lead in that committee: show active assignment with "Review Submissions"
+  // - If user is Lead, Admin, or HR in that committee: show active assignments with submissions review access
   // - If user is Member in that committee: only show if unsubmitted (!isSubmitted) with "Deliver Solution"
   const actionableAssignments = pendingAssignments.filter((assignment) => {
     const committeeInfo = committees.find((c) => c.id === assignment.committeeId);
-    const isLeadForThisCommittee =
+    const roleInCommittee = committeeInfo?.roleInCommittee || committeeInfo?.role_in_committee;
+    const isLeadOrAdmin =
       user?.role === 'admin' ||
       user?.role === 'officer' ||
-      committeeInfo?.roleInCommittee === 'lead' ||
-      committeeInfo?.role_in_committee === 'lead';
+      roleInCommittee === 'lead' ||
+      roleInCommittee === 'admin';
+    const isHrRole = roleInCommittee === 'hr';
 
-    if (isLeadForThisCommittee) return true;
+    if (isLeadOrAdmin || isHrRole) return true;
     return !assignment.isSubmitted;
   });
 
@@ -774,13 +786,27 @@ export default function Dashboard() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {actionableAssignments.map((assignment) => {
                   const committeeInfo = committees.find((c) => c.id === assignment.committeeId);
+                  const roleInCommittee = committeeInfo?.roleInCommittee || committeeInfo?.role_in_committee;
                   const isLeadForThisCommittee =
                     user?.role === 'admin' ||
                     user?.role === 'officer' ||
-                    committeeInfo?.roleInCommittee === 'lead' ||
-                    committeeInfo?.role_in_committee === 'lead';
+                    roleInCommittee === 'lead' ||
+                    roleInCommittee === 'admin';
+                  const isHrForThisCommittee = roleInCommittee === 'hr';
+                  const hasSubmissionsAccess = isLeadForThisCommittee || isHrForThisCommittee;
 
-                  const isOverdue = assignment.dueDate && new Date(assignment.dueDate) < new Date() && !assignment.isSubmitted;
+                  const isOverdue =
+                    assignment.dueDate &&
+                    (() => {
+                      const due = new Date(assignment.dueDate);
+                      if (due.getUTCHours() === 0 && due.getUTCMinutes() === 0 && due.getUTCSeconds() === 0) {
+                        const endOfDay = new Date(due);
+                        endOfDay.setUTCHours(23, 59, 59, 999);
+                        return endOfDay < new Date();
+                      }
+                      return due < new Date();
+                    })() &&
+                    !assignment.isSubmitted;
 
                   return (
                     <div
@@ -805,7 +831,7 @@ export default function Dashboard() {
                           <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>
                             {assignment.maxPoints} Pts
                           </span>
-                          {isOverdue && !isLeadForThisCommittee && (
+                          {isOverdue && !hasSubmissionsAccess && (
                             <span className="badge badge-danger" style={{ fontSize: '0.65rem' }}>
                               Overdue
                             </span>
@@ -856,14 +882,14 @@ export default function Dashboard() {
                       </div>
 
                       <div>
-                        {isLeadForThisCommittee ? (
+                        {hasSubmissionsAccess ? (
                           <button
                             type="button"
                             className="btn btn-outline btn-sm"
                             onClick={() => handleOpenSubmissions(assignment)}
                           >
                             <Eye size={14} />
-                            <span>Review Submissions</span>
+                            <span>{isHrForThisCommittee ? 'View Submissions' : 'Review Submissions'}</span>
                           </button>
                         ) : (
                           <button
@@ -1374,6 +1400,15 @@ export default function Dashboard() {
                     const isGraded = sub.grade !== null && sub.grade !== undefined;
                     const isCurrentlyGrading = gradingSubmissionId === sub.id;
 
+                    const viewingCommitteeInfo = committees.find((c) => c.id === viewingSubmissionsAssignment?.committeeId);
+                    const viewingRole = viewingCommitteeInfo?.roleInCommittee || viewingCommitteeInfo?.role_in_committee;
+                    const canGradeThisAssignment =
+                      (user?.role === 'admin' ||
+                       user?.role === 'officer' ||
+                       viewingRole === 'lead' ||
+                       viewingRole === 'admin') &&
+                      viewingRole !== 'hr';
+
                     return (
                       <div
                         key={sub.id}
@@ -1427,26 +1462,56 @@ export default function Dashboard() {
                           </div>
                         )}
 
-                        {isCurrentlyGrading ? (
+                        {isCurrentlyGrading && canGradeThisAssignment ? (
                           <div style={{ background: 'var(--color-card)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', marginTop: '0.5rem' }}>
-                            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                              <input
-                                type="number"
-                                className="workspace-form-input"
-                                placeholder={`Grade (out of ${viewingSubmissionsAssignment.maxPoints})`}
-                                value={gradeInput}
-                                onChange={(e) => setGradeInput(e.target.value)}
-                                min={0}
-                                max={viewingSubmissionsAssignment.maxPoints}
-                                style={{ width: '130px' }}
-                              />
+                            <div style={{ display: 'flex', gap: '0.65rem', marginBottom: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                              <div style={{ display: 'inline-flex', alignItems: 'center', background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.35rem 0.65rem', gap: '0.35rem' }}>
+                                <input
+                                  type="number"
+                                  placeholder="0"
+                                  value={gradeInput}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === '') {
+                                      setGradeInput('');
+                                      return;
+                                    }
+                                    const num = Number(val);
+                                    const max = viewingSubmissionsAssignment.maxPoints || 100;
+                                    if (num > max) {
+                                      setGradeInput(String(max));
+                                    } else if (num < 0) {
+                                      setGradeInput('0');
+                                    } else {
+                                      setGradeInput(val);
+                                    }
+                                  }}
+                                  min={0}
+                                  max={viewingSubmissionsAssignment.maxPoints}
+                                  style={{
+                                    width: '65px',
+                                    border: 'none',
+                                    background: 'transparent',
+                                    padding: '0',
+                                    fontSize: '0.9375rem',
+                                    fontWeight: 700,
+                                    color: 'var(--color-text)',
+                                    textAlign: 'center',
+                                    outline: 'none',
+                                  }}
+                                />
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                                  / {viewingSubmissionsAssignment.maxPoints} Pts
+                                </span>
+                              </div>
+
                               <input
                                 type="text"
                                 className="workspace-form-input"
                                 placeholder="Feedback / Comments for student..."
                                 value={feedbackInput}
                                 onChange={(e) => setFeedbackInput(e.target.value)}
-                                style={{ flex: 1 }}
+                                style={{ flex: 1, minWidth: '200px' }}
                               />
                             </div>
                             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
@@ -1475,19 +1540,21 @@ export default function Dashboard() {
                                 <em>Feedback: {sub.feedback}</em>
                               </span>
                             )}
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-xs"
-                              style={{ marginLeft: 'auto' }}
-                              onClick={() => {
-                                setGradingSubmissionId(sub.id);
-                                setGradeInput(sub.grade !== null ? String(sub.grade) : '');
-                                setFeedbackInput(sub.feedback || '');
-                              }}
-                            >
-                              <Award size={12} />
-                              <span>{isGraded ? 'Update Grade' : 'Grade Solution'}</span>
-                            </button>
+                            {canGradeThisAssignment && (
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                style={{ marginLeft: 'auto' }}
+                                onClick={() => {
+                                  setGradingSubmissionId(sub.id);
+                                  setGradeInput(sub.grade !== null ? String(sub.grade) : '');
+                                  setFeedbackInput(sub.feedback || '');
+                                }}
+                              >
+                                <Award size={12} />
+                                <span>{isGraded ? 'Update Grade' : 'Grade Solution'}</span>
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
