@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
+import UserProfileModal from '../components/profile/UserProfileModal';
 import { api } from '../services/api';
 import '../styles/hr.css';
 import {
@@ -14,6 +15,7 @@ import {
   Search,
   Calendar,
   X,
+  User,
   UserPlus,
   UserMinus,
   UserX,
@@ -98,6 +100,7 @@ export default function HRStudio() {
   }
 
   const VALID_HR_TABS = ['campaigns', 'pipeline', 'members', 'onboarding'];
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = VALID_HR_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'campaigns';
   const [activeTab, setActiveTabState] = useState(initialTab);
@@ -1422,7 +1425,16 @@ export default function HRStudio() {
                 <tbody>
                   {filteredMembers.map((m) => (
                     <tr key={`${m.committeeId}-${m.externalUserId || m.id}`} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.875rem' }}>
-                      <td style={{ padding: '0.75rem 1rem', fontWeight: 600 }}>{m.name || 'Member'}</td>
+                      <td
+                        style={{ padding: '0.75rem 1rem', fontWeight: 600, cursor: 'pointer', color: 'var(--color-primary)' }}
+                        onClick={() => setSelectedProfileUserId(m.externalUserId || m.userId || m.id)}
+                        title={`View ${m.name || 'Member'}'s profile`}
+                      >
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <span>{m.name || 'Member'}</span>
+                          <ExternalLink size={12} style={{ opacity: 0.6 }} />
+                        </span>
+                      </td>
                       <td style={{ padding: '0.75rem 1rem', color: 'var(--color-text-muted)' }}>{m.email}</td>
                       <td style={{ padding: '0.75rem 1rem' }}>
                         <span className="badge badge-committee">{m.committeeName || getCommitteeName(m.committeeId)}</span>
@@ -1705,11 +1717,25 @@ export default function HRStudio() {
               <div style={{ marginBottom: 'var(--space-4)' }}>
                 <h4 style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>{selectedCandidate.answers?.fullName || 'Unknown'}</h4>
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{selectedCandidate.applicantEmail}</div>
-                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
-                  <span className={`hr-status-badge hr-status-badge--${selectedCandidate.currentStage === 'final_review' || selectedCandidate.currentStage === 'accepted' ? 'open' : 'draft'}`}>
-                    {selectedCandidate.currentStage?.replace('_', ' ')}
-                  </span>
-                  <span className="hr-candidate-card__committee">{getCommitteeName(selectedCandidate.committeeId)}</span>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.5rem' }}>
+                    <span className={`hr-status-badge hr-status-badge--${selectedCandidate.currentStage === 'final_review' || selectedCandidate.currentStage === 'accepted' ? 'open' : 'draft'}`}>
+                      {selectedCandidate.currentStage?.replace('_', ' ')}
+                    </span>
+                    <span className="hr-candidate-card__committee">{getCommitteeName(selectedCandidate.committeeId)}</span>
+                  </div>
+
+                  {(selectedCandidate.applicantUserId || selectedCandidate.userId) && (
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-xs"
+                      onClick={() => setSelectedProfileUserId(selectedCandidate.applicantUserId || selectedCandidate.userId)}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', padding: '0.25rem 0.55rem' }}
+                    >
+                      <User size={13} />
+                      <span>View Profile</span>
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -1789,6 +1815,13 @@ export default function HRStudio() {
           </div>
         </div>
       )}
+
+      {/* User Profile Quick-View Modal */}
+      <UserProfileModal
+        userId={selectedProfileUserId}
+        isOpen={Boolean(selectedProfileUserId)}
+        onClose={() => setSelectedProfileUserId(null)}
+      />
     </div>
   );
 }

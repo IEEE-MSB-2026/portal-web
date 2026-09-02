@@ -1,6 +1,7 @@
 /* ==========================================================================
    PROFILE PAGE — Dedicated Styles
-   Dark navy hero matching the auth design language.
+   Dark navy hero matching the auth design language, Bento Grid layout,
+   redesigned academic card, social icons strip, and dynamic tabs.
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -10,10 +11,10 @@
   position: relative;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, #002F4C 0%, #00629B 60%, #00A6C4 100%);
-  padding: 2.5rem 2rem 2rem;
+  background: linear-gradient(135deg, #002F4C 0%, #00629B 55%, #00A6C4 100%);
+  padding: 1.5rem 1.75rem 1.35rem;
   margin-bottom: var(--space-6);
-  box-shadow: 0 8px 32px -12px rgba(0, 47, 76, 0.35);
+  box-shadow: 0 10px 30px -10px rgba(0, 47, 76, 0.4);
 }
 
 .profile-hero::before {
@@ -21,8 +22,8 @@
   position: absolute;
   top: -40%;
   right: -10%;
-  width: 420px;
-  height: 420px;
+  width: 400px;
+  height: 400px;
   background: radial-gradient(circle, rgba(0, 166, 196, 0.25) 0%, transparent 70%);
   pointer-events: none;
 }
@@ -32,8 +33,8 @@
   position: absolute;
   bottom: -30%;
   left: -5%;
-  width: 300px;
-  height: 300px;
+  width: 280px;
+  height: 280px;
   background: radial-gradient(circle, rgba(0, 98, 155, 0.2) 0%, transparent 70%);
   pointer-events: none;
 }
@@ -43,11 +44,83 @@
   z-index: 1;
 }
 
+/* --------------------------------------------------------------------------
+   Pinned Edit Corner Button (Top-Right)
+   -------------------------------------------------------------------------- */
+/* --------------------------------------------------------------------------
+   Pinned Corner Actions (Share + Edit) - Top-Right
+   -------------------------------------------------------------------------- */
+.profile-hero__corner-actions {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 10;
+}
+
+.profile-hero__corner-share-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.32rem 0.8rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #fff;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-hero__corner-share-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: #fff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.profile-hero__corner-icon-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.profile-hero__corner-icon-btn:hover {
+  background: #fff;
+  color: #002F4C;
+  transform: scale(1.08);
+  border-color: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
 .profile-hero__layout {
   display: flex;
   align-items: center;
-  gap: 1.75rem;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+.profile-hero__main {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  flex: 1;
+  min-width: 280px;
 }
 
 .profile-hero__avatar-wrap {
@@ -56,16 +129,16 @@
 }
 
 .profile-hero__avatar {
-  width: 6.5rem;
-  height: 6.5rem;
+  width: 5.75rem;
+  height: 5.75rem;
   border-radius: var(--radius-pill);
-  border: 3px solid rgba(255, 255, 255, 0.4);
+  border: 3px solid rgba(255, 255, 255, 0.5);
   overflow: hidden;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px -6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px -4px rgba(0, 0, 0, 0.35);
 }
 
 .profile-hero__avatar img {
@@ -75,7 +148,7 @@
 }
 
 .profile-hero__avatar-initials {
-  font-size: 2rem;
+  font-size: 1.875rem;
   font-weight: 800;
   color: #fff;
   letter-spacing: 0.02em;
@@ -85,24 +158,26 @@
   position: absolute;
   bottom: 0;
   right: 0;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 1.875rem;
+  height: 1.875rem;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(0, 47, 76, 0.85);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: #fff;
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  border: 1.5px solid rgba(255, 255, 255, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
 }
 
 .profile-hero__upload-btn:hover {
-  background: rgba(255, 255, 255, 0.35);
-  transform: scale(1.08);
+  background: var(--color-primary);
+  transform: scale(1.1);
+  border-color: #fff;
 }
 
 .profile-hero__upload-btn:disabled {
@@ -115,64 +190,269 @@
   min-width: 0;
 }
 
-.profile-hero__name {
-  font-family: var(--font-heading);
-  font-size: 1.75rem;
-  font-weight: 700;
-  color: #fff;
-  margin: 0 0 0.25rem;
+/* Name Row (Name + Role left) */
+.profile-hero__name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  flex-wrap: wrap;
+  padding-right: 140px;
+}
+
+.profile-hero__name-group {
   display: flex;
   align-items: center;
   gap: 0.625rem;
   flex-wrap: wrap;
 }
 
-.profile-hero__email {
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 0.9375rem;
-  margin-bottom: 0.625rem;
+.profile-hero__name {
+  font-family: var(--font-heading);
+  font-size: 1.75rem;
+  font-weight: 800;
+  color: #fff;
+  margin: 0;
+  line-height: 1.2;
 }
 
 .profile-hero__badges {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.profile-hero__badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.7rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+}
+
+.profile-hero__badge--joined {
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.95);
+  border-color: rgba(255, 255, 255, 0.3);
+  font-weight: 600;
+  text-transform: none;
+  font-size: 0.78125rem;
+  letter-spacing: normal;
+}
+
+.profile-hero__badge--role,
+.profile-hero__badge--member {
+  background: rgba(59, 130, 246, 0.35);
+  color: #bfdbfe;
+  border-color: rgba(147, 197, 253, 0.4);
+}
+
+.profile-hero__badge--lead {
+  background: rgba(245, 158, 11, 0.35);
+  color: #fde68a;
+  border-color: rgba(251, 191, 36, 0.45);
+}
+
+.profile-hero__badge--officer {
+  background: rgba(139, 92, 246, 0.35);
+  color: #ddd6fe;
+  border-color: rgba(196, 181, 253, 0.45);
+}
+
+.profile-hero__badge--admin {
+  background: rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  border-color: rgba(252, 165, 165, 0.45);
+}
+
+.profile-hero__badge--hr {
+  background: rgba(16, 185, 129, 0.35);
+  color: #a7f3d0;
+  border-color: rgba(110, 231, 183, 0.45);
+}
+
+.profile-hero__badge--scope {
+  background: rgba(16, 185, 129, 0.3);
+  color: #a7f3d0;
+  border-color: rgba(110, 231, 183, 0.4);
+}
+
+.profile-hero__badge--verified {
+  background: rgba(0, 166, 196, 0.22);
+  color: #e0f2fe;
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 2px 8px rgba(0, 166, 196, 0.15);
+}
+
+/* --------------------------------------------------------------------------
+   Hero Embedded Bio Box (Fitted box that hugs text, no edge-to-edge stretching)
+   -------------------------------------------------------------------------- */
+.profile-hero__bio-box {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  margin-top: 0.45rem;
+  background: rgba(0, 20, 40, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-md);
+  padding: 0.4rem 0.85rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.profile-hero__bio-box--empty {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8125rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+  padding: 0.35rem 0.75rem;
+}
+
+.profile-hero__bio-text {
+  font-size: 0.9375rem;
+  line-height: 1.55;
+  color: rgba(255, 255, 255, 0.95);
+  margin: 0;
+  white-space: pre-line;
+}
+
+.profile-hero__bio-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  border-radius: var(--radius-sm);
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  font-style: normal;
+}
+
+.profile-hero__bio-btn:hover {
+  background: #fff;
+  color: #002F4C;
+}
+
+/* --------------------------------------------------------------------------
+   Hero Bottom Bar: Connection & Contact (Left) + Share (Right)
+   -------------------------------------------------------------------------- */
+.profile-hero__bottom-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.profile-hero__socials-and-contact {
   display: flex;
   align-items: center;
   gap: 0.5rem;
   flex-wrap: wrap;
 }
 
-.profile-hero__badge {
+.profile-hero__share-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.25rem 0.625rem;
+  gap: 0.4rem;
+  padding: 0.35rem 0.85rem;
   border-radius: var(--radius-pill);
-  font-size: 0.6875rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
   color: #fff;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
-}
-
-.profile-hero__badge--role {
-  background: rgba(59, 130, 246, 0.3);
-  color: #93c5fd;
-}
-
-.profile-hero__badge--scope {
-  background: rgba(16, 185, 129, 0.25);
-  color: #6ee7b7;
-}
-
-.profile-hero__member-since {
-  margin-top: 0.625rem;
   font-size: 0.8125rem;
-  color: rgba(255, 255, 255, 0.55);
-  display: flex;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  margin-left: auto;
+}
+
+.profile-hero__share-btn:hover {
+  background: rgba(255, 255, 255, 0.28);
+  border-color: #fff;
+  transform: translateY(-1px);
+}
+
+.profile-social-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  display: inline-flex;
   align-items: center;
-  gap: 0.375rem;
+  justify-content: center;
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.profile-social-btn:hover {
+  background: #fff;
+  color: #002F4C;
+  transform: translateY(-1px) scale(1.08);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  border-color: #fff;
+}
+
+.profile-hero__contact-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background: rgba(255, 255, 255, 0.13);
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: var(--radius-pill);
+  padding: 0.28rem 0.72rem;
+  font-size: 0.78125rem;
+  color: #fff;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  user-select: none;
+}
+
+.profile-hero__contact-pill:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.5);
+  transform: translateY(-1px);
+}
+
+.profile-social-btn--standalone {
+  background: var(--color-card);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.profile-social-btn--standalone:hover {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3);
 }
 
 /* --------------------------------------------------------------------------
@@ -181,20 +461,23 @@
 .profile-tabs {
   display: flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.375rem;
   margin-bottom: var(--space-6);
-  padding: 0.25rem;
+  padding: 0.35rem;
   background: var(--color-bg-alt);
-  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
   width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 .profile-tab {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
+  padding: 0.55rem 1.15rem;
+  border-radius: var(--radius-md);
   font-size: 0.875rem;
   font-weight: 600;
   color: var(--color-text-muted);
@@ -202,6 +485,7 @@
   transition: all 0.2s ease;
   border: none;
   background: transparent;
+  white-space: nowrap;
 }
 
 .profile-tab:hover {
@@ -211,104 +495,246 @@
 
 .profile-tab--active {
   background: var(--color-card);
-  color: var(--color-text);
-  box-shadow: var(--shadow-sm);
+  color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  font-weight: 700;
 }
 
 /* --------------------------------------------------------------------------
-   Quick Stats Row
+   Bento Grid Architecture
    -------------------------------------------------------------------------- */
-.profile-stats {
+.profile-bento-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
+  grid-template-columns: repeat(12, 1fr);
+  gap: var(--space-5);
+  margin-bottom: var(--space-8);
 }
 
-.profile-stat-card {
+.profile-bento-card {
   background: var(--color-card);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1.25rem 1rem;
-  text-align: center;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  transition: all 0.25s ease;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.profile-stat-card:hover {
+.profile-bento-card:hover {
   border-color: var(--color-border-hover);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 
-.profile-stat-card__value {
-  font-family: var(--font-heading);
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--color-primary);
-  line-height: 1;
-  margin-bottom: 0.375rem;
-}
+.profile-bento-card--col-12 { grid-column: span 12; }
+.profile-bento-card--col-8 { grid-column: span 8; }
+.profile-bento-card--col-7 { grid-column: span 7; }
+.profile-bento-card--col-6 { grid-column: span 6; }
+.profile-bento-card--col-5 { grid-column: span 5; }
+.profile-bento-card--col-4 { grid-column: span 4; }
 
-.profile-stat-card__label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-/* --------------------------------------------------------------------------
-   Committees Grid
-   -------------------------------------------------------------------------- */
-.profile-section-title {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  font-size: 0.8125rem;
-  font-weight: 700;
-  color: var(--color-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin-bottom: var(--space-4);
-}
-
-.profile-committees {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-.profile-committee-card {
-  background: var(--color-card);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1.25rem;
+.profile-bento-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile-bento-header__title {
+  font-family: var(--font-heading);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--color-text);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-bento-header__title svg {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.profile-bento-header__action {
+  font-size: 0.8125rem;
+  color: var(--color-primary);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: none;
+  border: none;
+  padding: 0;
+  font-weight: 600;
+}
+
+.profile-bento-header__action:hover {
+  text-decoration: underline;
+}
+
+/* --------------------------------------------------------------------------
+   Academic & Campus Identity Card (1 Element per Line)
+   -------------------------------------------------------------------------- */
+.profile-academic-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.profile-academic-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: var(--color-bg-alt);
+  padding: 0.85rem 1.15rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
   transition: all 0.2s ease;
 }
 
-.profile-committee-card:hover {
+.profile-academic-item:hover {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 1px var(--color-primary), var(--shadow-sm);
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+  transform: translateX(2px);
 }
 
-.profile-committee-card--active {
-  border-color: var(--color-primary);
-  background: var(--color-primary-light);
+.profile-academic-item__icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 98, 155, 0.1);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.profile-committee-card__info {
+.profile-academic-item__content {
+  min-width: 0;
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.15rem;
+}
+
+.profile-academic-item__label {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 0.1rem;
+}
+
+.profile-academic-item__value {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--color-text);
+  line-height: 1.35;
+  word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   Activity & Contribution Stats Bento
+   -------------------------------------------------------------------------- */
+.profile-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+  height: 100%;
+}
+
+.profile-stat-box {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.15rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.profile-stat-box:hover {
+  border-color: var(--color-primary);
+  transform: translateY(-2px);
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-stat-box__icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: var(--radius-pill);
+  background: rgba(59, 130, 246, 0.1);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.profile-stat-box__value {
+  font-family: var(--font-heading);
+  font-size: 1.875rem;
+  font-weight: 800;
+  color: var(--color-text);
+  line-height: 1;
+  margin-bottom: 0.25rem;
+}
+
+.profile-stat-box__label {
+  font-size: 0.71875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  letter-spacing: 0.05em;
+}
+
+/* --------------------------------------------------------------------------
+   Committees & Roles Cards
+   -------------------------------------------------------------------------- */
+.profile-committees-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.profile-committee-badge-card {
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1.15rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.875rem;
+  transition: all 0.2s ease;
+}
+
+.profile-committee-badge-card:hover {
+  border-color: var(--color-primary);
+  background: var(--color-card);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.profile-committee-badge-card__info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
   min-width: 0;
 }
 
-.profile-committee-card__name {
+.profile-committee-badge-card__name {
   font-weight: 700;
   font-size: 0.9375rem;
   color: var(--color-text);
@@ -317,9 +743,104 @@
   white-space: nowrap;
 }
 
-.profile-committee-card__role {
+.profile-committee-badge-card__date {
   font-size: 0.75rem;
   color: var(--color-text-muted);
+}
+
+/* --------------------------------------------------------------------------
+   Authorized Contact Card
+   -------------------------------------------------------------------------- */
+.profile-contact-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--color-bg-alt);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.profile-contact-pill:last-child {
+  margin-bottom: 0;
+}
+
+.profile-contact-pill__info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.profile-contact-pill__icon {
+  color: var(--color-primary);
+  flex-shrink: 0;
+}
+
+.profile-contact-pill__text {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+  word-break: break-all;
+}
+
+.profile-contact-pill__btn {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.profile-contact-pill__btn:hover {
+  background: var(--color-card);
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Tab 2: Committees & Work / Applications History
+   -------------------------------------------------------------------------- */
+.profile-applications-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-card);
+}
+
+.profile-applications-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+.profile-applications-table th {
+  padding: 0.75rem 1rem;
+  background: var(--color-bg-alt);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.profile-applications-table td {
+  padding: 0.875rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.profile-applications-table tr:last-child td {
+  border-bottom: none;
 }
 
 /* --------------------------------------------------------------------------
@@ -334,18 +855,18 @@
 .profile-settings-card {
   background: var(--color-card);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
 }
 
 .profile-settings-card__header {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 0.875rem;
+  gap: 0.625rem;
+  font-size: 1rem;
   font-weight: 700;
   color: var(--color-text);
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
 
 .profile-settings-card__header svg {
@@ -357,7 +878,7 @@
   display: flex;
   flex-direction: column;
   gap: 0.375rem;
-  margin-bottom: 1rem;
+  margin-bottom: 1.15rem;
 }
 
 .profile-field:last-child {
@@ -387,8 +908,8 @@
 
 .profile-input {
   width: 100%;
-  padding: 0.625rem 0.875rem;
-  border-radius: var(--radius-sm);
+  padding: 0.65rem 0.875rem;
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   background: var(--color-bg-alt);
   color: var(--color-text);
@@ -414,57 +935,6 @@
 }
 
 /* --------------------------------------------------------------------------
-   Danger Zone
-   -------------------------------------------------------------------------- */
-.profile-danger-zone {
-  background: var(--color-destructive-light);
-  border: 1px solid var(--color-destructive);
-  border-radius: var(--radius-md);
-  padding: 1.5rem;
-}
-
-[data-theme="dark"] .profile-danger-zone {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.3);
-}
-
-.profile-danger-zone__title {
-  font-size: 0.875rem;
-  font-weight: 700;
-  color: var(--color-destructive);
-  margin-bottom: 0.5rem;
-}
-
-.profile-danger-zone__desc {
-  font-size: 0.8125rem;
-  color: var(--color-text-muted);
-  margin-bottom: 1rem;
-  line-height: 1.5;
-}
-
-.profile-btn-danger {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-destructive);
-  color: #fff;
-  font-size: 0.8125rem;
-  font-weight: 600;
-  font-family: var(--font-body);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: none;
-}
-
-.profile-btn-danger:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px -4px rgba(220, 38, 38, 0.4);
-}
-
-/* --------------------------------------------------------------------------
    Password Strength Indicator
    -------------------------------------------------------------------------- */
 .password-strength {
@@ -475,7 +945,7 @@
 
 .password-strength__bar {
   flex: 1;
-  height: 3px;
+  height: 4px;
   border-radius: 2px;
   background: var(--color-border);
   transition: background 0.3s ease;
@@ -523,49 +993,137 @@
    Empty State
    -------------------------------------------------------------------------- */
 .profile-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
   text-align: center;
-  padding: 2rem 1rem;
+  padding: 3rem 1.5rem;
   color: var(--color-text-muted);
   font-size: 0.875rem;
+  background: var(--color-bg-alt);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  width: 100%;
+}
+
+.profile-empty__icon-wrap {
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: var(--radius-pill);
+  background: rgba(0, 98, 155, 0.08);
+  color: var(--color-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 0.875rem auto;
 }
 
 .profile-empty svg {
-  opacity: 0.4;
-  margin-bottom: 0.5rem;
+  opacity: 0.7;
+  color: var(--color-primary);
+  display: block;
+  margin: 0 auto;
 }
 
 /* --------------------------------------------------------------------------
    Responsive
    -------------------------------------------------------------------------- */
-@media (max-width: 640px) {
+@media (max-width: 900px) {
+  .profile-bento-card--col-8,
+  .profile-bento-card--col-7,
+  .profile-bento-card--col-6,
+  .profile-bento-card--col-5,
+  .profile-bento-card--col-4 {
+    grid-column: span 12;
+  }
+}@media (max-width: 640px) {
   .profile-hero {
-    padding: 1.5rem 1.25rem;
+    padding: 1.5rem 1rem 1.25rem;
+  }
+
+  .profile-hero__corner-actions {
+    top: 0.75rem;
+    right: 0.75rem;
+    gap: 0.35rem;
+  }
+
+  .profile-hero__corner-share-btn {
+    padding: 0.25rem 0.65rem;
+    font-size: 0.71875rem;
+  }
+
+  .profile-hero__corner-icon-btn {
+    width: 1.875rem;
+    height: 1.875rem;
   }
 
   .profile-hero__layout {
+    gap: 1rem;
+  }
+
+  .profile-hero__main {
     flex-direction: column;
     text-align: center;
     align-items: center;
+    gap: 1rem;
+  }
+
+  .profile-hero__avatar {
+    width: 4.75rem;
+    height: 4.75rem;
+  }
+
+  .profile-hero__avatar-initials {
+    font-size: 1.5rem;
+  }
+
+  .profile-hero__name-row {
+    padding-right: 0;
+    justify-content: center;
+    width: 100%;
+  }
+
+  .profile-hero__name-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    width: 100%;
+    gap: 0.4rem;
+  }
+
+  .profile-hero__name {
+    font-size: 1.375rem;
+    text-align: center;
+    justify-content: center;
   }
 
   .profile-hero__badges {
     justify-content: center;
+    width: 100%;
   }
 
-  .profile-hero__member-since {
+  .profile-hero__bio-box {
+    text-align: center;
+    margin-left: auto;
+    margin-right: auto;
+    max-width: 100%;
+  }
+
+  .profile-hero__bottom-bar {
     justify-content: center;
+    width: 100%;
+    gap: 0.5rem;
   }
 
-  .profile-hero__name {
+  .profile-hero__socials-and-contact {
     justify-content: center;
-    font-size: 1.5rem;
+    width: 100%;
   }
 
-  .profile-stats {
-    grid-template-columns: 1fr;
-  }
-
-  .profile-committees {
+  .profile-stats-grid {
     grid-template-columns: 1fr;
   }
 
@@ -576,5 +1134,11 @@
   .profile-tab {
     flex: 1;
     justify-content: center;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-academic-grid {
+    grid-template-columns: 1fr;
   }
 }

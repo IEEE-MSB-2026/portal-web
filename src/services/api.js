@@ -210,9 +210,32 @@ export const api = {
       },
     }),
 
+  uploadAvatar: async (file) => {
+    const uploadRes = await api.uploadDirectToCloudinary({
+      file,
+      folder: 'avatars',
+      resourceType: 'image',
+    });
+    const resolvedUrl = uploadRes.secureUrl || uploadRes.url;
+    if (!resolvedUrl) {
+      throw new Error('Upload succeeded but no secure URL returned');
+    }
+    return api.updateAvatar({
+      avatarUrl: resolvedUrl,
+      cloudinaryPublicId: uploadRes.publicId,
+      cloudinaryAssetId: uploadRes.assetId,
+    });
+  },
+
   getMyDashboard: () => request('/api/core/me/dashboard'),
   getMyStats: () => request('/api/core/me/stats'),
   getMyProfile: () => request('/api/core/me/profile'),
+  getUserProfile: (userId) => request(`/api/core/users/${encodeURIComponent(userId)}/profile`),
+  updateMyPublicProfile: (payload) =>
+    request('/api/core/me/profile', {
+      method: 'PATCH',
+      body: payload,
+    }),
 
   changePassword: ({ currentPassword, newPassword, confirmPassword }) =>
     request('/api/auth/password', {
@@ -505,6 +528,7 @@ export const api = {
     const qs = query.toString();
     return request(`/api/core/hr/applications${qs ? `?${qs}` : ''}`);
   },
+  getMyApplications: () => request('/api/core/me/applications'),
   submitHRApplication: (data) =>
     request('/api/core/hr/applications', {
       method: 'POST',

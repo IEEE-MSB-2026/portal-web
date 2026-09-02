@@ -3,16 +3,6 @@ import { Link } from 'react-router-dom';
 import { Globe, Mail, MapPin, ExternalLink, Heart } from 'lucide-react';
 
 export default function Footer() {
-  const committees = [
-    { name: 'Robotics & Automation (RAS)', id: 'ras' },
-    { name: 'Artificial Intelligence (AI)', id: 'ai' },
-    { name: 'Web Development', id: 'web' },
-    { name: 'Cybersecurity', id: 'cyber' },
-    { name: 'Human Resources', id: 'hr' },
-    { name: 'Public Relations', id: 'pr' },
-    { name: 'Media & Design', id: 'media' },
-  ];
-
   return (
     <footer
       style={{
@@ -87,7 +77,7 @@ export default function Footer() {
                 marginBottom: 'var(--space-4)',
               }}
             >
-              Fostering technological innovation, professional excellence, and engineering leadership for students at Menoufia University.
+              Inspiring, innovating, connecting.
             </p>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -123,30 +113,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 3: Committee Directory */}
-          <div>
-            <h4
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontSize: '1rem',
-                fontWeight: 700,
-                marginBottom: 'var(--space-4)',
-              }}
-            >
-              Committees
-            </h4>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>
-              {committees.map((c) => (
-                <li key={c.id}>
-                  <Link to={`/committees#${c.id}`} style={{ transition: 'color var(--transition-fast)' }}>
-                    {c.name}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Column 4: Official IEEE Links */}
+          {/* Column 3: Official IEEE Links */}
           <div>
             <h4
               style={{

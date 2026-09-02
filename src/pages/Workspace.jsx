@@ -52,12 +52,14 @@ import {
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
+import UserProfileModal from '../components/profile/UserProfileModal';
 import { api } from '../services/api';
 import '../styles/workspace.css';
 
 export default function Workspace() {
   const { user, updateUser } = useAuthStore();
   const toast = useToastStore();
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
   const VALID_WORKSPACE_TABS = ['kanban', 'assignments', 'announcements', 'resources', 'roster', 'archived'];
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = VALID_WORKSPACE_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'kanban';
@@ -2033,7 +2035,13 @@ export default function Workspace() {
                 const isMemberLead = memberRole === 'lead';
 
                 return (
-                  <div key={m.id || m.userId} className="workspace-member-card">
+                  <div
+                    key={m.id || m.userId}
+                    className="workspace-member-card"
+                    onClick={() => setSelectedProfileUserId(m.userId || m.id || m.externalUserId)}
+                    style={{ cursor: 'pointer' }}
+                    title={`View ${memberName}'s profile`}
+                  >
                     <div className="workspace-member-card__avatar">
                       {m.avatarUrl ? (
                         <img src={m.avatarUrl} alt={memberName} />
@@ -3291,6 +3299,13 @@ export default function Workspace() {
           </div>
         </div>
       )}
+
+      {/* User Profile Quick-View Modal */}
+      <UserProfileModal
+        userId={selectedProfileUserId}
+        isOpen={Boolean(selectedProfileUserId)}
+        onClose={() => setSelectedProfileUserId(null)}
+      />
     </div>
   );
 }
