@@ -20,17 +20,25 @@ export default function Committees() {
   const { user } = useAuthStore();
   const [committees, setCommittees] = useState([]);
   const [openCampaigns, setOpenCampaigns] = useState([]);
+  const [userApplications, setUserApplications] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const [commData, campData] = await Promise.all([
+        const promises = [
           api.getPublicCommittees(),
           api.getOpenCampaigns(),
-        ]);
+        ];
+        if (user) {
+          promises.push(api.getMyApplications().catch(() => ({ applications: [] })));
+        }
+        const [commData, campData, myAppsData] = await Promise.all(promises);
         setCommittees(commData.committees || []);
         setOpenCampaigns(campData.campaigns || []);
+        if (myAppsData?.applications) {
+          setUserApplications(myAppsData.applications);
+        }
       } catch (err) {
         console.error('Failed to load committee data:', err);
       } finally {
@@ -38,7 +46,7 @@ export default function Committees() {
       }
     }
     fetchData();
-  }, []);
+  }, [user]);
 
   const userEnrolledCommitteeIds = new Set();
   if (user?.availableScopes) {
@@ -216,35 +224,68 @@ export default function Committees() {
                     {detail.tagline}
                   </p>
 
-                  {isUserEnrolled ? (
-                    <Link
-                      to={`/workspace/${comm.id}`}
-                      className="btn btn-secondary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      <span>Go to Workspace</span>
-                      <ArrowUpRight size={18} />
-                    </Link>
-                  ) : hasOpenCampaign ? (
-                    <Link
-                      to={`/join?committee=${slug}`}
-                      className="btn btn-primary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      <span>Apply for {slug.toUpperCase()}</span>
-                      <ArrowUpRight size={18} />
-                    </Link>
-                  ) : (
-                    <button
-                      type="button"
-                      className="btn btn-secondary"
-                      disabled
-                      style={{ opacity: 0.6, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-                    >
-                      <Lock size={15} />
-                      <span>Applications Closed</span>
-                    </button>
-                  )}
+                  {(() => {
+                    const userApp = userApplications.find(
+                      (a) => a.committeeId === comm.id || a.committeeSlug === slug
+                    );
+                    const isUserEnrolled =
+                      userEnrolledCommitteeIds.has(comm.id) ||
+                      (userApp && (userApp.currentStage === 'accepted' || userApp.status === 'accepted'));
+
+                    if (isUserEnrolled) {
+                      return (
+                        <Link
+                          to={`/workspace/${comm.id}`}
+                          className="btn btn-secondary"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                        >
+                          <span>Go to Workspace</span>
+                          <ArrowUpRight size={18} />
+                        </Link>
+                      );
+                    }
+                    if (userApp) {
+                      const stageLabel = (userApp.currentStage || userApp.status || 'Applied').replace('_', ' ');
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', alignItems: 'flex-start' }}>
+                          <Link
+                            to="/profile"
+                            className="btn btn-warning"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', textDecoration: 'none', textTransform: 'capitalize' }}
+                          >
+                            <CheckCircle2 size={16} />
+                            <span>Already Applied ({stageLabel})</span>
+                          </Link>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                            View review status on your profile
+                          </span>
+                        </div>
+                      );
+                    }
+                    if (hasOpenCampaign) {
+                      return (
+                        <Link
+                          to={`/join?committee=${slug}`}
+                          className="btn btn-primary"
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                        >
+                          <span>Apply for {slug.toUpperCase()}</span>
+                          <ArrowUpRight size={18} />
+                        </Link>
+                      );
+                    }
+                    return (
+                      <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled
+                        style={{ opacity: 0.6, cursor: 'not-allowed', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                      >
+                        <Lock size={15} />
+                        <span>Applications Closed</span>
+                      </button>
+                    );
+                  })()}
                 </div>
 
                 {/* Technical Focus Tracks */}

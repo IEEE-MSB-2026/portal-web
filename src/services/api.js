@@ -524,6 +524,7 @@ export const api = {
     if (params.stage) query.append('stage', params.stage);
     if (params.includeRejected) query.append('includeRejected', 'true');
     if (params.includeAccepted) query.append('includeAccepted', 'true');
+    if (params.all || params.includeAll) query.append('all', 'true');
     if (params.limit) query.append('limit', params.limit);
     const qs = query.toString();
     return request(`/api/core/hr/applications${qs ? `?${qs}` : ''}`);
@@ -549,8 +550,24 @@ export const api = {
       method: 'POST',
       body: data,
     }),
+  markHRWelcomeEmailsSent: (applicationIds = []) =>
+    request('/api/core/hr/applications/mark-welcome-sent', {
+      method: 'POST',
+      body: { applicationIds },
+    }),
 
   // ── HR Onboarding ─────────────────────────────────────────────────────────
+  getHROnboardingCandidates: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.campaignId) query.append('campaignId', params.campaignId);
+    if (params.welcomeEmailSent !== undefined) query.append('welcomeEmailSent', String(params.welcomeEmailSent));
+    if (params.search) query.append('search', params.search);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    const qs = query.toString();
+    return request(`/api/core/hr/onboarding/candidates${qs ? `?${qs}` : ''}`);
+  },
   getHROnboarding: (userId) => request(`/api/core/hr/onboarding/${userId}`),
   updateOnboardingItem: (itemId, status) =>
     request(`/api/core/hr/onboarding/${itemId}`, {
@@ -626,6 +643,8 @@ export const api = {
     const query = new URLSearchParams();
     if (params.status) query.append('status', params.status);
     if (params.includeArchived) query.append('includeArchived', 'true');
+    if (params.category) query.append('category', params.category);
+    if (params.includeHr) query.append('includeHr', 'true');
     if (params.segmentType) query.append('segmentType', params.segmentType);
     if (params.committeeId) query.append('committeeId', params.committeeId);
     if (params.limit) query.append('limit', params.limit);

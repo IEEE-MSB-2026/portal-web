@@ -771,7 +771,7 @@ export default function Profile() {
         {/* ============================================================
             TAB 1: OVERVIEW
             - Row 1: Academic & Campus Education (col-7) + Contributions (col-5)
-            - Row 2: Technical Committees (col-12 line alone)
+            - Row 2: Committees (col-12 line alone)
             ============================================================ */}
         {activeTab === 'overview' && (
           <div className="profile-bento-grid">
@@ -921,7 +921,7 @@ export default function Profile() {
               </div>
             </div>
 
-            {/* 3. TECHNICAL COMMITTEES (COL-12 — FULL WIDTH LINE ALONE) */}
+            {/* 3. COMMITTEES (COL-12 — FULL WIDTH LINE ALONE) */}
             <div className="profile-bento-card profile-bento-card--col-12">
               <div className="profile-bento-header">
                 <span className="profile-bento-header__title">

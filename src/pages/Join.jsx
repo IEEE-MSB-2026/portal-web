@@ -54,9 +54,9 @@ export default function Join() {
   const [submitted, setSubmitted] = useState(false);
   const [attemptedStepNext, setAttemptedStepNext] = useState(false);
 
-  // Campaigns & committees
   const [campaigns, setCampaigns] = useState([]);
   const [committees, setCommittees] = useState([]);
+  const [myApplications, setMyApplications] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [urlCommitteeSlug, setUrlCommitteeSlug] = useState('');
   const [urlCommitteeNoCampaign, setUrlCommitteeNoCampaign] = useState(false);
@@ -88,14 +88,21 @@ export default function Join() {
   useEffect(() => {
     async function load() {
       try {
-        const [campaignsRes, committeesRes] = await Promise.all([
+        const promises = [
           api.getOpenCampaigns(),
           api.getPublicCommittees(),
-        ]);
+        ];
+        if (isAuthenticated) {
+          promises.push(api.getMyApplications().catch(() => ({ applications: [] })));
+        }
+        const [campaignsRes, committeesRes, myAppsRes] = await Promise.all(promises);
         const openCamps = campaignsRes.campaigns || [];
         const allComms = committeesRes.committees || [];
         setCampaigns(openCamps);
         setCommittees(allComms);
+        if (myAppsRes?.applications) {
+          setMyApplications(myAppsRes.applications);
+        }
 
         // Auto-select campaign / check url ?committee= slug
         const preselectedSlug = searchParams.get('committee');
@@ -127,7 +134,7 @@ export default function Join() {
       }
     }
     load();
-  }, [searchParams]);
+  }, [searchParams, isAuthenticated]);
 
   // Determine user memberships to disable already joined committees
   const userEnrolledCommitteeIds = new Set();
@@ -298,6 +305,8 @@ export default function Join() {
   campaigns.forEach((camp) => {
     if (camp.committees && camp.committees.length > 0) {
       camp.committees.forEach((c) => {
+        const existingApp = myApplications.find((a) => a.committeeId === c.id || a.committeeSlug === c.slug);
+        const isEnrolled = userEnrolledCommitteeIds.has(c.id) || (existingApp && (existingApp.currentStage === 'accepted' || existingApp.status === 'accepted'));
         campaignCommitteeOptions.push({
           campaignId: camp.id,
           campaignTitle: camp.title,
@@ -305,11 +314,14 @@ export default function Join() {
           committeeId: c.id,
           committeeName: c.name,
           committeeSlug: c.slug,
-          isEnrolled: userEnrolledCommitteeIds.has(c.id),
+          isEnrolled,
+          existingApp,
         });
       });
     } else if (camp.committeeId) {
       const comm = committees.find((c) => c.id === camp.committeeId);
+      const existingApp = myApplications.find((a) => a.committeeId === camp.committeeId || a.campaignId === camp.id);
+      const isEnrolled = userEnrolledCommitteeIds.has(camp.committeeId) || (existingApp && (existingApp.currentStage === 'accepted' || existingApp.status === 'accepted'));
       campaignCommitteeOptions.push({
         campaignId: camp.id,
         campaignTitle: camp.title,
@@ -317,17 +329,26 @@ export default function Join() {
         committeeId: camp.committeeId,
         committeeName: comm?.name || 'General Committee',
         committeeSlug: comm?.slug || '',
-        isEnrolled: userEnrolledCommitteeIds.has(camp.committeeId),
+        isEnrolled,
+        existingApp,
       });
     }
   });
+
+  const activeAppForSelection = myApplications.find(
+    (a) =>
+      ((selectedCommitteeId && a.committeeId === selectedCommitteeId) || (selectedCampaignId && a.campaignId === selectedCampaignId)) &&
+      a.currentStage !== 'accepted' &&
+      a.status !== 'accepted' &&
+      !userEnrolledCommitteeIds.has(selectedCommitteeId)
+  );
 
   // ── Main wizard ───────────────────────────────────────────────────────────
   return (
     <div className="join-page">
       <div className="join-page__header">
         <h1>Join IEEE MSB</h1>
-        <p>Complete the application form to join one of our technical committees.</p>
+        <p>Complete the application form to join one of our committees.</p>
       </div>
 
       {/* Step indicators */}
@@ -440,6 +461,23 @@ export default function Join() {
           <>
             <h3 className="join-card__title"><Layers size={20} /> Select Committee</h3>
 
+            {activeAppForSelection && (
+              <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <AlertTriangle size={20} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                  <div style={{ fontSize: '0.875rem' }}>
+                    <strong style={{ color: '#f59e0b', display: 'block', marginBottom: '0.15rem' }}>You Have Already Applied for this Committee</strong>
+                    <span style={{ color: 'var(--color-text-muted)' }}>
+                      Application status: <strong style={{ color: 'var(--color-text)', textTransform: 'capitalize' }}>{(activeAppForSelection.currentStage || activeAppForSelection.status || 'Applied').replace('_', ' ')}</strong>
+                    </span>
+                  </div>
+                </div>
+                <Link to="/profile" className="btn btn-warning btn-xs" style={{ textDecoration: 'none' }}>
+                  View in Profile
+                </Link>
+              </div>
+            )}
+
             {urlCommitteeNoCampaign && (
               <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'flex-start', gap: '0.65rem' }}>
                 <AlertTriangle size={18} style={{ color: '#ef4444', flexShrink: 0, marginTop: '0.15rem' }} />
@@ -458,6 +496,7 @@ export default function Join() {
               {campaignCommitteeOptions.map((opt) => {
                 const isSelected = selectedCampaignId === opt.campaignId && selectedCommitteeId === opt.committeeId;
                 const isEnrolled = opt.isEnrolled;
+                const hasApplied = Boolean(opt.existingApp) && !isEnrolled;
 
                 return (
                   <div
@@ -478,13 +517,18 @@ export default function Join() {
                       transition: 'all 0.15s ease',
                     }}
                   >
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                          {opt.committeeName}
+                        <div style={{ fontWeight: 700, fontSize: '0.95rem', marginBottom: '0.15rem', display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          <span>{opt.committeeName}</span>
                           {isEnrolled && (
                             <span className="hr-status-badge hr-status-badge--draft" style={{ fontSize: '0.65rem', textTransform: 'none' }}>
                               Already a Member
+                            </span>
+                          )}
+                          {hasApplied && (
+                            <span className="badge badge-warning" style={{ fontSize: '0.65rem', textTransform: 'capitalize' }}>
+                              Already Applied ({(opt.existingApp.currentStage || opt.existingApp.status || 'Applied').replace('_', ' ')})
                             </span>
                           )}
                         </div>
@@ -518,36 +562,31 @@ export default function Join() {
 
             <div className="join-field">
               <label>Relevant Skills</label>
-              <p className="join-field__hint">List technologies, tools, or skills you're experienced in.</p>
-              <input
-                type="text"
-                className="form-input"
+              <textarea
+                className="form-input form-textarea"
+                rows={3}
                 value={skills}
                 onChange={(e) => setSkills(e.target.value)}
-                placeholder="e.g., Python, PyTorch, React, Embedded C, Photoshop"
+                placeholder="e.g., Python, C++, React, Git, SolidWorks, Figma..."
               />
             </div>
 
             <div className="join-field">
-              <label>Why do you want to join IEEE MSB & {selectedCommittee?.name || 'this committee'}? *</label>
-              <p className="join-field__hint">Tell us about your motivation and what you hope to achieve (min 10 characters).</p>
+              <label>Why do you want to join this committee? *</label>
               <textarea
-                className={`form-input ${attemptedStepNext && motivation.trim().length < 10 ? 'input-error' : ''}`}
+                className={`form-input form-textarea ${attemptedStepNext && !motivation.trim() ? 'input-error' : ''}`}
                 rows={4}
                 value={motivation}
                 onChange={(e) => setMotivation(e.target.value)}
-                placeholder="Share your background, passion, and reasons for joining..."
-                style={{ resize: 'vertical' }}
+                placeholder="Tell us about your interests, past projects, and what you hope to achieve..."
               />
-              {attemptedStepNext && motivation.trim().length < 10 && (
-                <p className="field-error-note">
-                  <AlertCircle size={12} /> Motivation statement is required (minimum 10 characters).
-                </p>
+              {attemptedStepNext && !motivation.trim() && (
+                <p className="field-error-note"><AlertCircle size={12} /> Please tell us your motivation to join.</p>
               )}
             </div>
 
             <div className="join-field">
-              <label>Portfolio / GitHub / LinkedIn</label>
+              <label>Portfolio / GitHub / LinkedIn URL</label>
               <input type="url" className="form-input" value={portfolio} onChange={(e) => setPortfolio(e.target.value)} placeholder="https://github.com/yourusername" />
             </div>
           </>
@@ -556,41 +595,29 @@ export default function Join() {
         {/* Step 3: CV Upload */}
         {step === 3 && (
           <>
-            <h3 className="join-card__title"><Upload size={20} /> CV / Resume (Optional)</h3>
+            <h3 className="join-card__title"><Upload size={20} /> Upload Resume / CV</h3>
             <p style={{ color: 'var(--color-text-muted)', fontSize: '0.875rem', marginBottom: 'var(--space-4)' }}>
-              Upload your CV or resume if available. Accepted formats: PDF, DOCX (max 10MB).
+              Upload your CV in PDF or Word format (Optional but recommended).
             </p>
 
             {cvFile ? (
-              <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <FileText size={20} style={{ color: 'var(--color-accent)' }} />
+              <div className="join-cv-preview">
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <FileText size={24} style={{ color: 'var(--color-primary)' }} />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: '0.875rem' }}>{cvFile.name}</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{(cvFile.size / 1024).toFixed(0)} KB</div>
+                    <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>{cvFile.name}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                      {(cvFile.size / 1024).toFixed(0)} KB • {uploadingCv ? 'Uploading to cloud...' : 'Ready for submission'}
+                    </div>
                   </div>
                 </div>
-                <button type="button" className="btn btn-secondary" style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }} onClick={() => { setCvFile(null); setCvUrl(''); }}>
+                <button type="button" className="btn btn-secondary btn-xs" onClick={() => { setCvFile(null); setCvUrl(''); }}>
                   Remove
                 </button>
               </div>
             ) : (
-              <label
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 'var(--space-3)',
-                  padding: 'var(--space-10)',
-                  border: '2px dashed var(--color-border)',
-                  borderRadius: 'var(--radius-lg)',
-                  cursor: 'pointer',
-                  transition: 'all 0.15s ease',
-                  background: 'var(--color-bg)',
-                  textAlign: 'center',
-                }}
-              >
-                <Upload size={32} style={{ color: 'var(--color-text-muted)' }} />
+              <label className="join-cv-dropzone">
+                <Upload size={32} />
                 <div>
                   <div style={{ fontWeight: 600 }}>{uploadingCv ? 'Uploading...' : 'Click to upload your CV'}</div>
                   <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>PDF or DOCX, max 10MB</div>
@@ -605,6 +632,24 @@ export default function Join() {
         {step === 4 && (
           <>
             <h3 className="join-card__title"><CheckCircle2 size={20} /> Review Your Application</h3>
+
+            {activeAppForSelection && (
+              <div style={{ background: 'rgba(245, 158, 11, 0.1)', border: '1px solid rgba(245, 158, 11, 0.3)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                  <AlertTriangle size={20} style={{ color: '#f59e0b', flexShrink: 0 }} />
+                  <div style={{ fontSize: '0.875rem' }}>
+                    <strong style={{ color: '#f59e0b', display: 'block', marginBottom: '0.15rem' }}>Already Submitted</strong>
+                    <span style={{ color: 'var(--color-text-muted)' }}>
+                      You have an active application for <strong>{selectedCommittee?.name || 'this committee'}</strong> at stage: <strong style={{ color: 'var(--color-text)', textTransform: 'capitalize' }}>{(activeAppForSelection.currentStage || activeAppForSelection.status || 'Applied').replace('_', ' ')}</strong>
+                    </span>
+                  </div>
+                </div>
+                <Link to="/profile" className="btn btn-warning btn-xs" style={{ textDecoration: 'none' }}>
+                  View in Profile
+                </Link>
+              </div>
+            )}
+
             <div className="join-summary">
               <div className="join-summary__section">
                 <h4>Personal Info</h4>
@@ -650,6 +695,11 @@ export default function Join() {
             <button type="button" className="btn btn-primary" onClick={handleNextStep} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               Continue <ChevronRight size={16} />
             </button>
+          ) : activeAppForSelection ? (
+            <Link to="/profile" className="btn btn-warning" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', textDecoration: 'none' }}>
+              <CheckCircle2 size={16} />
+              <span>View Application Status</span>
+            </Link>
           ) : (
             <button type="button" className="btn btn-primary" disabled={submitting} onClick={handleSubmit} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               {submitting ? 'Submitting...' : <><Send size={16} /> Submit Application</>}

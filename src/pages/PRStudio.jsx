@@ -421,7 +421,7 @@ export default function PRStudio() {
   async function loadCampaigns() {
     setLoadingCampaigns(true);
     try {
-      const res = await api.getPRCampaigns({ limit: 100, includeArchived: true });
+      const res = await api.getPRCampaigns({ limit: 100, includeArchived: true, includeHr: true });
       const list = res?.campaigns || res?.data || (Array.isArray(res) ? res : []);
       setCampaigns(Array.isArray(list) ? list : []);
     } catch (err) {
@@ -1064,12 +1064,17 @@ export default function PRStudio() {
   });
 
   const filteredCampaigns = safeCampaigns.filter((c) => {
-    if (campaignSubTab === 'active' && c.status === 'archived' && campaignStatusFilter !== 'archived') {
-      return false;
+    const isHr = c.metadata?.category === 'hr_outreach' || c.metadata?.source === 'hr_studio';
+    if (campaignSubTab === 'active') {
+      if (c.status === 'archived' && campaignStatusFilter !== 'archived') return false;
+      if (isHr) return false;
+    } else if (campaignSubTab === 'hr') {
+      if (!isHr) return false;
+      if (c.status === 'archived' && campaignStatusFilter !== 'archived') return false;
+    } else if (campaignSubTab === 'archived') {
+      if (c.status !== 'archived') return false;
     }
-    if (campaignSubTab === 'archived' && c.status !== 'archived') {
-      return false;
-    }
+
     if (campaignStatusFilter && c.status !== campaignStatusFilter) return false;
     if (campaignSegmentFilter && c.segmentType !== campaignSegmentFilter) return false;
     if (campaignSearch.trim()) {
@@ -1086,7 +1091,8 @@ export default function PRStudio() {
   // Calculate Metrics for KPI bar
   const totalAnnouncements = safeAnnouncements.length;
   const pinnedAnnouncements = safeAnnouncements.filter((a) => a.isPinned).length;
-  const activeCampaignsCount = safeCampaigns.filter((c) => c.status !== 'archived').length;
+  const activeCampaignsCount = safeCampaigns.filter((c) => c.status !== 'archived' && c.metadata?.category !== 'hr_outreach' && c.metadata?.source !== 'hr_studio').length;
+  const hrCampaignsCount = safeCampaigns.filter((c) => c.status !== 'archived' && (c.metadata?.category === 'hr_outreach' || c.metadata?.source === 'hr_studio')).length;
   const archivedCampaignsCount = safeCampaigns.filter((c) => c.status === 'archived').length;
   const totalCampaigns = activeCampaignsCount;
   const totalEmailReach = safeCampaigns.reduce((acc, c) => acc + (Number(c.sentCount) || 0), 0);
@@ -1420,7 +1426,7 @@ export default function PRStudio() {
       {/* ═════════════════════════════════════════════════════════════════════ */}
       {activeTab === 'campaigns' && (
         <>
-          {/* Sub-Tabs: Active vs Archived */}
+          {/* Sub-Tabs: Active vs HR vs Archived */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.65rem' }}>
             <div style={{ display: 'inline-flex', background: 'var(--color-surface)', padding: '3px', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', gap: '3px' }}>
               <button
@@ -1436,6 +1442,21 @@ export default function PRStudio() {
                 <span>Active</span>
                 <span style={{ opacity: 0.85, fontSize: '0.7rem' }}>
                   ({activeCampaignsCount})
+                </span>
+              </button>
+              <button
+                type="button"
+                className={`btn btn-xs ${campaignSubTab === 'hr' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => {
+                  setCampaignSubTab('hr');
+                  if (campaignStatusFilter === 'archived') setCampaignStatusFilter('');
+                }}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78125rem' }}
+              >
+                <Users size={13} />
+                <span>HR</span>
+                <span style={{ opacity: 0.85, fontSize: '0.7rem' }}>
+                  ({hrCampaignsCount})
                 </span>
               </button>
               <button
@@ -1470,6 +1491,13 @@ export default function PRStudio() {
               </button>
             )}
 
+            {campaignSubTab === 'hr' && (
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem', color: 'var(--color-text-muted)', background: 'var(--color-surface)', padding: '0.35rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+                <Users size={14} style={{ color: 'var(--color-primary)' }} />
+                <span>Automated Candidate Recruitment &amp; Onboarding Outreach</span>
+              </div>
+            )}
+
             <div className="pr-search-wrap">
               <Search size={15} />
               <input
@@ -1496,7 +1524,7 @@ export default function PRStudio() {
               }}
             >
               <option value="">{campaignSubTab === 'archived' ? 'All Archived' : 'All Statuses'}</option>
-              {campaignSubTab === 'active' && (
+              {campaignSubTab !== 'archived' && (
                 <>
                   <option value="draft">Draft</option>
                   <option value="scheduled">Scheduled</option>
@@ -1518,7 +1546,7 @@ export default function PRStudio() {
               <option value="committee_members">Committee Members</option>
               <option value="committee_leads">Committee Leads</option>
               <option value="specific_members">Specific Members</option>
-              <option value="custom_sheet">Custom Spreadsheet</option>
+              <option value="custom_sheet">Custom Spreadsheet / Candidates</option>
             </select>
           </div>
 
@@ -1534,7 +1562,13 @@ export default function PRStudio() {
                 <>
                   <Archive size={36} style={{ opacity: 0.5 }} />
                   <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>No Archived Campaigns</h3>
-                  <p style={{ margin: 0, fontSize: '0.875rem' }}>Archived email campaigns will appear here to keep your active list clean.</p>
+                  <p style={{ margin: 0, fontSize: '0.875rem' }}>Archived email campaigns will appear here to keep your active lists clean.</p>
+                </>
+              ) : campaignSubTab === 'hr' ? (
+                <>
+                  <Users size={36} style={{ opacity: 0.5 }} />
+                  <h3 style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--color-text)', margin: 0 }}>No HR Outreach Campaigns Found</h3>
+                  <p style={{ margin: 0, fontSize: '0.875rem' }}>Automated applicant recruitment notices and onboarding welcome campaigns dispatched from HR Studio will appear here.</p>
                 </>
               ) : (
                 <>
@@ -1553,6 +1587,7 @@ export default function PRStudio() {
                 const isFailed = camp.status === 'failed';
                 const isArchived = camp.status === 'archived';
                 const isSending = sendingCampaignId === camp.id;
+                const isHrCampaign = camp.metadata?.category === 'hr_outreach' || camp.metadata?.source === 'hr_studio';
 
                 const audienceLabel =
                   camp.segmentType === 'all_members'
@@ -1562,7 +1597,7 @@ export default function PRStudio() {
                     : camp.segmentType === 'specific_members'
                     ? 'Specific Members'
                     : camp.segmentType === 'custom_sheet'
-                    ? 'Custom Sheet'
+                    ? (isHrCampaign ? 'HR Candidate List' : 'Custom Sheet')
                     : `Committee: ${camp.committeeName || 'Selected'}`;
 
                 return (
@@ -1609,8 +1644,15 @@ export default function PRStudio() {
                       <span>{camp.subject}</span>
                     </div>
 
-                    {/* Audience Segment Pill */}
+                    {/* Audience Segment & Category Badges */}
                     <div className="pr-campaign-card__badges">
+                      {isHrCampaign && (
+                        <span className="badge badge-warning" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                          <Users size={11} />
+                          <span>HR Outreach</span>
+                        </span>
+                      )}
+
                       <span className="badge badge-committee" style={{ fontSize: '0.7rem' }}>
                         <Users size={11} />
                         <span>{audienceLabel}</span>
@@ -2516,7 +2558,7 @@ export default function PRStudio() {
                     {/* Scheduled Dispatch & Expected Recipients Info */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.85rem', alignItems: 'end' }}>
                       <div className="form-group" style={{ margin: 0 }}>
-                        <label className="form-label">Scheduled Dispatch (Optional)</label>
+                        <label className="form-label">Scheduled (Optional)</label>
                         <input
                           type="datetime-local"
                           className="form-input"
@@ -2558,7 +2600,7 @@ export default function PRStudio() {
                       {/* Left: Title */}
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                         <Eye size={15} color="var(--color-primary)" />
-                        <h4 style={{ margin: 0, fontSize: '0.84375rem', fontWeight: 700 }}>Simulated Client</h4>
+                        <h4 style={{ margin: 0, fontSize: '0.84375rem', fontWeight: 700 }}>Client Preview</h4>
                       </div>
 
                       {/* Middle: Recipient Navigator on Same Line */}

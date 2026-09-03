@@ -292,7 +292,7 @@ export default function UserProfileModal({ userId, isOpen, onClose }) {
             </div>
           ) : profile ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              {/* Verified Technical Committees & Roles */}
+              {/* Verified Committees & Roles */}
               <div>
                 <h4 style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
                   <ShieldCheck size={14} color="var(--color-primary)" />

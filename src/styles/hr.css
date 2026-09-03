@@ -679,6 +679,20 @@
   margin-bottom: var(--space-1);
 }
 
+.join-field input,
+.join-field select,
+.join-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.join-field textarea {
+  min-height: 80px;
+  resize: vertical;
+  line-height: 1.5;
+  font-family: var(--font-body);
+}
+
 .join-field__hint {
   font-size: 0.75rem;
   color: var(--color-text-muted);
@@ -690,6 +704,55 @@
   align-items: center;
   justify-content: space-between;
   margin-top: var(--space-6);
+}
+
+/* --------------------------------------------------------------------------
+   Join CV Dropzone & Upload Preview
+   -------------------------------------------------------------------------- */
+.join-cv-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: var(--space-8) var(--space-6);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: all var(--transition-normal);
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+.join-cv-dropzone svg {
+  color: var(--color-primary);
+  transition: transform var(--transition-fast);
+}
+
+.join-cv-dropzone:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.join-cv-dropzone:hover svg {
+  transform: translateY(-3px) scale(1.08);
+}
+
+.join-cv-preview {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  margin-bottom: var(--space-4);
+  transition: all var(--transition-fast);
+}
+
+.join-cv-preview:hover {
+  border-color: var(--color-primary);
 }
 
 /* --------------------------------------------------------------------------

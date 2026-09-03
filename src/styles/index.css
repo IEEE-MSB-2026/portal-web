@@ -527,7 +527,7 @@ img, svg {
   margin-bottom: 0.125rem;
 }
 
-.form-input, .input-field, .textarea-field, .select-field {
+.form-input, .input-field, .form-textarea, .textarea-field, .select-field {
   width: 100%;
   display: block;
   box-sizing: border-box;
@@ -541,7 +541,13 @@ img, svg {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-.form-input:focus, .input-field:focus, .textarea-field:focus, .select-field:focus {
+.form-textarea {
+  min-height: 80px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.form-input:focus, .input-field:focus, .form-textarea:focus, .textarea-field:focus, .select-field:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
