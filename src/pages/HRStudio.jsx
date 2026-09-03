@@ -1866,9 +1866,12 @@ export default function HRStudio() {
         await api.sendPRCampaign(created?.campaign?.id || created?.id);
       }
 
-      // Mark welcome email sent in DB
+      // Mark welcome email sent in DB & create onboarding checklist
       try {
-        await api.markHRWelcomeEmailsSent(targetApps.map((a) => a.id));
+        await api.markHRWelcomeEmailsSent(
+          targetApps.map((a) => a.id),
+          { checklistSteps: onboardingConfig.checklistSteps }
+        );
       } catch (err) {
         console.warn('Could not mark welcome emails sent in DB:', err);
       }
@@ -1948,7 +1951,10 @@ export default function HRStudio() {
       }
 
       try {
-        await api.markHRWelcomeEmailsSent([candidate.id]);
+        await api.markHRWelcomeEmailsSent(
+          [candidate.id],
+          { checklistSteps: onboardingConfig.checklistSteps }
+        );
       } catch (err) {
         console.warn('Could not mark welcome email sent in DB:', err);
       }

@@ -19,6 +19,8 @@ import {
   Settings,
   Shield,
   Briefcase,
+  Camera,
+  Megaphone,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -84,10 +86,22 @@ export default function Navbar() {
     (s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName || (s.role !== 'applicant' && s.role !== 'member')
   );
 
-  // HR Studio access: strictly Global Admin, Global Officer, or HR Committee Lead
+  // Studio Access Permissions
   const isHrAuthorized =
     (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
-    (user?.role === 'lead' && user?.committeeSlug === 'hr');
+    (user?.role === 'lead' && user?.committeeSlug === 'hr') ||
+    ['admin', 'officer'].includes(user?.role);
+
+  const isPrAuthorized =
+    (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
+    (user?.role === 'lead' && user?.committeeSlug === 'pr') ||
+    user?.role === 'publisher' ||
+    ['admin', 'officer'].includes(user?.role);
+
+  const isMediaAuthorized =
+    (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
+    (user?.role === 'lead' && user?.committeeSlug === 'media') ||
+    ['admin', 'officer'].includes(user?.role);
 
   const handleScopeSwitch = async (targetScope) => {
     const targetScopeId = targetScope.id || targetScope.scopeId;
@@ -439,6 +453,34 @@ export default function Navbar() {
                       </Link>
                     )}
 
+                    {isPrAuthorized && (
+                      <Link
+                        to="/pr"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="nav-profile-link"
+                      >
+                        <div className="nav-profile-link__left">
+                          <Megaphone size={15} />
+                          <span>PR Studio</span>
+                        </div>
+                        <ChevronRight size={13} className="nav-profile-link__arrow" />
+                      </Link>
+                    )}
+
+                    {isMediaAuthorized && (
+                      <Link
+                        to="/media"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="nav-profile-link"
+                      >
+                        <div className="nav-profile-link__left">
+                          <Camera size={15} />
+                          <span>Media Studio</span>
+                        </div>
+                        <ChevronRight size={13} className="nav-profile-link__arrow" />
+                      </Link>
+                    )}
+
                     <Link
                       to="/profile"
                       onClick={() => setUserDropdownOpen(false)}
@@ -651,6 +693,34 @@ export default function Navbar() {
                   <div className="nav-profile-link__left">
                     <Briefcase size={16} />
                     <span>HR Studio</span>
+                  </div>
+                  <ChevronRight size={14} className="nav-profile-link__arrow" />
+                </Link>
+              )}
+              {isPrAuthorized && (
+                <Link
+                  to="/pr"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="nav-profile-link"
+                  style={{ padding: '0.625rem 0.875rem' }}
+                >
+                  <div className="nav-profile-link__left">
+                    <Megaphone size={16} />
+                    <span>PR Studio</span>
+                  </div>
+                  <ChevronRight size={14} className="nav-profile-link__arrow" />
+                </Link>
+              )}
+              {isMediaAuthorized && (
+                <Link
+                  to="/media"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="nav-profile-link"
+                  style={{ padding: '0.625rem 0.875rem' }}
+                >
+                  <div className="nav-profile-link__left">
+                    <Camera size={16} />
+                    <span>Media Studio</span>
                   </div>
                   <ChevronRight size={14} className="nav-profile-link__arrow" />
                 </Link>

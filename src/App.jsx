@@ -22,6 +22,7 @@ import Workspace from './pages/Workspace';
 import Join from './pages/Join';
 import HRStudio from './pages/HRStudio';
 import PRStudio from './pages/PRStudio';
+import MediaStudio from './pages/MediaStudio';
 
 function NotFound() {
   return (
@@ -124,6 +125,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <PRStudio />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="media"
+            element={
+              <ProtectedRoute>
+                <MediaStudio />
               </ProtectedRoute>
             }
           />

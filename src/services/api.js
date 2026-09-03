@@ -550,10 +550,13 @@ export const api = {
       method: 'POST',
       body: data,
     }),
-  markHRWelcomeEmailsSent: (applicationIds = []) =>
+  markHRWelcomeEmailsSent: (applicationIds = [], options = {}) =>
     request('/api/core/hr/applications/mark-welcome-sent', {
       method: 'POST',
-      body: { applicationIds },
+      body: {
+        applicationIds,
+        checklistSteps: options.checklistSteps || options.checklistItems,
+      },
     }),
 
   // ── HR Onboarding ─────────────────────────────────────────────────────────
@@ -688,4 +691,85 @@ export const api = {
     }),
   getPRCampaignDeliveryLogs: (id) =>
     request(`/api/core/pr/campaigns/${id}/delivery-logs`),
+
+  // ── Media Operations & Brand Studio ─────────────────────────────────────
+  getMediaStats: () => request('/api/core/media/stats'),
+  getMediaAlbums: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.committeeId) query.append('committeeId', params.committeeId);
+    if (params.status && params.status !== 'all') query.append('status', params.status);
+    if (params.search) query.append('search', params.search);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    const qs = query.toString();
+    return request(`/api/core/media/albums${qs ? `?${qs}` : ''}`);
+  },
+  getMediaAlbum: (albumId) => request(`/api/core/media/albums/${albumId}`),
+  createMediaAlbum: (data) =>
+    request('/api/core/media/albums', {
+      method: 'POST',
+      body: data,
+    }),
+  updateMediaAlbum: (albumId, data) =>
+    request(`/api/core/media/albums/${albumId}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  deleteMediaAlbum: (albumId) =>
+    request(`/api/core/media/albums/${albumId}`, {
+      method: 'DELETE',
+    }),
+  addMediaAlbumAsset: (albumId, data) =>
+    request(`/api/core/media/albums/${albumId}/assets`, {
+      method: 'POST',
+      body: data,
+    }),
+  deleteMediaAlbumAsset: (albumId, assetId) =>
+    request(`/api/core/media/albums/${albumId}/assets/${assetId}`, {
+      method: 'DELETE',
+    }),
+  publishMediaAlbum: (albumId) =>
+    request(`/api/core/media/albums/${albumId}/publish`, {
+      method: 'POST',
+    }),
+  unpublishMediaAlbum: (albumId) =>
+    request(`/api/core/media/albums/${albumId}/unpublish`, {
+      method: 'POST',
+    }),
+  createMediaCoverageRequest: (data) =>
+    request('/api/core/media/coverage-requests', {
+      method: 'POST',
+      body: data,
+    }),
+  updateMediaCoverageStatus: (requestId, data) =>
+    request(`/api/core/media/coverage-requests/${requestId}/status`, {
+      method: 'PATCH',
+      body: data,
+    }),
+
+  // ── Brand & Design Asset Kit ───────────────────────────────────────────
+  getBrandAssets: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.category && params.category !== 'all') query.append('category', params.category);
+    if (params.search) query.append('search', params.search);
+    if (params.limit) query.append('limit', params.limit);
+    if (params.offset) query.append('offset', params.offset);
+    const qs = query.toString();
+    return request(`/api/core/media/brand-assets${qs ? `?${qs}` : ''}`);
+  },
+  createBrandAsset: (data) =>
+    request('/api/core/media/brand-assets', {
+      method: 'POST',
+      body: data,
+    }),
+  updateBrandAsset: (assetId, data) =>
+    request(`/api/core/media/brand-assets/${assetId}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  deleteBrandAsset: (assetId) =>
+    request(`/api/core/media/brand-assets/${assetId}`, {
+      method: 'DELETE',
+    }),
 };
+
