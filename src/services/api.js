@@ -771,5 +771,118 @@ export const api = {
     request(`/api/core/media/brand-assets/${assetId}`, {
       method: 'DELETE',
     }),
+
+  // ── Operations Studio & Events Management ──────────────────────────────────
+  getEvents: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.status) query.append('status', params.status);
+    if (params.category && params.category !== 'All') query.append('category', params.category);
+    if (params.audience) query.append('audience', params.audience);
+    const qs = query.toString();
+    return request(`/api/events${qs ? `?${qs}` : ''}`);
+  },
+  getEventById: (eventId) => request(`/api/events/${eventId}`),
+  createEvent: (data) =>
+    request('/api/events', {
+      method: 'POST',
+      body: data,
+    }),
+  updateEvent: (eventId, data) =>
+    request(`/api/events/${eventId}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  deleteEvent: (eventId) =>
+    request(`/api/events/${eventId}`, {
+      method: 'DELETE',
+    }),
+  assignEventScanners: (eventId, scannerUserIds) =>
+    request(`/api/events/${eventId}/scanners`, {
+      method: 'POST',
+      body: { scannerUserIds },
+    }),
+  getEventStats: (eventId) => request(`/api/events/${eventId}/stats`),
+
+  // Activities
+  getEventActivities: (eventId) => request(`/api/events/${eventId}/activities`),
+  createEventActivity: (eventId, data) =>
+    request(`/api/events/${eventId}/activities`, {
+      method: 'POST',
+      body: data,
+    }),
+  updateEventActivity: (eventId, activityId, data) =>
+    request(`/api/events/${eventId}/activities/${activityId}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  toggleActivityLock: (eventId, activityId, isLocked) =>
+    request(`/api/events/${eventId}/activities/${activityId}/lock`, {
+      method: 'PATCH',
+      body: { isLocked },
+    }),
+  setActivityMode: (eventId, activityId, checkInMode) =>
+    request(`/api/events/${eventId}/activities/${activityId}/mode`, {
+      method: 'PATCH',
+      body: { checkInMode },
+    }),
+  deleteEventActivity: (eventId, activityId) =>
+    request(`/api/events/${eventId}/activities/${activityId}`, {
+      method: 'DELETE',
+    }),
+  getActivityByQrId: (qrId) => request(`/api/events/activities/qr/${qrId}`),
+  selfCheckInActivity: (qrId, email) =>
+    request(`/api/events/activities/qr/${qrId}/self-checkin`, {
+      method: 'POST',
+      body: { email },
+    }),
+
+  // Participants & Registration
+  registerForEvent: (eventId, data) =>
+    request(`/api/events/${eventId}/participants`, {
+      method: 'POST',
+      body: data,
+    }),
+  getEventParticipants: (eventId, params = {}) => {
+    const query = new URLSearchParams();
+    if (params.search) query.append('search', params.search);
+    if (params.status && params.status !== 'all') query.append('status', params.status);
+    const qs = query.toString();
+    return request(`/api/events/${eventId}/participants${qs ? `?${qs}` : ''}`);
+  },
+  getParticipantById: (eventId, participantId) => request(`/api/events/${eventId}/participants/${participantId}`),
+  manualCheckInParticipant: (eventId, participantId, activityId = null) =>
+    request(`/api/events/${eventId}/participants/${participantId}/check-in`, {
+      method: 'POST',
+      body: { activityId },
+    }),
+  deleteParticipant: (eventId, participantId) =>
+    request(`/api/events/${eventId}/participants/${participantId}`, {
+      method: 'DELETE',
+    }),
+  uploadParticipantsCsv: (eventId, formData) =>
+    request(`/api/events/${eventId}/participants/upload`, {
+      method: 'POST',
+      body: formData,
+    }),
+
+  // Live QR & Scanning
+  scanAttendeeQR: (eventId, data) =>
+    request(`/api/events/${eventId}/qr/scan`, {
+      method: 'POST',
+      body: data,
+    }),
+  sendEventQRCodes: (eventId, data = {}) =>
+    request(`/api/events/${eventId}/qr/send`, {
+      method: 'POST',
+      body: data,
+    }),
+
+  // Attendance & Reports
+  getEventAttendanceReport: (eventId) => request(`/api/events/${eventId}/attendance/report`),
+  awardEventActivityPoints: (eventId, data = {}) =>
+    request(`/api/events/${eventId}/attendance/points`, {
+      method: 'POST',
+      body: data,
+    }),
 };
 

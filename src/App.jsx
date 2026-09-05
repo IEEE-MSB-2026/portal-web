@@ -23,6 +23,8 @@ import Join from './pages/Join';
 import HRStudio from './pages/HRStudio';
 import PRStudio from './pages/PRStudio';
 import MediaStudio from './pages/MediaStudio';
+import OperationsStudio from './pages/OperationsStudio';
+import SelfServiceCheckIn from './pages/SelfServiceCheckIn';
 
 function NotFound() {
   return (
@@ -66,10 +68,11 @@ export default function App() {
     <BrowserRouter>
       <ToastContainer />
       <Routes>
-        {/* Standalone full-screen auth routes without global Navbar and Footer */}
+        {/* Standalone full-screen auth & kiosk routes */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/checkin/:activityQrId" element={<SelfServiceCheckIn />} />
 
         {/* Main application routes with global Navbar & Footer */}
         <Route path="/" element={<Layout />}>
@@ -133,6 +136,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MediaStudio />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="operations"
+            element={
+              <ProtectedRoute>
+                <OperationsStudio />
               </ProtectedRoute>
             }
           />

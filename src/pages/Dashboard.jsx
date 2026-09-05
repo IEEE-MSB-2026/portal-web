@@ -319,7 +319,7 @@ export default function Dashboard() {
   );
   const ocScope = user?.availableScopes?.find(
     (s) =>
-      (s.committeeSlug === 'oc' || s.committeeSlug === 'operations' || s.committeeName?.toLowerCase().includes('operation')) &&
+      (s.committeeSlug === 'oc' || s.committeeName?.toLowerCase().includes('operation')) &&
       s.role === 'lead'
   );
 

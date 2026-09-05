@@ -21,6 +21,7 @@ import {
   Briefcase,
   Camera,
   Megaphone,
+  QrCode,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -101,6 +102,14 @@ export default function Navbar() {
   const isMediaAuthorized =
     (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
     (user?.role === 'lead' && user?.committeeSlug === 'media') ||
+    ['admin', 'officer'].includes(user?.role);
+
+  const isOperationsAuthorized =
+    (user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role)) ||
+    (user?.role === 'lead' && user?.committeeSlug === 'oc') ||
+    user?.role === 'event_organizer' ||
+    user?.role === 'event_scanner' ||
+    user?.role === 'scanner' ||
     ['admin', 'officer'].includes(user?.role);
 
   const handleScopeSwitch = async (targetScope) => {
@@ -481,6 +490,20 @@ export default function Navbar() {
                       </Link>
                     )}
 
+                    {isOperationsAuthorized && (
+                      <Link
+                        to="/operations"
+                        onClick={() => setUserDropdownOpen(false)}
+                        className="nav-profile-link"
+                      >
+                        <div className="nav-profile-link__left">
+                          <QrCode size={15} />
+                          <span>Operations Studio</span>
+                        </div>
+                        <ChevronRight size={13} className="nav-profile-link__arrow" />
+                      </Link>
+                    )}
+
                     <Link
                       to="/profile"
                       onClick={() => setUserDropdownOpen(false)}
@@ -721,6 +744,20 @@ export default function Navbar() {
                   <div className="nav-profile-link__left">
                     <Camera size={16} />
                     <span>Media Studio</span>
+                  </div>
+                  <ChevronRight size={14} className="nav-profile-link__arrow" />
+                </Link>
+              )}
+              {isOperationsAuthorized && (
+                <Link
+                  to="/operations"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="nav-profile-link"
+                  style={{ padding: '0.625rem 0.875rem' }}
+                >
+                  <div className="nav-profile-link__left">
+                    <QrCode size={16} />
+                    <span>Operations Studio</span>
                   </div>
                   <ChevronRight size={14} className="nav-profile-link__arrow" />
                 </Link>
