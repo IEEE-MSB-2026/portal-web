@@ -830,6 +830,108 @@
 }
 
 /* --------------------------------------------------------------------------
+   Announcement Composer Form Controls & Upload Area
+   -------------------------------------------------------------------------- */
+.pr-category-pills {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+  margin-top: 0.35rem;
+}
+
+.pr-cat-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.pr-cat-pill:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+  background: var(--color-bg);
+}
+
+.pr-cat-pill--active {
+  color: #ffffff !important;
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+  box-shadow: 0 2px 8px rgba(0, 98, 155, 0.28);
+}
+
+.pr-banner-upload-area {
+  margin-top: 0.35rem;
+}
+
+.pr-banner-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1.25rem;
+  background: var(--color-bg);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+  gap: 0.35rem;
+}
+
+.pr-banner-dropzone:hover {
+  border-color: var(--color-primary);
+  background: rgba(0, 98, 155, 0.04);
+}
+
+.pr-banner-preview-wrap {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.pr-banner-preview-img {
+  width: 100%;
+  max-height: 180px;
+  object-fit: cover;
+  display: block;
+}
+
+.pr-banner-preview-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface);
+  border-top: 1px solid var(--color-border);
+  justify-content: flex-end;
+}
+
+.pr-portal-feed-card__banner-placeholder {
+  width: 100%;
+  height: 100%;
+  min-height: 180px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(0, 98, 155, 0.08) 0%, rgba(6, 182, 212, 0.08) 100%);
+  color: var(--color-primary);
+  gap: 0.5rem;
+}
+
+/* --------------------------------------------------------------------------
    Diagnostics & Logs Viewer Modal
    -------------------------------------------------------------------------- */
 .pr-log-detail-box {
@@ -1275,34 +1377,40 @@
 }
 
 /* Delivery Logs Table */
+/* Delivery Logs Table */
 .pr-delivery-table-container {
+  width: 100%;
   overflow-x: auto;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   margin-top: 0.75rem;
+  background: var(--color-surface);
 }
 
 .pr-delivery-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
-  font-size: 0.78125rem;
+  font-size: 0.8125rem;
   text-align: left;
 }
 
 .pr-delivery-table th {
-  background: var(--color-surface);
+  background: var(--color-bg);
   color: var(--color-text-muted);
-  font-weight: 600;
-  padding: 0.6rem 0.75rem;
+  font-weight: 700;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--color-border);
-  white-space: nowrap;
 }
 
 .pr-delivery-table td {
-  padding: 0.55rem 0.75rem;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid var(--color-border);
   color: var(--color-text);
-  white-space: nowrap;
+  vertical-align: middle;
 }
 
 .pr-delivery-table tr:last-child td {

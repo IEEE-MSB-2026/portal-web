@@ -684,91 +684,83 @@ export default function MediaStudio() {
   }
 
   return (
-    <div className="media-studio">
+    <div className="studio-layout media-studio">
       {/* Studio Header */}
-      <div className="media-studio__header">
-        <div>
-          <h1>
-            <Camera size={28} style={{ color: 'var(--color-primary)' }} />
-            <span>Media Operations & Brand Studio</span>
-          </h1>
-          <p>
-            Curate IEEE Menoufia event photography collections, publish albums to the public gallery, and maintain official brand assets.
-          </p>
-        </div>
+      <div className="studio__header">
+        <h1>
+          <Camera size={26} /> Media Studio
+        </h1>
       </div>
 
       {/* Top Single-Row KPI Bar */}
-      <div className="media-kpi-grid">
-        <div className="media-kpi-card">
-          <div className="media-kpi-icon-wrap media-kpi-icon-wrap--primary">
+      <div className="studio-kpi-grid">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--primary">
             <FolderArchive size={22} />
           </div>
-          <div className="media-kpi-content">
-            <div className="media-kpi-value">
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
               {loadingStats ? <Loader2 size={20} className="spin" /> : stats.totalAlbums}
-            </div>
-            <div className="media-kpi-label">Total Albums</div>
+            </span>
+            <span className="studio-kpi-label">Total Albums</span>
           </div>
         </div>
 
-        <div className="media-kpi-card">
-          <div className="media-kpi-icon-wrap media-kpi-icon-wrap--emerald">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--emerald">
             <Globe size={22} />
           </div>
-          <div className="media-kpi-content">
-            <div className="media-kpi-value">
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
               {loadingStats ? <Loader2 size={20} className="spin" /> : stats.publishedAlbums}
-            </div>
-            <div className="media-kpi-label">Published Albums</div>
+            </span>
+            <span className="studio-kpi-label">Published Albums</span>
           </div>
         </div>
 
-        <div className="media-kpi-card">
-          <div className="media-kpi-icon-wrap media-kpi-icon-wrap--amber">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--amber">
             <ImageIcon size={22} />
           </div>
-          <div className="media-kpi-content">
-            <div className="media-kpi-value">
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
               {loadingStats ? <Loader2 size={20} className="spin" /> : stats.totalAssets}
-            </div>
-            <div className="media-kpi-label">Total Media Assets</div>
+            </span>
+            <span className="studio-kpi-label">Total Media Assets</span>
           </div>
         </div>
 
-        <div className="media-kpi-card">
-          <div className="media-kpi-icon-wrap media-kpi-icon-wrap--purple">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--purple">
             <Palette size={22} />
           </div>
-          <div className="media-kpi-content">
-            <div className="media-kpi-value">
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
               {loadingStats ? <Loader2 size={20} className="spin" /> : stats.totalBrandAssets}
-            </div>
-            <div className="media-kpi-label">Brand Kit Files</div>
+            </span>
+            <span className="studio-kpi-label">Brand Kit Files</span>
           </div>
         </div>
       </div>
 
       {/* Studio Tabs Navigation */}
-      <div className="media-tabs">
+      <div className="studio-tabs">
         <button
           type="button"
           onClick={() => handleTabChange('albums')}
-          className={`media-tab-btn ${activeTab === 'albums' ? 'media-tab-btn--active' : ''}`}
+          className={`studio-tab ${activeTab === 'albums' ? 'studio-tab--active' : ''}`}
         >
-          <Camera size={18} />
-          <span>Event Albums & Publisher</span>
-          <span className="media-tab-badge">{stats.totalAlbums}</span>
+          <Camera size={16} /> Event Albums & Publisher
+          <span className="studio-tab__badge">{stats.totalAlbums}</span>
         </button>
 
         <button
           type="button"
           onClick={() => handleTabChange('brand')}
-          className={`media-tab-btn ${activeTab === 'brand' ? 'media-tab-btn--active' : ''}`}
+          className={`studio-tab ${activeTab === 'brand' ? 'studio-tab--active' : ''}`}
         >
-          <Sparkles size={18} />
-          <span>Brand & Design Asset Kit</span>
-          <span className="media-tab-badge">{stats.totalBrandAssets}</span>
+          <Palette size={16} /> Brand & Design Kit
+          <span className="studio-tab__badge">{stats.totalBrandAssets}</span>
         </button>
       </div>
 
@@ -831,15 +823,6 @@ export default function MediaStudio() {
             </div>
 
             <div className="media-toolbar__right">
-              <button
-                type="button"
-                onClick={loadAlbums}
-                className="btn btn-secondary btn-icon"
-                title="Refresh albums list"
-              >
-                <RefreshCw size={16} className={loadingAlbums ? 'spin' : ''} />
-              </button>
-
               <button
                 type="button"
                 onClick={openCreateAlbumModal}
@@ -1075,15 +1058,6 @@ export default function MediaStudio() {
             <div className="media-toolbar__right">
               <button
                 type="button"
-                onClick={loadBrandAssets}
-                className="btn btn-secondary btn-icon"
-                title="Refresh brand assets"
-              >
-                <RefreshCw size={16} className={loadingBrand ? 'spin' : ''} />
-              </button>
-
-              <button
-                type="button"
                 onClick={openCreateBrandModal}
                 className="btn btn-primary"
               >
@@ -1238,20 +1212,20 @@ export default function MediaStudio() {
         </div>
       )}
 
-      {/* ── MODAL: ALBUM CREATION & EDITING WIZARD ───────────────────────────── */}
+      {/* ── SIDE DRAWER: ALBUM CREATION & EDITING WIZARD ───────────────────── */}
       {isAlbumModalOpen && (
-        <div className="modal-backdrop" {...albumModalBackdrop.getBackdropProps()}>
+        <div className="studio-drawer-overlay" {...albumModalBackdrop.getBackdropProps()}>
           <div
-            className="modal-content"
-            style={{ maxWidth: '820px', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }}
+            className="studio-drawer-content"
+            style={{ maxWidth: '780px' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className="studio-drawer-header">
               <div>
-                <h3 style={{ fontSize: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.25rem', margin: 0, fontWeight: 800 }}>
                   {editingAlbum ? `Edit Album: ${editingAlbum.title}` : 'Create New Event Album'}
                 </h3>
-                <p style={{ fontSize: '0.84375rem', color: 'var(--color-text-muted)' }}>
+                <p style={{ fontSize: '0.84375rem', color: 'var(--color-text-muted)', margin: '0.25rem 0 0' }}>
                   Organize high-resolution photos and highlights for public display.
                 </p>
               </div>
@@ -1264,8 +1238,8 @@ export default function MediaStudio() {
               </button>
             </div>
 
-            <div className="modal-body" style={{ overflowY: 'auto', padding: '1.25rem' }}>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem', marginBottom: '1rem' }}>
+            <div className="studio-drawer-body" style={{ overflowY: 'auto' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
                 {/* Title */}
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem' }}>
@@ -1334,7 +1308,7 @@ export default function MediaStudio() {
                 {/* Tags Manager */}
                 <div>
                   <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                    Tags (Press Enter to add)
+                    Tags (Press Enter)
                   </label>
                   <input
                     type="text"
@@ -1506,20 +1480,20 @@ export default function MediaStudio() {
         </div>
       )}
 
-      {/* ── MODAL: BRAND ASSET UPLOAD & EDIT ─────────────────────────────────── */}
+      {/* ── SIDE DRAWER: BRAND ASSET UPLOAD & EDIT ────────────────────────── */}
       {isBrandModalOpen && (
-        <div className="modal-backdrop" {...brandModalBackdrop.getBackdropProps()}>
+        <div className="studio-drawer-overlay" {...brandModalBackdrop.getBackdropProps()}>
           <div
-            className="modal-content"
-            style={{ maxWidth: '580px' }}
+            className="studio-drawer-content"
+            style={{ maxWidth: '620px' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="modal-header">
+            <div className="studio-drawer-header">
               <div>
-                <h3 style={{ fontSize: '1.25rem' }}>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
                   {editingBrandAsset ? 'Edit Brand Asset' : 'Upload Brand Asset'}
                 </h3>
-                <p style={{ fontSize: '0.84375rem', color: 'var(--color-text-muted)' }}>
+                <p style={{ fontSize: '0.84375rem', color: 'var(--color-text-muted)', margin: '0.2rem 0 0 0' }}>
                   Add vectors, logos, badges, or brand documents to the design kit.
                 </p>
               </div>
@@ -1528,11 +1502,11 @@ export default function MediaStudio() {
                 className="btn btn-secondary btn-icon"
                 onClick={() => !savingBrand && setIsBrandModalOpen(false)}
               >
-                <X size={18} />
+                <X size={16} />
               </button>
             </div>
 
-            <div className="modal-body" style={{ padding: '1.25rem' }}>
+            <div className="studio-drawer-body" style={{ overflowY: 'auto' }}>
               {/* File Uploader */}
               <div style={{ marginBottom: '1.25rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem' }}>
@@ -1600,25 +1574,45 @@ export default function MediaStudio() {
                   onChange={(e) => setBrandFormData({ ...brandFormData, category: e.target.value })}
                   className="form-input"
                 >
-                  <option value="logos">Logos & Vectors</option>
-                  <option value="templates">Templates & Presentations</option>
-                  <option value="badges">Badges & Crests</option>
-                  <option value="documents">Guidelines & Documents</option>
+                  <option value="logo">Logo &amp; Emblems</option>
+                  <option value="guidelines">Brand Guidelines</option>
+                  <option value="templates">Design Templates</option>
+                  <option value="badges">Badges &amp; Icons</option>
+                  <option value="other">Other Assets</option>
                 </select>
               </div>
 
               {/* Description */}
               <div style={{ marginBottom: '1rem' }}>
                 <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem' }}>
-                  Usage Notes / Description
+                  Description (Optional)
                 </label>
                 <textarea
-                  rows={2}
-                  placeholder="Where and how to use this asset..."
+                  placeholder="Usage instructions, color codes, vector specifications..."
                   value={brandFormData.description}
                   onChange={(e) => setBrandFormData({ ...brandFormData, description: e.target.value })}
                   className="form-input"
+                  rows={3}
                 />
+              </div>
+
+              {/* Target Committee */}
+              <div style={{ marginBottom: '1rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+                  Associated Committee (Optional)
+                </label>
+                <select
+                  value={brandFormData.committeeId}
+                  onChange={(e) => setBrandFormData({ ...brandFormData, committeeId: e.target.value })}
+                  className="form-input"
+                >
+                  <option value="">Branch-Wide (All Committees)</option>
+                  {(committees || []).map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
               </div>
 
               {/* Tags */}
@@ -1628,11 +1622,11 @@ export default function MediaStudio() {
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. vector, dark, official"
+                  placeholder="e.g. vector, dark-mode, official, banner"
                   value={brandFormData.tagInput}
                   onChange={(e) => setBrandFormData({ ...brandFormData, tagInput: e.target.value })}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ',') {
+                    if (e.key === 'Enter') {
                       e.preventDefault();
                       const val = brandFormData.tagInput.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '');
                       if (val && !brandFormData.tags.includes(val)) {
@@ -1667,7 +1661,7 @@ export default function MediaStudio() {
               </div>
             </div>
 
-            <div className="modal-footer" style={{ padding: '1rem 1.25rem' }}>
+            <div className="studio-drawer-footer">
               <button
                 type="button"
                 onClick={() => !savingBrand && setIsBrandModalOpen(false)}

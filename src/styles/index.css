@@ -3,6 +3,8 @@
    Candidate 1: Modern Tech Academy (Bento Minimalist)
    ========================================================================== */
 
+@import './studio.css';
+
 :root {
   /* Fonts */
   --font-heading: 'Space Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;

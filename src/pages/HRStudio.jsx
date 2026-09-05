@@ -580,6 +580,7 @@ export default function HRStudio() {
   const [campaigns, setCampaigns] = useState([]);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [committees, setCommittees] = useState([]);
+  const [campaignSearch, setCampaignSearch] = useState('');
   const [campaignStatusFilter, setCampaignStatusFilter] = useState('');
   const [campaignCommitteeFilter, setCampaignCommitteeFilter] = useState('');
   const [showCreateCampaign, setShowCreateCampaign] = useState(false);
@@ -1969,6 +1970,12 @@ export default function HRStudio() {
   };
 
   const filteredCampaigns = campaigns.filter((camp) => {
+    if (campaignSearch) {
+      const q = campaignSearch.toLowerCase();
+      const matchTitle = camp.title?.toLowerCase().includes(q);
+      const matchDesc = camp.description?.toLowerCase().includes(q);
+      if (!matchTitle && !matchDesc) return false;
+    }
     if (campaignStatusFilter && camp.status !== campaignStatusFilter) return false;
     if (campaignCommitteeFilter) {
       const matchInList = camp.committees?.some((c) => c.id === campaignCommitteeFilter);
@@ -2102,57 +2109,82 @@ export default function HRStudio() {
 
   // ════════════════════════════════════════════════════════════════════════════
   return (
-    <div className="hr-studio">
-      <div className="hr-studio__header">
-        <h1><Briefcase size={24} /> HR Studio</h1>
+    <div className="studio-layout hr-studio">
+      <div className="studio__header">
+        <h1>
+          <Briefcase size={26} /> HR Studio
+        </h1>
       </div>
 
       {/* Top Branch & HR Pipeline Quick Metrics (Visible Across All Tabs) */}
-      <div className="hr-campaign-grid hr-onboarding-kpi-grid" style={{ marginBottom: 'var(--space-6)' }}>
-        <div className="hr-campaign-card">
-          <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Total Applications</div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: 'var(--color-primary)', marginTop: '0.25rem' }}>
-            {pipelineSummary?.totals?.applications ?? pipelineSummary?.totalApplications ?? applications.length ?? 0}
+      <div className="studio-kpi-grid">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--primary">
+            <Briefcase size={22} />
+          </div>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
+              {pipelineSummary?.totals?.applications ?? pipelineSummary?.totalApplications ?? applications.length ?? 0}
+            </span>
+            <span className="studio-kpi-label">Total Applications</span>
           </div>
         </div>
-        <div className="hr-campaign-card">
-          <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Accepted Candidates</div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#10b981', marginTop: '0.25rem' }}>
-            {pipelineSummary?.stages?.accepted || onboardingSummary.totalAccepted || 0}
+
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--emerald">
+            <CheckCircle2 size={22} />
+          </div>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
+              {pipelineSummary?.stages?.accepted || onboardingSummary.totalAccepted || 0}
+            </span>
+            <span className="studio-kpi-label">Accepted Candidates</span>
           </div>
         </div>
-        <div className="hr-campaign-card">
-          <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>In Active Pipeline</div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#f59e0b', marginTop: '0.25rem' }}>
-            {(pipelineSummary?.stages?.applied || 0) +
-              (pipelineSummary?.stages?.screening || 0) +
-              (pipelineSummary?.stages?.interview || 0) +
-              (pipelineSummary?.stages?.finalReview ?? pipelineSummary?.stages?.final_review ?? 0)}
+
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--amber">
+            <Users size={22} />
+          </div>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
+              {(pipelineSummary?.stages?.applied || 0) +
+                (pipelineSummary?.stages?.screening || 0) +
+                (pipelineSummary?.stages?.interview || 0) +
+                (pipelineSummary?.stages?.finalReview ?? pipelineSummary?.stages?.final_review ?? 0)}
+            </span>
+            <span className="studio-kpi-label">In Active Pipeline</span>
           </div>
         </div>
-        <div className="hr-campaign-card">
-          <div style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>Rejected Applications</div>
-          <div style={{ fontSize: '1.85rem', fontWeight: 800, color: '#ef4444', marginTop: '0.25rem' }}>
-            {pipelineSummary?.stages?.rejected ?? 0}
+
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--danger">
+            <UserX size={22} />
+          </div>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">
+              {pipelineSummary?.stages?.rejected ?? 0}
+            </span>
+            <span className="studio-kpi-label">Rejected Applications</span>
           </div>
         </div>
       </div>
 
       {/* Tab Navigation */}
-      <div className="hr-tabs">
-        <button type="button" className={`hr-tab ${activeTab === 'campaigns' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('campaigns')}>
+      <div className="studio-tabs">
+        <button type="button" className={`studio-tab ${activeTab === 'campaigns' ? 'studio-tab--active' : ''}`} onClick={() => setActiveTab('campaigns')}>
           <ClipboardList size={16} /> Campaigns
-          <span className="hr-tab__badge">{campaigns.length}</span>
+          <span className="studio-tab__badge">{campaigns.length}</span>
         </button>
-        <button type="button" className={`hr-tab ${activeTab === 'pipeline' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('pipeline')}>
+        <button type="button" className={`studio-tab ${activeTab === 'pipeline' ? 'studio-tab--active' : ''}`} onClick={() => setActiveTab('pipeline')}>
           <Users size={16} /> Candidate Pipeline
-          <span className="hr-tab__badge">{applications.length}</span>
+          <span className="studio-tab__badge">{applications.length}</span>
         </button>
-        <button type="button" className={`hr-tab ${activeTab === 'members' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('members')}>
+        <button type="button" className={`studio-tab ${activeTab === 'members' ? 'studio-tab--active' : ''}`} onClick={() => setActiveTab('members')}>
           <Shield size={16} /> Member Management
-          <span className="hr-tab__badge">{allMembers.length}</span>
+          <span className="studio-tab__badge">{allMembers.length}</span>
         </button>
-        <button type="button" className={`hr-tab ${activeTab === 'onboarding' ? 'hr-tab--active' : ''}`} onClick={() => setActiveTab('onboarding')}>
+        <button type="button" className={`studio-tab ${activeTab === 'onboarding' ? 'studio-tab--active' : ''}`} onClick={() => setActiveTab('onboarding')}>
           <ListChecks size={16} /> Onboarding
         </button>
       </div>
@@ -2162,23 +2194,75 @@ export default function HRStudio() {
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {activeTab === 'campaigns' && (
         <>
-          <div className="hr-toolbar">
-            <button type="button" className="btn btn-primary" onClick={() => setShowCreateCampaign(true)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-              <Plus size={16} /> New Campaign
-            </button>
-            <select className="form-input" style={{ width: 'auto', minWidth: 150 }} value={campaignStatusFilter} onChange={(e) => setCampaignStatusFilter(e.target.value)}>
-              <option value="">All Statuses</option>
-              <option value="open">Open</option>
-              <option value="draft">Draft</option>
-              <option value="closed">Closed</option>
-            </select>
-            <select className="form-input" style={{ width: 'auto', minWidth: 180 }} value={campaignCommitteeFilter} onChange={(e) => setCampaignCommitteeFilter(e.target.value)}>
-              <option value="">All Committees</option>
-              {committees.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-            <button type="button" className="btn btn-secondary" onClick={loadCampaigns} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-              <RefreshCw size={14} /> Refresh
-            </button>
+          <div className="studio-toolbar">
+            <div className="studio-toolbar__left">
+              <div className="studio-search-wrap">
+                <Search size={16} />
+                <input
+                  type="text"
+                  value={campaignSearch}
+                  onChange={(e) => setCampaignSearch(e.target.value)}
+                  placeholder="Search campaigns by title or description..."
+                  className="form-input studio-search-input"
+                />
+              </div>
+
+              <div className="studio-filter-pills">
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('')}
+                  className={`studio-pill ${!campaignStatusFilter ? 'studio-pill--active' : ''}`}
+                >
+                  All Status
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('open')}
+                  className={`studio-pill ${campaignStatusFilter === 'open' ? 'studio-pill--active' : ''}`}
+                >
+                  Open
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('draft')}
+                  className={`studio-pill ${campaignStatusFilter === 'draft' ? 'studio-pill--active' : ''}`}
+                >
+                  Drafts
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCampaignStatusFilter('closed')}
+                  className={`studio-pill ${campaignStatusFilter === 'closed' ? 'studio-pill--active' : ''}`}
+                >
+                  Closed
+                </button>
+              </div>
+
+              <select
+                className="form-input"
+                style={{ width: 'auto', minWidth: 180 }}
+                value={campaignCommitteeFilter}
+                onChange={(e) => setCampaignCommitteeFilter(e.target.value)}
+              >
+                <option value="">All Committees</option>
+                {committees.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="studio-toolbar__right">
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setShowCreateCampaign(true)}
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+              >
+                <Plus size={16} /> New Campaign
+              </button>
+            </div>
           </div>
 
           {loadingCampaigns ? (
@@ -2268,18 +2352,18 @@ export default function HRStudio() {
             </div>
           )}
 
-          {/* Campaign Details Modal */}
+          {/* SIDE DRAWER: HR Campaign Details */}
           {selectedCampaignDetails && (
-            <div className="modal-overlay" style={{ zIndex: 1200 }} {...campaignDetailsBackdrop.getBackdropProps()}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 640, width: '95vw' }}>
-                <div className="modal-header">
+            <div className="studio-drawer-overlay" style={{ zIndex: 1200 }} {...campaignDetailsBackdrop.getBackdropProps()}>
+              <div className="studio-drawer-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+                <div className="studio-drawer-header">
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
                     <Briefcase size={20} style={{ color: 'var(--color-primary)' }} />
-                    <h3 style={{ margin: 0 }}>{selectedCampaignDetails.title}</h3>
+                    <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800 }}>{selectedCampaignDetails.title}</h3>
                   </div>
-                  <button type="button" className="modal-close" onClick={() => setSelectedCampaignDetails(null)}><X size={18} /></button>
+                  <button type="button" className="btn btn-secondary btn-icon" onClick={() => setSelectedCampaignDetails(null)}><X size={16} /></button>
                 </div>
-                <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                <div className="studio-drawer-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', overflowY: 'auto' }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', background: 'var(--color-bg)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                     <div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block' }}>Status</span>
@@ -2471,7 +2555,7 @@ export default function HRStudio() {
                   </div>
                 </div>
 
-                <div className="modal-footer" style={{ flexWrap: 'wrap', gap: '0.45rem', justifyContent: 'space-between' }}>
+                <div className="studio-drawer-footer" style={{ flexWrap: 'wrap', gap: '0.45rem', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                     <button
                       type="button"
@@ -2590,16 +2674,20 @@ export default function HRStudio() {
             </div>
           )}
 
-          {/* Edit Campaign Modal */}
+          {/* Edit Campaign Side Drawer */}
           {editingCampaign && (
-            <div className="modal-overlay" {...editCampaignBackdrop.getBackdropProps()}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 560 }}>
-                <div className="modal-header">
-                  <h3><Edit2 size={18} /> Edit Recruitment Campaign</h3>
-                  <button type="button" className="modal-close" onClick={() => setEditingCampaign(null)}><X size={18} /></button>
+            <div className="studio-drawer-overlay" {...editCampaignBackdrop.getBackdropProps()}>
+              <div className="studio-drawer-content" onClick={(e) => e.stopPropagation()}>
+                <div className="studio-drawer-header">
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.25rem', fontWeight: 800 }}>
+                    <Edit2 size={18} /> Edit Recruitment Campaign
+                  </h3>
+                  <button type="button" className="btn btn-secondary btn-icon" onClick={() => setEditingCampaign(null)}>
+                    <X size={16} />
+                  </button>
                 </div>
-                <form onSubmit={handleUpdateCampaign}>
-                  <div className="modal-body">
+                <form onSubmit={handleUpdateCampaign} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
+                  <div className="studio-drawer-body">
                     <div className="form-group">
                       <label className="form-label">Campaign Title *</label>
                       <input className="form-input" value={editCampaignData.title} onChange={(e) => setEditCampaignData((p) => ({ ...p, title: e.target.value }))} required />
@@ -2624,7 +2712,7 @@ export default function HRStudio() {
                     </div>
                     <div className="form-group">
                       <label className="form-label">Description</label>
-                      <textarea className="form-input" rows={2} value={editCampaignData.description} onChange={(e) => setEditCampaignData((p) => ({ ...p, description: e.target.value }))} />
+                      <textarea className="form-input" rows={3} value={editCampaignData.description} onChange={(e) => setEditCampaignData((p) => ({ ...p, description: e.target.value }))} />
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-3)' }}>
                       <div className="form-group">
@@ -2645,7 +2733,7 @@ export default function HRStudio() {
                       </select>
                     </div>
                   </div>
-                  <div className="modal-footer">
+                  <div className="studio-drawer-footer">
                     <button type="button" className="btn btn-secondary" onClick={() => setEditingCampaign(null)}>Cancel</button>
                     <button type="submit" className="btn btn-primary" disabled={savingCampaign || editCampaignData.committeeIds.length === 0}>
                       {savingCampaign ? 'Saving...' : 'Save Changes'}
@@ -2939,9 +3027,6 @@ export default function HRStudio() {
             </button>
             <button type="button" className="btn btn-secondary" onClick={handleExportCSV} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
               <FileSpreadsheet size={16} /> Export
-            </button>
-            <button type="button" className="btn btn-secondary" onClick={loadMembers} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-              <RefreshCw size={14} /> Refresh
             </button>
           </div>
 
@@ -4165,15 +4250,17 @@ export default function HRStudio() {
         </div>
       )}
 
-      {/* Candidate Detail Modal (Floats globally on top of any active list/modal) */}
+      {/* SIDE DRAWER: Candidate Details */}
       {selectedCandidate && (
-        <div className="modal-overlay" style={{ zIndex: 1200 }} {...candidateDetailsBackdrop.getBackdropProps()}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 620, margin: 'auto', zIndex: 1201 }}>
-            <div className="modal-header">
-              <h3><Eye size={18} /> Candidate Details</h3>
-              <button type="button" className="modal-close" onClick={() => setSelectedCandidate(null)}><X size={18} /></button>
+        <div className="studio-drawer-overlay" style={{ zIndex: 1250 }} {...candidateDetailsBackdrop.getBackdropProps()}>
+          <div className="studio-drawer-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
+            <div className="studio-drawer-header">
+              <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.25rem', fontWeight: 800 }}>
+                <Eye size={18} /> Candidate Details
+              </h3>
+              <button type="button" className="btn btn-secondary btn-icon" onClick={() => setSelectedCandidate(null)}><X size={16} /></button>
             </div>
-            <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+            <div className="studio-drawer-body" style={{ overflowY: 'auto' }}>
               <div style={{ marginBottom: 'var(--space-4)' }}>
                 <h4 style={{ fontWeight: 700, fontSize: '1.2rem', marginBottom: '0.25rem' }}>{selectedCandidate.answers?.fullName || 'Unknown'}</h4>
                 <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>{selectedCandidate.applicantEmail}</div>
@@ -4266,7 +4353,7 @@ export default function HRStudio() {
                 </div>
               )}
             </div>
-            <div className="modal-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
+            <div className="studio-drawer-footer" style={{ flexWrap: 'wrap', gap: '0.5rem' }}>
               {STAGE_NEXT[selectedCandidate.currentStage] && (
                 <button type="button" className="btn btn-primary" disabled={processingAction} onClick={() => handleAdvanceStage(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
                   <ArrowRight size={14} /> Move to {STAGE_NEXT[selectedCandidate.currentStage].replace('_', ' ')}

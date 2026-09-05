@@ -72,7 +72,7 @@ export default function SelfServiceCheckIn() {
 
   if (loading) {
     return (
-      <div className="ops-studio" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+      <div className="studio-layout ops-studio" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
         <div style={{ textAlign: 'center', color: 'var(--color-text-muted)' }}>
           <QrCode size={40} style={{ color: 'var(--color-primary)', margin: '0 auto var(--space-3)' }} />
           <h3>Loading Activity Check-In...</h3>
@@ -86,7 +86,7 @@ export default function SelfServiceCheckIn() {
   const event = activityData?.event;
 
   return (
-    <div className="ops-studio" style={{ maxWidth: '580px', margin: '2rem auto', padding: '1rem' }}>
+    <div className="studio-layout ops-studio" style={{ maxWidth: '580px', margin: '2rem auto', padding: '1rem' }}>
       <div className="bento-card" style={{ padding: '2.5rem 2rem', textAlign: 'center' }}>
         
         {/* Top Badge */}

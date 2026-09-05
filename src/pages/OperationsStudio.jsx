@@ -17,7 +17,6 @@ import {
   Plus,
   Search,
   Download,
-  RefreshCw,
   Sliders,
   Eye,
   Tv,
@@ -527,94 +526,72 @@ export default function OperationsStudio() {
   }, [participants, rosterSearch, rosterStatusFilter]);
 
   return (
-    <div className="ops-studio">
+    <div className="studio-layout ops-studio">
       
       {/* ── Studio Header ───────────────────────────────────────────────────── */}
-      <div className="ops-studio__header">
-        <div className="ops-studio__header-content">
-          <h1>
-            <QrCode size={26} /> Operations Studio
-          </h1>
-          <p>
-            Event operations management, dynamic registration builder, live web camera QR scanner, and kiosk projection.
-          </p>
-        </div>
-        <div className="ops-studio__header-actions">
-          <button
-            onClick={handleOpenCreateEvent}
-            className="btn btn-primary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <Plus size={16} /> New Event
-          </button>
-          <button
-            onClick={handleExportCSV}
-            disabled={!selectedEventId}
-            className="btn btn-secondary"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
-          >
-            <Download size={15} /> Export CSV
-          </button>
-        </div>
+      <div className="studio__header">
+        <h1>
+          <QrCode size={26} /> Operations Studio
+        </h1>
       </div>
 
       {/* ── Top KPI Metrics Bar (4 Columns) ────────────────────────────────── */}
-      <div className="ops-kpi-grid">
-        <div className="ops-kpi-card">
-          <div className="ops-kpi-icon-wrap ops-kpi-icon-wrap--primary">
+      <div className="studio-kpi-grid">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--primary">
             <Calendar size={22} />
           </div>
-          <div className="ops-kpi-content">
-            <span className="ops-kpi-value">{studioKPIs.totalEvents}</span>
-            <span className="ops-kpi-label">Active Events</span>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">{studioKPIs.totalEvents}</span>
+            <span className="studio-kpi-label">Active Events</span>
           </div>
         </div>
 
-        <div className="ops-kpi-card">
-          <div className="ops-kpi-icon-wrap ops-kpi-icon-wrap--purple">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--purple">
             <Users size={22} />
           </div>
-          <div className="ops-kpi-content">
-            <span className="ops-kpi-value">{studioKPIs.totalRegistrations}</span>
-            <span className="ops-kpi-label">Registered Attendees</span>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">{studioKPIs.totalRegistrations}</span>
+            <span className="studio-kpi-label">Registered Attendees</span>
           </div>
         </div>
 
-        <div className="ops-kpi-card">
-          <div className="ops-kpi-icon-wrap ops-kpi-icon-wrap--emerald">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--emerald">
             <CheckCircle2 size={22} />
           </div>
-          <div className="ops-kpi-content">
-            <span className="ops-kpi-value">{studioKPIs.totalCheckedIn}</span>
-            <span className="ops-kpi-label">Live Check-Ins</span>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">{studioKPIs.totalCheckedIn}</span>
+            <span className="studio-kpi-label">Live Check-Ins</span>
           </div>
         </div>
 
-        <div className="ops-kpi-card">
-          <div className="ops-kpi-icon-wrap ops-kpi-icon-wrap--amber">
+        <div className="studio-kpi-card">
+          <div className="studio-kpi-icon-wrap studio-kpi-icon-wrap--amber">
             <Award size={22} />
           </div>
-          <div className="ops-kpi-content">
-            <span className="ops-kpi-value">{studioKPIs.totalPoints}</span>
-            <span className="ops-kpi-label">Points Awarded</span>
+          <div className="studio-kpi-content">
+            <span className="studio-kpi-value">{studioKPIs.totalPoints}</span>
+            <span className="studio-kpi-label">Points Awarded</span>
           </div>
         </div>
       </div>
 
       {/* ── Navigation Tabs ────────────────────────────────────────────────── */}
-      <div className="ops-tabs">
+      <div className="studio-tabs">
         <button
           type="button"
-          className={`ops-tab ${activeTab === 'events' ? 'ops-tab--active' : ''}`}
+          className={`studio-tab ${activeTab === 'events' ? 'studio-tab--active' : ''}`}
           onClick={() => setActiveTab('events')}
         >
           <Calendar size={16} /> Event Management
-          <span className="ops-tab__badge">{events.length}</span>
+          <span className="studio-tab__badge">{events.length}</span>
         </button>
 
         <button
           type="button"
-          className={`ops-tab ${activeTab === 'scanner' ? 'ops-tab--active' : ''}`}
+          className={`studio-tab ${activeTab === 'scanner' ? 'studio-tab--active' : ''}`}
           onClick={() => {
             setActiveTab('scanner');
             if (!cameraActive) startCamera();
@@ -625,14 +602,14 @@ export default function OperationsStudio() {
 
         <button
           type="button"
-          className={`ops-tab ${activeTab === 'roster' ? 'ops-tab--active' : ''}`}
+          className={`studio-tab ${activeTab === 'roster' ? 'studio-tab--active' : ''}`}
           onClick={() => {
             setActiveTab('roster');
             stopCamera();
           }}
         >
           <Users size={16} /> Attendance Roster & Dispatcher
-          <span className="ops-tab__badge">{participants.length}</span>
+          <span className="studio-tab__badge">{participants.length}</span>
         </button>
       </div>
 
@@ -643,41 +620,66 @@ export default function OperationsStudio() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-6)' }}>
           
           {/* Toolbar */}
-          <div className="ops-toolbar">
-            <div className="ops-toolbar__group">
-              <div className="ops-search-input-wrap">
+          <div className="studio-toolbar">
+            <div className="studio-toolbar__left">
+              <div className="studio-search-wrap">
                 <Search size={16} />
                 <input
                   type="text"
                   value={eventSearch}
                   onChange={(e) => setEventSearch(e.target.value)}
                   placeholder="Search events by name or location..."
-                  className="form-input ops-search-input"
+                  className="form-input studio-search-input"
                 />
               </div>
 
-              <select
-                className="form-input"
-                style={{ width: 'auto', minWidth: 150 }}
-                value={eventCategoryFilter}
-                onChange={(e) => setEventCategoryFilter(e.target.value)}
-              >
-                <option value="all">All Categories</option>
-                <option value="Conference">Conference</option>
-                <option value="Workshop">Workshop</option>
-                <option value="Hackathon">Hackathon</option>
-                <option value="Seminar">Seminar</option>
-              </select>
+              <div className="studio-filter-pills">
+                <button
+                  type="button"
+                  onClick={() => setEventCategoryFilter('all')}
+                  className={`studio-pill ${eventCategoryFilter === 'all' ? 'studio-pill--active' : ''}`}
+                >
+                  All Categories
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventCategoryFilter('Conference')}
+                  className={`studio-pill ${eventCategoryFilter === 'Conference' ? 'studio-pill--active' : ''}`}
+                >
+                  Conference
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventCategoryFilter('Workshop')}
+                  className={`studio-pill ${eventCategoryFilter === 'Workshop' ? 'studio-pill--active' : ''}`}
+                >
+                  Workshop
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventCategoryFilter('Hackathon')}
+                  className={`studio-pill ${eventCategoryFilter === 'Hackathon' ? 'studio-pill--active' : ''}`}
+                >
+                  Hackathon
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEventCategoryFilter('Summit')}
+                  className={`studio-pill ${eventCategoryFilter === 'Summit' ? 'studio-pill--active' : ''}`}
+                >
+                  Summit
+                </button>
+              </div>
             </div>
 
-            <div className="ops-toolbar__group">
+            <div className="studio-toolbar__right">
               <button
                 type="button"
-                className="btn btn-secondary"
-                onClick={loadEvents}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                onClick={handleOpenCreateEvent}
+                className="btn btn-primary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
               >
-                <RefreshCw size={14} /> Refresh
+                <Plus size={16} /> New Event
               </button>
             </div>
           </div>
@@ -1262,12 +1264,12 @@ export default function OperationsStudio() {
       )}
 
       {/* ════════════════════════════════════════════════════════════════════════
-          MODAL 1: CREATE / EDIT EVENT
+          SIDE DRAWER: CREATE / EDIT EVENT
          ════════════════════════════════════════════════════════════════════════ */}
       {showEventModal && (
-        <div className="modal-backdrop" {...eventModalBackdrop.getBackdropProps()}>
-          <div className="modal-content" style={{ maxWidth: '700px', width: '100%', maxHeight: '90vh', overflowY: 'auto' }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-header">
+        <div className="studio-drawer-overlay" {...eventModalBackdrop.getBackdropProps()}>
+          <div className="studio-drawer-content" style={{ maxWidth: '720px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="studio-drawer-header">
               <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
                 {editingEvent ? 'Edit Event' : 'Create New Event'}
               </h2>
@@ -1276,183 +1278,185 @@ export default function OperationsStudio() {
               </button>
             </div>
 
-            <form onSubmit={handleSaveEvent} style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <div className="form-group">
-                <label className="form-label">Event Name *</label>
-                <input
-                  type="text"
-                  required
-                  value={eventForm.name}
-                  onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
-                  placeholder="e.g. AI Summit & Hackathon 2026"
-                  className="form-input"
-                />
-              </div>
-
-              <div className="form-group">
-                <label className="form-label">Description *</label>
-                <textarea
-                  rows={3}
-                  required
-                  value={eventForm.description}
-                  onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                  placeholder="Event agenda, keynote topics, instructions..."
-                  className="form-input"
-                  style={{ resize: 'vertical' }}
-                />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+            <form onSubmit={handleSaveEvent} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+              <div className="studio-drawer-body" style={{ overflowY: 'auto' }}>
                 <div className="form-group">
-                  <label className="form-label">Venue / Location *</label>
+                  <label className="form-label">Event Name *</label>
                   <input
                     type="text"
                     required
-                    value={eventForm.location}
-                    onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                    placeholder="e.g. Hall 1, Faculty of Electronic Engineering"
+                    value={eventForm.name}
+                    onChange={(e) => setEventForm({ ...eventForm, name: e.target.value })}
+                    placeholder="e.g. AI Summit & Hackathon 2026"
                     className="form-input"
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Category</label>
-                  <select
-                    value={eventForm.category}
-                    onChange={(e) => setEventForm({ ...eventForm, category: e.target.value })}
-                    className="form-input"
-                  >
-                    <option value="Conference">Conference</option>
-                    <option value="Workshop">Workshop</option>
-                    <option value="Hackathon">Hackathon</option>
-                    <option value="Seminar">Seminar</option>
-                    <option value="General">General</option>
-                  </select>
-                </div>
-              </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">Capacity Limit</label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={eventForm.capacity}
-                    onChange={(e) => setEventForm({ ...eventForm, capacity: Number(e.target.value) })}
+                  <label className="form-label">Description *</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={eventForm.description}
+                    onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
+                    placeholder="Event agenda, keynote topics, instructions..."
                     className="form-input"
+                    style={{ resize: 'vertical' }}
                   />
                 </div>
-                <div className="form-group">
-                  <label className="form-label">Allowed Audience</label>
-                  <select
-                    value={eventForm.allowedAudience}
-                    onChange={(e) => setEventForm({ ...eventForm, allowedAudience: e.target.value })}
-                    className="form-input"
-                  >
-                    <option value="public">Public (Anyone)</option>
-                    <option value="registered_users">Logged-In Portal Users</option>
-                    <option value="active_members">Active Branch Members</option>
-                    <option value="leads_only">Committee Leads Only</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Default Points</label>
-                  <input
-                    type="number"
-                    min={0}
-                    value={eventForm.points}
-                    onChange={(e) => setEventForm({ ...eventForm, points: Number(e.target.value) })}
-                    className="form-input"
-                  />
-                </div>
-              </div>
 
-              {/* Dynamic Custom Registration Fields Builder */}
-              <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <div>
-                    <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
-                      Registration Custom Questions
-                    </h4>
-                    <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-                      Dynamic attendee questionnaire fields asked during stage 2
-                    </span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Venue / Location *</label>
+                    <input
+                      type="text"
+                      required
+                      value={eventForm.location}
+                      onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
+                      placeholder="e.g. Hall 1, Faculty of Electronic Engineering"
+                      className="form-input"
+                    />
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleAddCustomField}
-                    className="btn btn-secondary"
-                    style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem' }}
-                  >
-                    <Plus size={12} /> Add Field
-                  </button>
+                  <div className="form-group">
+                    <label className="form-label">Category</label>
+                    <select
+                      value={eventForm.category}
+                      onChange={(e) => setEventForm({ ...eventForm, category: e.target.value })}
+                      className="form-input"
+                    >
+                      <option value="Conference">Conference</option>
+                      <option value="Workshop">Workshop</option>
+                      <option value="Hackathon">Hackathon</option>
+                      <option value="Summit">Summit</option>
+                      <option value="General">General</option>
+                    </select>
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                  {eventForm.customFields.map((field, idx) => (
-                    <div
-                      key={field.id || idx}
-                      className="bento-card"
-                      style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '1rem' }}>
+                  <div className="form-group">
+                    <label className="form-label">Capacity Limit</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={eventForm.capacity}
+                      onChange={(e) => setEventForm({ ...eventForm, capacity: Number(e.target.value) })}
+                      className="form-input"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Allowed Audience</label>
+                    <select
+                      value={eventForm.allowedAudience}
+                      onChange={(e) => setEventForm({ ...eventForm, allowedAudience: e.target.value })}
+                      className="form-input"
                     >
-                      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr auto auto', gap: '0.5rem', alignItems: 'center' }}>
-                        <input
-                          type="text"
-                          value={field.label}
-                          onChange={(e) => handleUpdateCustomField(idx, { label: e.target.value })}
-                          placeholder="Question (e.g. T-Shirt Size)"
-                          className="form-input"
-                          style={{ fontSize: '0.85rem' }}
-                        />
-                        <select
-                          value={field.type}
-                          onChange={(e) => handleUpdateCustomField(idx, { type: e.target.value })}
-                          className="form-input"
-                          style={{ fontSize: '0.85rem' }}
-                        >
-                          <option value="text">Text Input</option>
-                          <option value="select">Dropdown Select</option>
-                          <option value="number">Number</option>
-                          <option value="textarea">Textarea</option>
-                          <option value="checkbox">Checkbox</option>
-                        </select>
-                        <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', cursor: 'pointer' }}>
-                          <input
-                            type="checkbox"
-                            checked={Boolean(field.required)}
-                            onChange={(e) => handleUpdateCustomField(idx, { required: e.target.checked })}
-                          />
-                          Req
-                        </label>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveCustomField(idx)}
-                          className="btn btn-secondary btn-icon"
-                          style={{ width: '28px', height: '28px', color: 'var(--color-danger)' }}
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
+                      <option value="public">Public (Anyone)</option>
+                      <option value="registered_users">Logged-In Portal Users</option>
+                      <option value="active_members">Active Branch Members</option>
+                      <option value="leads_only">Committee Leads Only</option>
+                    </select>
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Default Points</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={eventForm.points}
+                      onChange={(e) => setEventForm({ ...eventForm, points: Number(e.target.value) })}
+                      className="form-input"
+                    />
+                  </div>
+                </div>
 
-                      {field.type === 'select' && (
-                        <input
-                          type="text"
-                          value={Array.isArray(field.options) ? field.options.join(', ') : ''}
-                          onChange={(e) =>
-                            handleUpdateCustomField(idx, {
-                              options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
-                            })
-                          }
-                          placeholder="Options separated by commas: S, M, L, XL"
-                          className="form-input"
-                          style={{ fontSize: '0.8125rem' }}
-                        />
-                      )}
+                {/* Dynamic Custom Registration Fields Builder */}
+                <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem', marginTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                    <div>
+                      <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
+                        Registration Custom Questions
+                      </h4>
+                      <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                        Dynamic attendee questionnaire fields asked during stage 2
+                      </span>
                     </div>
-                  ))}
+                    <button
+                      type="button"
+                      onClick={handleAddCustomField}
+                      className="btn btn-secondary"
+                      style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem' }}
+                    >
+                      <Plus size={12} /> Add Field
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                    {eventForm.customFields.map((field, idx) => (
+                      <div
+                        key={field.id || idx}
+                        className="bento-card"
+                        style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}
+                      >
+                        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1.2fr auto auto', gap: '0.5rem', alignItems: 'center' }}>
+                          <input
+                            type="text"
+                            value={field.label}
+                            onChange={(e) => handleUpdateCustomField(idx, { label: e.target.value })}
+                            placeholder="Question (e.g. T-Shirt Size)"
+                            className="form-input"
+                            style={{ fontSize: '0.85rem' }}
+                          />
+                          <select
+                            value={field.type}
+                            onChange={(e) => handleUpdateCustomField(idx, { type: e.target.value })}
+                            className="form-input"
+                            style={{ fontSize: '0.85rem' }}
+                          >
+                            <option value="text">Text Input</option>
+                            <option value="select">Dropdown Select</option>
+                            <option value="number">Number</option>
+                            <option value="textarea">Textarea</option>
+                            <option value="checkbox">Checkbox</option>
+                          </select>
+                          <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', cursor: 'pointer' }}>
+                            <input
+                              type="checkbox"
+                              checked={Boolean(field.required)}
+                              onChange={(e) => handleUpdateCustomField(idx, { required: e.target.checked })}
+                            />
+                            Req
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveCustomField(idx)}
+                            className="btn btn-secondary btn-icon"
+                            style={{ width: '36px', height: '36px', color: 'var(--color-danger)' }}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
+
+                        {field.type === 'select' && (
+                          <input
+                            type="text"
+                            value={Array.isArray(field.options) ? field.options.join(', ') : ''}
+                            onChange={(e) =>
+                              handleUpdateCustomField(idx, {
+                                options: e.target.value.split(',').map((s) => s.trim()).filter(Boolean),
+                              })
+                            }
+                            placeholder="Options separated by commas: S, M, L, XL"
+                            className="form-input"
+                            style={{ fontSize: '0.8125rem' }}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', marginTop: '1rem', borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
+              <div className="studio-drawer-footer">
                 <button
                   type="button"
                   onClick={() => setShowEventModal(false)}
