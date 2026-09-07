@@ -594,6 +594,22 @@ export default function HRStudio() {
   const [loadingApplications, setLoadingApplications] = useState(false);
   const [pipelineFilter, setPipelineFilter] = useState('');
   const [pipelineSearch, setPipelineSearch] = useState('');
+  const [visibleStageCounts, setVisibleStageCounts] = useState({
+    applied: 10,
+    screening: 10,
+    interview: 10,
+    final_review: 10,
+  });
+
+  useEffect(() => {
+    setVisibleStageCounts({
+      applied: 10,
+      screening: 10,
+      interview: 10,
+      final_review: 10,
+    });
+  }, [pipelineSearch, pipelineFilter]);
+
   const [selectedCandidate, setSelectedCandidate] = useState(null);
   const [candidateNotes, setCandidateNotes] = useState('');
   const [candidateScore, setCandidateScore] = useState('');
@@ -2876,34 +2892,62 @@ export default function HRStudio() {
                     <span className="hr-pipeline-column__count">{appsByStage[stage.key]?.length || 0}</span>
                   </div>
                   <div className="hr-pipeline-column__cards">
-                    {(appsByStage[stage.key] || []).map((app) => (
-                      <div
-                        key={app.id}
-                        className={`hr-candidate-card ${draggedCandidate?.id === app.id ? 'dragging' : ''}`}
-                        draggable={true}
-                        onDragStart={(e) => {
-                          e.dataTransfer.setData('text/plain', app.id);
-                          setDraggedCandidate(app);
-                        }}
-                        onDragEnd={() => setDraggedCandidate(null)}
-                        onClick={() => handleOpenCandidate(app)}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div className="hr-candidate-card__name">{app.answers?.fullName || 'Unknown Applicant'}</div>
-                          <GripVertical size={13} style={{ color: 'var(--color-text-subtle)', opacity: 0.6 }} />
-                        </div>
-                        <div className="hr-candidate-card__email">{app.applicantEmail || '—'}</div>
-                        <div className="hr-candidate-card__footer">
-                          <span className="hr-candidate-card__committee">{getCommitteeName(app.committeeId)}</span>
-                          <span className="hr-candidate-card__date">{formatDate(app.submittedAt)}</span>
-                        </div>
-                      </div>
-                    ))}
-                    {(appsByStage[stage.key] || []).length === 0 && (
-                      <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-text-subtle)', fontSize: '0.8rem' }}>
-                        Drop candidates here
-                      </div>
-                    )}
+                    {(() => {
+                      const allStageApps = appsByStage[stage.key] || [];
+                      const limit = visibleStageCounts[stage.key] || 10;
+                      const visibleApps = allStageApps.slice(0, limit);
+                      const hasMore = allStageApps.length > limit;
+
+                      return (
+                        <>
+                          {visibleApps.map((app) => (
+                            <div
+                              key={app.id}
+                              className={`hr-candidate-card ${draggedCandidate?.id === app.id ? 'dragging' : ''}`}
+                              draggable={true}
+                              onDragStart={(e) => {
+                                e.dataTransfer.setData('text/plain', app.id);
+                                setDraggedCandidate(app);
+                              }}
+                              onDragEnd={() => setDraggedCandidate(null)}
+                              onClick={() => handleOpenCandidate(app)}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                <div className="hr-candidate-card__name">{app.answers?.fullName || 'Unknown Applicant'}</div>
+                                <GripVertical size={13} style={{ color: 'var(--color-text-subtle)', opacity: 0.6 }} />
+                              </div>
+                              <div className="hr-candidate-card__email">{app.applicantEmail || '—'}</div>
+                              <div className="hr-candidate-card__footer">
+                                <span className="hr-candidate-card__committee">{getCommitteeName(app.committeeId)}</span>
+                                <span className="hr-candidate-card__date">{formatDate(app.submittedAt)}</span>
+                              </div>
+                            </div>
+                          ))}
+
+                          {allStageApps.length === 0 && (
+                            <div style={{ textAlign: 'center', padding: 'var(--space-6)', color: 'var(--color-text-subtle)', fontSize: '0.8rem' }}>
+                              Drop candidates here
+                            </div>
+                          )}
+
+                          {hasMore && (
+                            <button
+                              type="button"
+                              className="hr-pipeline-load-more"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setVisibleStageCounts((prev) => ({
+                                  ...prev,
+                                  [stage.key]: (prev[stage.key] || 10) + 10,
+                                }));
+                              }}
+                            >
+                              <span>+ {allStageApps.length - limit} more (Load next 10)</span>
+                            </button>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               ))}

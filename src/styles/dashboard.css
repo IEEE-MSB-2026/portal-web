@@ -579,6 +579,187 @@
 }
 
 /* --------------------------------------------------------------------------
+   Feed Footer Trigger Button (View All Updates / View All Activity)
+   -------------------------------------------------------------------------- */
+.dashboard-feed-footer-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.625rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
+  background: var(--color-background);
+  color: var(--color-primary);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-feed-footer-btn:hover {
+  background: var(--color-surface);
+  border-color: var(--color-primary);
+  box-shadow: 0 2px 8px rgba(0, 98, 155, 0.12);
+  transform: translateY(-1px);
+}
+
+.dashboard-feed-footer-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.dashboard-feed-footer-btn:hover svg {
+  transform: translateX(3px);
+}
+
+/* --------------------------------------------------------------------------
+   Dashboard Pagination Controls (Tasks & Archives)
+   -------------------------------------------------------------------------- */
+.dashboard-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.875rem;
+  border-top: 1px solid var(--color-border);
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.dashboard-pagination__info {
+  font-size: 0.8125rem;
+  color: var(--color-text-muted);
+}
+
+.dashboard-pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.dashboard-pagination__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.35rem 0.65rem;
+  min-width: 32px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-pagination__btn:hover:not(:disabled) {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.dashboard-pagination__btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.dashboard-pagination__btn--active {
+  background: var(--color-primary) !important;
+  color: #ffffff !important;
+  border-color: var(--color-primary) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Dashboard Archive Modal Components
+   -------------------------------------------------------------------------- */
+.dashboard-archive-search {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  margin-bottom: 0.875rem;
+}
+
+.dashboard-archive-search input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.875rem;
+  outline: none;
+}
+
+.dashboard-archive-search input::placeholder {
+  color: var(--color-text-muted);
+}
+
+.dashboard-archive-filters {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-archive-filter-btn {
+  border: 1px solid var(--color-border);
+  background: var(--color-background);
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dashboard-archive-filter-btn:hover {
+  color: var(--color-text);
+  border-color: var(--color-primary);
+}
+
+.dashboard-archive-filter-btn--active {
+  background: var(--color-primary);
+  color: #ffffff;
+  border-color: var(--color-primary);
+}
+
+.dashboard-archive-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 52vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.dashboard-archive-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  transition: all 0.15s ease;
+  cursor: pointer;
+}
+
+.dashboard-archive-item:hover {
+  border-color: var(--color-primary);
+  background: var(--color-surface);
+  box-shadow: 0 2px 8px rgba(0, 98, 155, 0.08);
+}
+
+/* --------------------------------------------------------------------------
    Empty & Shimmer States
    -------------------------------------------------------------------------- */
 .dashboard-empty {

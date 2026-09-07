@@ -30,12 +30,16 @@ import {
   Users,
   Camera,
   Sparkles,
+  Search,
+  ChevronLeft,
+  Filter,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import { api } from '../services/api';
 import '../styles/dashboard.css';
+import '../styles/workspace.css';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -45,6 +49,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState(null);
   const [taskFilter, setTaskFilter] = useState('all');
+  const [taskPage, setTaskPage] = useState(1);
   const [updatingTaskId, setUpdatingTaskId] = useState(null);
   const [switchingScopeId, setSwitchingScopeId] = useState(null);
 
@@ -66,6 +71,18 @@ export default function Dashboard() {
   // Announcement View Modal
   const [selectedAnnouncement, setSelectedAnnouncement] = useState(null);
 
+  // All Announcements Modal State (Archive with Search & Category Filters)
+  const [isAllAnnouncementsModalOpen, setIsAllAnnouncementsModalOpen] = useState(false);
+  const [announcementsSearch, setAnnouncementsSearch] = useState('');
+  const [announcementsCategoryFilter, setAnnouncementsCategoryFilter] = useState('all');
+  const [announcementsPage, setAnnouncementsPage] = useState(1);
+
+  // All Activity Modal State (Archive with Search & Scope Filters)
+  const [isAllActivityModalOpen, setIsAllActivityModalOpen] = useState(false);
+  const [activitySearch, setActivitySearch] = useState('');
+  const [activityScopeFilter, setActivityScopeFilter] = useState('all');
+  const [activityPage, setActivityPage] = useState(1);
+
   // ── Modal Backdrop Dismiss Hooks ─────────────────────────────────────────
   const deliveryModalBackdrop = useBackdropDismiss(() => setDeliveryModalAssignment(null), {
     isOpen: !!deliveryModalAssignment,
@@ -75,6 +92,12 @@ export default function Dashboard() {
   });
   const announcementModalBackdrop = useBackdropDismiss(() => setSelectedAnnouncement(null), {
     isOpen: !!selectedAnnouncement,
+  });
+  const allAnnouncementsModalBackdrop = useBackdropDismiss(() => setIsAllAnnouncementsModalOpen(false), {
+    isOpen: isAllAnnouncementsModalOpen,
+  });
+  const allActivityModalBackdrop = useBackdropDismiss(() => setIsAllActivityModalOpen(false), {
+    isOpen: isAllActivityModalOpen,
   });
 
   // Workspace Hub Category Tab Filter ('all' | 'committees' | 'studios')
@@ -582,6 +605,65 @@ export default function Dashboard() {
     return t.status === taskFilter;
   });
 
+  const TASKS_PER_PAGE = 6;
+  const totalTaskPages = Math.max(1, Math.ceil(filteredTasks.length / TASKS_PER_PAGE));
+  const paginatedTasks = filteredTasks.slice(
+    (taskPage - 1) * TASKS_PER_PAGE,
+    taskPage * TASKS_PER_PAGE
+  );
+
+  // All Announcements Modal Filtering & Pagination
+  const ANNOUNCEMENTS_MODAL_PER_PAGE = 6;
+  const modalAnnouncements = allAnnouncements.filter((ann) => {
+    if (announcementsCategoryFilter !== 'all' && ann.type !== announcementsCategoryFilter) {
+      return false;
+    }
+    if (announcementsSearch.trim()) {
+      const q = announcementsSearch.toLowerCase();
+      const matchTitle = (ann.title || '').toLowerCase().includes(q);
+      const matchBody = (ann.body || '').toLowerCase().includes(q);
+      const matchAuthor = (ann.authorName || '').toLowerCase().includes(q);
+      const matchComm = (ann.committeeName || '').toLowerCase().includes(q);
+      return matchTitle || matchBody || matchAuthor || matchComm;
+    }
+    return true;
+  });
+  const totalAnnouncementsPages = Math.max(1, Math.ceil(modalAnnouncements.length / ANNOUNCEMENTS_MODAL_PER_PAGE));
+  const paginatedModalAnnouncements = modalAnnouncements.slice(
+    (announcementsPage - 1) * ANNOUNCEMENTS_MODAL_PER_PAGE,
+    announcementsPage * ANNOUNCEMENTS_MODAL_PER_PAGE
+  );
+
+  // All Activity Modal Filtering & Pagination
+  const ACTIVITY_MODAL_PER_PAGE = 8;
+  const modalActivity = recentActivity.filter((act) => {
+    if (activityScopeFilter !== 'all') {
+      const actComm = (act.committeeSlug || act.committeeName || act.committee_name || '').toLowerCase();
+      if (!actComm.includes(activityScopeFilter.toLowerCase())) {
+        return false;
+      }
+    }
+    if (activitySearch.trim()) {
+      const q = activitySearch.toLowerCase();
+      const matchActor = (act.actorName || '').toLowerCase().includes(q);
+      const matchTitle = (act.title || '').toLowerCase().includes(q);
+      const matchAction = (act.action || '').toLowerCase().includes(q);
+      const matchComm = (act.committeeName || act.committee_name || '').toLowerCase().includes(q);
+      const matchDetails = typeof act.details === 'string'
+        ? act.details.toLowerCase().includes(q)
+        : act.details
+          ? JSON.stringify(act.details).toLowerCase().includes(q)
+          : false;
+      return matchActor || matchTitle || matchAction || matchComm || matchDetails;
+    }
+    return true;
+  });
+  const totalActivityPages = Math.max(1, Math.ceil(modalActivity.length / ACTIVITY_MODAL_PER_PAGE));
+  const paginatedModalActivity = modalActivity.slice(
+    (activityPage - 1) * ACTIVITY_MODAL_PER_PAGE,
+    activityPage * ACTIVITY_MODAL_PER_PAGE
+  );
+
   const getPriorityLabel = (dueAt) => {
     if (!dueAt) return 'Normal';
     const due = new Date(dueAt);
@@ -604,6 +686,29 @@ export default function Dashboard() {
     if (!dateStr) return '';
     const d = new Date(dateStr);
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  const formatActivityDetails = (details) => {
+    if (!details) return null;
+    if (typeof details === 'string') return details;
+    if (typeof details === 'object') {
+      const parts = [];
+      if (details.grade !== undefined) {
+        parts.push(`Score: ${details.grade}${details.maxPoints ? `/${details.maxPoints}` : ''}`);
+      } else if (details.maxPoints !== undefined) {
+        parts.push(`Max Points: ${details.maxPoints}`);
+      }
+      if (details.feedback) parts.push(`Feedback: "${details.feedback}"`);
+      if (details.notes) parts.push(details.notes);
+      if (details.description) parts.push(details.description);
+      if (parts.length > 0) return parts.join(' • ');
+
+      const readable = Object.entries(details)
+        .filter(([k, v]) => !k.toLowerCase().endsWith('id') && v !== null && v !== undefined && typeof v !== 'object')
+        .map(([k, v]) => `${k.replace(/([A-Z])/g, ' $1').toLowerCase()}: ${v}`);
+      if (readable.length > 0) return readable.join(' • ');
+    }
+    return null;
   };
 
   const getActivityIcon = (act) => {
@@ -751,28 +856,40 @@ export default function Dashboard() {
                 <button
                   type="button"
                   className={`dashboard-filter-tab ${taskFilter === 'all' ? 'dashboard-filter-tab--active' : ''}`}
-                  onClick={() => setTaskFilter('all')}
+                  onClick={() => {
+                    setTaskFilter('all');
+                    setTaskPage(1);
+                  }}
                 >
                   All ({tasks.length})
                 </button>
                 <button
                   type="button"
                   className={`dashboard-filter-tab ${taskFilter === 'todo' ? 'dashboard-filter-tab--active' : ''}`}
-                  onClick={() => setTaskFilter('todo')}
+                  onClick={() => {
+                    setTaskFilter('todo');
+                    setTaskPage(1);
+                  }}
                 >
                   To Do ({taskStats.todo})
                 </button>
                 <button
                   type="button"
                   className={`dashboard-filter-tab ${taskFilter === 'in_progress' ? 'dashboard-filter-tab--active' : ''}`}
-                  onClick={() => setTaskFilter('in_progress')}
+                  onClick={() => {
+                    setTaskFilter('in_progress');
+                    setTaskPage(1);
+                  }}
                 >
                   In Progress ({taskStats.inProgress})
                 </button>
                 <button
                   type="button"
                   className={`dashboard-filter-tab ${taskFilter === 'done' ? 'dashboard-filter-tab--active' : ''}`}
-                  onClick={() => setTaskFilter('done')}
+                  onClick={() => {
+                    setTaskFilter('done');
+                    setTaskPage(1);
+                  }}
                 >
                   Done ({taskStats.done})
                 </button>
@@ -786,86 +903,121 @@ export default function Dashboard() {
                 ))}
               </div>
             ) : filteredTasks.length > 0 ? (
-              <div className="dashboard-task-list">
-                {filteredTasks.map((task) => {
-                  const isUpdating = updatingTaskId === task.id;
-                  const dueDate = task.dueAt || task.due_at;
-                  const committeeName = task.committeeName || task.committee_name || task.committeeSlug;
-                  return (
-                    <div key={task.id} className="dashboard-task-item">
-                      <div className="dashboard-task-item__main">
-                        <div className={`dashboard-task-item__priority-dot ${getPriorityClass(dueDate)}`} />
-                        <div style={{ minWidth: 0 }}>
-                          <div className="dashboard-task-item__title">{task.title}</div>
-                          <div className="dashboard-task-item__meta">
-                            {committeeName && (
-                              <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>
-                                {committeeName}
-                              </span>
-                            )}
-                            {dueDate && (
-                              <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
-                                <Calendar size={11} />
-                                {formatDate(dueDate)}
-                              </span>
-                            )}
+              <>
+                <div className="dashboard-task-list">
+                  {paginatedTasks.map((task) => {
+                    const isUpdating = updatingTaskId === task.id;
+                    const dueDate = task.dueAt || task.due_at;
+                    const committeeName = task.committeeName || task.committee_name || task.committeeSlug;
+                    return (
+                      <div key={task.id} className="dashboard-task-item">
+                        <div className="dashboard-task-item__main">
+                          <div className={`dashboard-task-item__priority-dot ${getPriorityClass(dueDate)}`} />
+                          <div style={{ minWidth: 0 }}>
+                            <div className="dashboard-task-item__title">{task.title}</div>
+                            <div className="dashboard-task-item__meta">
+                              {committeeName && (
+                                <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>
+                                  {committeeName}
+                                </span>
+                              )}
+                              {dueDate && (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem' }}>
+                                  <Calendar size={11} />
+                                  {formatDate(dueDate)}
+                                </span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      {/* 1-Click Action Transitions */}
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                        {task.status === 'todo' && (
-                          <button
-                            type="button"
-                            className="dashboard-task-item__status-btn dashboard-task-item__status-btn--todo"
-                            disabled={isUpdating}
-                            onClick={() => handleTaskStatusChange(task.id, 'in_progress')}
-                          >
-                            <Play size={12} />
-                            <span>{isUpdating ? 'Starting…' : 'Start Task'}</span>
-                          </button>
-                        )}
-
-                        {task.status === 'in_progress' && (
-                          <button
-                            type="button"
-                            className="dashboard-task-item__status-btn dashboard-task-item__status-btn--in_progress"
-                            disabled={isUpdating}
-                            onClick={() => handleTaskStatusChange(task.id, 'done')}
-                          >
-                            <CheckCircle2 size={12} />
-                            <span>{isUpdating ? 'Saving…' : 'Mark Done'}</span>
-                          </button>
-                        )}
-
-                        {task.status === 'done' && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                            <span className="dashboard-task-item__status-btn dashboard-task-item__status-btn--done">
-                              <CheckCircle2 size={12} /> Completed
-                            </span>
+                        {/* 1-Click Action Transitions */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                          {task.status === 'todo' && (
                             <button
                               type="button"
-                              title="Reopen Task"
-                              style={{
-                                background: 'transparent',
-                                border: 'none',
-                                color: 'var(--color-text-muted)',
-                                cursor: 'pointer',
-                                padding: '0.2rem',
-                              }}
+                              className="dashboard-task-item__status-btn dashboard-task-item__status-btn--todo"
                               disabled={isUpdating}
                               onClick={() => handleTaskStatusChange(task.id, 'in_progress')}
                             >
-                              <RotateCcw size={13} />
+                              <Play size={12} />
+                              <span>{isUpdating ? 'Starting…' : 'Start Task'}</span>
                             </button>
-                          </div>
-                        )}
+                          )}
+
+                          {task.status === 'in_progress' && (
+                            <button
+                              type="button"
+                              className="dashboard-task-item__status-btn dashboard-task-item__status-btn--in_progress"
+                              disabled={isUpdating}
+                              onClick={() => handleTaskStatusChange(task.id, 'done')}
+                            >
+                              <CheckCircle2 size={12} />
+                              <span>{isUpdating ? 'Saving…' : 'Mark Done'}</span>
+                            </button>
+                          )}
+
+                          {task.status === 'done' && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span className="dashboard-task-item__status-btn dashboard-task-item__status-btn--done">
+                                <CheckCircle2 size={12} /> Completed
+                              </span>
+                              <button
+                                type="button"
+                                title="Reopen Task"
+                                style={{
+                                  background: 'transparent',
+                                  border: 'none',
+                                  color: 'var(--color-text-muted)',
+                                  cursor: 'pointer',
+                                  padding: '0.2rem',
+                                }}
+                                disabled={isUpdating}
+                                onClick={() => handleTaskStatusChange(task.id, 'in_progress')}
+                              >
+                                <RotateCcw size={13} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       </div>
+                    );
+                  })}
+                </div>
+
+                {filteredTasks.length > TASKS_PER_PAGE && (
+                  <div className="dashboard-pagination">
+                    <span className="dashboard-pagination__info">
+                      Showing {(taskPage - 1) * TASKS_PER_PAGE + 1}–{Math.min(taskPage * TASKS_PER_PAGE, filteredTasks.length)} of {filteredTasks.length} tasks
+                    </span>
+                    <div className="dashboard-pagination__controls">
+                      <button
+                        type="button"
+                        className="dashboard-pagination__btn"
+                        disabled={taskPage === 1}
+                        onClick={() => setTaskPage((p) => Math.max(1, p - 1))}
+                        title="Previous page"
+                        aria-label="Previous page"
+                      >
+                        <ChevronLeft size={14} />
+                      </button>
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0 0.35rem' }}>
+                        Page {taskPage} of {totalTaskPages}
+                      </span>
+                      <button
+                        type="button"
+                        className="dashboard-pagination__btn"
+                        disabled={taskPage === totalTaskPages}
+                        onClick={() => setTaskPage((p) => Math.min(totalTaskPages, p + 1))}
+                        title="Next page"
+                        aria-label="Next page"
+                      >
+                        <ChevronRight size={14} />
+                      </button>
                     </div>
-                  );
-                })}
-              </div>
+                  </div>
+                )}
+              </>
             ) : (
               <div className="dashboard-empty">
                 <CheckCircle2 size={32} color="var(--color-primary)" />
@@ -1315,42 +1467,59 @@ export default function Dashboard() {
             </div>
 
             {allAnnouncements.length > 0 ? (
-              <div className="dashboard-feed">
-                {allAnnouncements.slice(0, 6).map((ann) => (
-                  <div
-                    key={`${ann.type}-${ann.id}`}
-                    className="dashboard-feed-item"
-                    onClick={() => setSelectedAnnouncement(ann)}
-                    style={{ cursor: 'pointer' }}
-                  >
+              <>
+                <div className="dashboard-feed">
+                  {allAnnouncements.slice(0, 4).map((ann) => (
                     <div
-                      className="dashboard-feed-item__icon"
-                      style={{
-                        background: 'rgba(139, 92, 246, 0.15)',
-                        borderColor: 'rgba(139, 92, 246, 0.3)',
-                        color: '#8b5cf6',
-                      }}
+                      key={`${ann.type}-${ann.id}`}
+                      className="dashboard-feed-item"
+                      onClick={() => setSelectedAnnouncement(ann)}
+                      style={{ cursor: 'pointer' }}
                     >
-                      {ann.isPinned ? <Pin size={13} /> : <Megaphone size={13} />}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div className="dashboard-feed-item__title">{ann.title}</div>
-                      <div className="dashboard-feed-item__meta" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
-                        {ann.type === 'committee' ? (
-                          <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
-                            {ann.committeeName || 'Committee'}
-                          </span>
-                        ) : (
-                          <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>
-                            Global
-                          </span>
-                        )}
-                        <span>• {formatDate(ann.createdAt)}</span>
+                      <div
+                        className="dashboard-feed-item__icon"
+                        style={{
+                          background: 'rgba(139, 92, 246, 0.15)',
+                          borderColor: 'rgba(139, 92, 246, 0.3)',
+                          color: '#8b5cf6',
+                        }}
+                      >
+                        {ann.isPinned ? <Pin size={13} /> : <Megaphone size={13} />}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="dashboard-feed-item__title">{ann.title}</div>
+                        <div className="dashboard-feed-item__meta" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                          {ann.type === 'committee' ? (
+                            <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
+                              {ann.committeeName || 'Committee'}
+                            </span>
+                          ) : (
+                            <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>
+                              Global
+                            </span>
+                          )}
+                          <span>• {formatDate(ann.createdAt)}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                {allAnnouncements.length > 4 && (
+                  <button
+                    type="button"
+                    className="dashboard-feed-footer-btn"
+                    onClick={() => {
+                      setAnnouncementsSearch('');
+                      setAnnouncementsCategoryFilter('all');
+                      setAnnouncementsPage(1);
+                      setIsAllAnnouncementsModalOpen(true);
+                    }}
+                  >
+                    <span>View All Updates ({allAnnouncements.length})</span>
+                    <ArrowRight size={13} />
+                  </button>
+                )}
+              </>
             ) : (
               <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textAlign: 'center', margin: '1rem 0' }}>
                 No recent announcements.
@@ -1370,31 +1539,48 @@ export default function Dashboard() {
             </div>
 
             {recentActivity.length > 0 ? (
-              <div className="dashboard-feed">
-                {recentActivity.slice(0, 6).map((act) => (
-                  <div key={act.id} className="dashboard-feed-item">
-                    <div className="dashboard-feed-item__icon">
-                      {getActivityIcon(act)}
-                    </div>
-                    <div style={{ minWidth: 0, flex: 1 }}>
-                      <div className="dashboard-feed-item__title">
-                        {act.title ? (
-                          <>
-                            <strong>{act.actorName || 'Member'}</strong> {act.title}
-                          </>
-                        ) : (
-                          <>
-                            <strong>{act.actorName || 'Member'}</strong> {act.action?.replace('_', ' ')}
-                          </>
-                        )}
+              <>
+                <div className="dashboard-feed">
+                  {recentActivity.slice(0, 4).map((act) => (
+                    <div key={act.id} className="dashboard-feed-item">
+                      <div className="dashboard-feed-item__icon">
+                        {getActivityIcon(act)}
                       </div>
-                      <div className="dashboard-feed-item__meta">
-                        {act.committeeName || act.committee_name || 'Committee'} &bull; {formatDate(act.createdAt || act.created_at)}
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div className="dashboard-feed-item__title">
+                          {act.title ? (
+                            <>
+                              <strong>{act.actorName || 'Member'}</strong> {act.title}
+                            </>
+                          ) : (
+                            <>
+                              <strong>{act.actorName || 'Member'}</strong> {act.action?.replace('_', ' ')}
+                            </>
+                          )}
+                        </div>
+                        <div className="dashboard-feed-item__meta">
+                          {act.committeeName || act.committee_name || 'Committee'} &bull; {formatDate(act.createdAt || act.created_at)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+                {recentActivity.length > 4 && (
+                  <button
+                    type="button"
+                    className="dashboard-feed-footer-btn"
+                    onClick={() => {
+                      setActivitySearch('');
+                      setActivityScopeFilter('all');
+                      setActivityPage(1);
+                      setIsAllActivityModalOpen(true);
+                    }}
+                  >
+                    <span>View All Activity ({recentActivity.length})</span>
+                    <ArrowRight size={13} />
+                  </button>
+                )}
+              </>
             ) : (
               <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textAlign: 'center', margin: '1rem 0' }}>
                 No recent activity recorded yet.
@@ -1765,6 +1951,326 @@ export default function Dashboard() {
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 7. ALL ANNOUNCEMENTS ARCHIVE MODAL */}
+      {isAllAnnouncementsModalOpen && (
+        <div className="workspace-modal-overlay" {...allAnnouncementsModalBackdrop.getBackdropProps()}>
+          <div
+            className="workspace-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '640px', width: '100%', display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}
+          >
+            <div className="workspace-modal__header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Megaphone size={18} color="var(--color-primary)" />
+                <h3 className="workspace-modal__title">All Announcements & Updates</h3>
+                <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>
+                  {allAnnouncements.length} Total
+                </span>
+              </div>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setIsAllAnnouncementsModalOpen(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="workspace-modal__body" style={{ padding: '1.25rem', overflowY: 'auto', flex: 1 }}>
+              {/* Search Bar */}
+              <div className="dashboard-archive-search">
+                <Search size={15} color="var(--color-text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Search updates by title, content, or author…"
+                  value={announcementsSearch}
+                  onChange={(e) => {
+                    setAnnouncementsSearch(e.target.value);
+                    setAnnouncementsPage(1);
+                  }}
+                />
+                {announcementsSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setAnnouncementsSearch('');
+                      setAnnouncementsPage(1);
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'inline-flex' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="dashboard-archive-filters">
+                <button
+                  type="button"
+                  className={`dashboard-archive-filter-btn ${announcementsCategoryFilter === 'all' ? 'dashboard-archive-filter-btn--active' : ''}`}
+                  onClick={() => {
+                    setAnnouncementsCategoryFilter('all');
+                    setAnnouncementsPage(1);
+                  }}
+                >
+                  All ({allAnnouncements.length})
+                </button>
+                <button
+                  type="button"
+                  className={`dashboard-archive-filter-btn ${announcementsCategoryFilter === 'global' ? 'dashboard-archive-filter-btn--active' : ''}`}
+                  onClick={() => {
+                    setAnnouncementsCategoryFilter('global');
+                    setAnnouncementsPage(1);
+                  }}
+                >
+                  Global Updates ({allAnnouncements.filter((a) => a.type === 'global').length})
+                </button>
+                <button
+                  type="button"
+                  className={`dashboard-archive-filter-btn ${announcementsCategoryFilter === 'committee' ? 'dashboard-archive-filter-btn--active' : ''}`}
+                  onClick={() => {
+                    setAnnouncementsCategoryFilter('committee');
+                    setAnnouncementsPage(1);
+                  }}
+                >
+                  Committee Updates ({allAnnouncements.filter((a) => a.type === 'committee').length})
+                </button>
+              </div>
+
+              {/* Announcements List */}
+              {paginatedModalAnnouncements.length > 0 ? (
+                <div className="dashboard-archive-list">
+                  {paginatedModalAnnouncements.map((ann) => (
+                    <div
+                      key={`modal-${ann.type}-${ann.id}`}
+                      className="dashboard-archive-item"
+                      onClick={() => {
+                        setIsAllAnnouncementsModalOpen(false);
+                        setSelectedAnnouncement(ann);
+                      }}
+                    >
+                      <div
+                        className="dashboard-feed-item__icon"
+                        style={{
+                          background: 'rgba(139, 92, 246, 0.15)',
+                          borderColor: 'rgba(139, 92, 246, 0.3)',
+                          color: '#8b5cf6',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {ann.isPinned ? <Pin size={14} /> : <Megaphone size={14} />}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem', marginBottom: '0.2rem' }}>
+                          <h4 style={{ fontSize: '0.875rem', fontWeight: 700, color: 'var(--color-text)', margin: 0 }}>
+                            {ann.title}
+                          </h4>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
+                            {formatDate(ann.createdAt)}
+                          </span>
+                        </div>
+                        <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', margin: '0 0 0.4rem', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                          {ann.body}
+                        </p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap', fontSize: '0.725rem' }}>
+                          {ann.type === 'committee' ? (
+                            <span className="badge badge-primary" style={{ fontSize: '0.65rem' }}>
+                              {ann.committeeName || 'Committee'}
+                            </span>
+                          ) : (
+                            <span className="badge badge-outline" style={{ fontSize: '0.65rem' }}>
+                              Global
+                            </span>
+                          )}
+                          {ann.authorName && (
+                            <span style={{ color: 'var(--color-text-muted)' }}>
+                              by <strong>{ann.authorName}</strong>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dashboard-empty" style={{ padding: '2rem 1rem' }}>
+                  <Megaphone size={28} />
+                  <p>No announcements found matching your filter criteria.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Pagination Footer */}
+            {modalAnnouncements.length > ANNOUNCEMENTS_MODAL_PER_PAGE && (
+              <div className="workspace-modal__footer" style={{ justifyContent: 'space-between' }}>
+                <span className="dashboard-pagination__info">
+                  Showing {(announcementsPage - 1) * ANNOUNCEMENTS_MODAL_PER_PAGE + 1}–{Math.min(announcementsPage * ANNOUNCEMENTS_MODAL_PER_PAGE, modalAnnouncements.length)} of {modalAnnouncements.length}
+                </span>
+                <div className="dashboard-pagination__controls">
+                  <button
+                    type="button"
+                    className="dashboard-pagination__btn"
+                    disabled={announcementsPage === 1}
+                    onClick={() => setAnnouncementsPage((p) => Math.max(1, p - 1))}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0 0.35rem' }}>
+                    Page {announcementsPage} of {totalAnnouncementsPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="dashboard-pagination__btn"
+                    disabled={announcementsPage === totalAnnouncementsPages}
+                    onClick={() => setAnnouncementsPage((p) => Math.min(totalAnnouncementsPages, p + 1))}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* 8. ALL ACTIVITY ARCHIVE MODAL */}
+      {isAllActivityModalOpen && (
+        <div className="workspace-modal-overlay" {...allActivityModalBackdrop.getBackdropProps()}>
+          <div
+            className="workspace-modal"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '640px', width: '100%', display: 'flex', flexDirection: 'column', maxHeight: '85vh' }}
+          >
+            <div className="workspace-modal__header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Activity size={18} color="var(--color-primary)" />
+                <h3 className="workspace-modal__title">Activity Log Archive</h3>
+                <span className="badge badge-outline" style={{ fontSize: '0.7rem' }}>
+                  {recentActivity.length} Total
+                </span>
+              </div>
+              <button
+                type="button"
+                className="workspace-modal__close"
+                onClick={() => setIsAllActivityModalOpen(false)}
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="workspace-modal__body" style={{ padding: '1.25rem', overflowY: 'auto', flex: 1 }}>
+              {/* Search Bar */}
+              <div className="dashboard-archive-search">
+                <Search size={15} color="var(--color-text-muted)" />
+                <input
+                  type="text"
+                  placeholder="Search activity by actor, action, or committee…"
+                  value={activitySearch}
+                  onChange={(e) => {
+                    setActivitySearch(e.target.value);
+                    setActivityPage(1);
+                  }}
+                />
+                {activitySearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActivitySearch('');
+                      setActivityPage(1);
+                    }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', display: 'inline-flex' }}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Activity List */}
+              {paginatedModalActivity.length > 0 ? (
+                <div className="dashboard-archive-list">
+                  {paginatedModalActivity.map((act) => (
+                    <div
+                      key={`modal-act-${act.id}`}
+                      className="dashboard-archive-item"
+                      style={{ cursor: 'default' }}
+                    >
+                      <div className="dashboard-feed-item__icon" style={{ flexShrink: 0 }}>
+                        {getActivityIcon(act)}
+                      </div>
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text)', lineHeight: 1.4 }}>
+                          {act.title ? (
+                            <>
+                              <strong>{act.actorName || 'Member'}</strong> {act.title}
+                            </>
+                          ) : (
+                            <>
+                              <strong>{act.actorName || 'Member'}</strong> {act.action?.replace('_', ' ')}
+                            </>
+                          )}
+                        </div>
+                        {formatActivityDetails(act.details) && (
+                          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.2rem' }}>
+                            {formatActivityDetails(act.details)}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', marginTop: '0.3rem', fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                          <span className="badge badge-outline" style={{ fontSize: '0.625rem' }}>
+                            {act.committeeName || act.committee_name || 'Global'}
+                          </span>
+                          <span>&bull; {formatDate(act.createdAt || act.created_at)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="dashboard-empty" style={{ padding: '2rem 1rem' }}>
+                  <Activity size={28} />
+                  <p>No activity records found matching your search.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Pagination Footer */}
+            {modalActivity.length > ACTIVITY_MODAL_PER_PAGE && (
+              <div className="workspace-modal__footer" style={{ justifyContent: 'space-between' }}>
+                <span className="dashboard-pagination__info">
+                  Showing {(activityPage - 1) * ACTIVITY_MODAL_PER_PAGE + 1}–{Math.min(activityPage * ACTIVITY_MODAL_PER_PAGE, modalActivity.length)} of {modalActivity.length}
+                </span>
+                <div className="dashboard-pagination__controls">
+                  <button
+                    type="button"
+                    className="dashboard-pagination__btn"
+                    disabled={activityPage === 1}
+                    onClick={() => setActivityPage((p) => Math.max(1, p - 1))}
+                    aria-label="Previous page"
+                  >
+                    <ChevronLeft size={14} />
+                  </button>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '0 0.35rem' }}>
+                    Page {activityPage} of {totalActivityPages}
+                  </span>
+                  <button
+                    type="button"
+                    className="dashboard-pagination__btn"
+                    disabled={activityPage === totalActivityPages}
+                    onClick={() => setActivityPage((p) => Math.min(totalActivityPages, p + 1))}
+                    aria-label="Next page"
+                  >
+                    <ChevronRight size={14} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
