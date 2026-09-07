@@ -882,6 +882,11 @@ export const api = {
       method: 'POST',
       body: data,
     }),
+  prepareEventQRCampaign: (eventId, data = {}) =>
+    request(`/api/events/${eventId}/qr/prepare-campaign`, {
+      method: 'POST',
+      body: data,
+    }),
 
   updateActivityWhitelist: (eventId, activityId, data) =>
     request(`/api/events/${eventId}/activities/${activityId}/whitelist`, {

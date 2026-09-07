@@ -309,9 +309,6 @@ function getDefaultEmailTemplate(contentHtml = '', title = 'IEEE Menoufia Studen
               <div style="display:inline-block;background:#ffffff;padding:14px;border-radius:10px;box-shadow:0 4px 16px rgba(0,40,85,0.08);border:1px solid #cbd5e1;">
                 <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&amp;data={{ticketId}}&amp;color=002855" alt="Ticket QR Code" width="200" height="200" style="display:block;margin:0 auto;border:0;" />
               </div>
-              <div style="margin-top:12px;display:inline-block;background:#eff6ff;border:1px solid #bfdbfe;color:#1d4ed8;font-size:11px;font-weight:600;padding:3px 10px;border-radius:12px;">
-                Official Fast-Track Check-In Pass
-              </div>
               <div style="margin-top:10px;font-size:11px;color:#64748b;line-height:1.4;">
                 &#128161; <strong>Tip:</strong> Set your smartphone screen brightness to maximum at check-in for instant scanner reading.
               </div>
@@ -601,7 +598,7 @@ export default function OperationsStudio() {
     subject: '🎟️ Your Ticket & Access Pass for {{eventName}}',
     standardBody: DEFAULT_STANDARD_EMAIL_BODY,
     fullHtmlBody: '',
-    previewName: 'Yousef Mansour',
+    previewName: 'Yousef Ahmed',
     templateMode: 'standard', // 'standard' | 'full'
     editorMode: 'markdown',   // 'markdown' | 'html'
     scheduledFor: '',
@@ -1755,15 +1752,61 @@ export default function OperationsStudio() {
             targetEvent?.name || 'IEEE Event Pass'
           );
 
-      const res = await api.sendEventQRCodes(evId, {
-        emailSubject: emailTemplate.subject,
-        emailBody: finalBody,
-        subject: emailTemplate.subject,
-        bodyTemplate: finalBody,
-        scheduledFor: emailTemplate.scheduledFor || null,
-        templateMode: emailTemplate.templateMode,
-      });
-      toast.success('Emails Dispatched', res.message || 'QR ticket emails dispatched to registered attendees!');
+      const isScheduled = Boolean(emailTemplate.scheduledFor);
+      const scheduledIso = isScheduled ? new Date(emailTemplate.scheduledFor).toISOString() : null;
+
+      // 1. Prepare attendee ticket payloads and personalized QR buffers via event-register
+      let prepRes;
+      try {
+        prepRes = await api.prepareEventQRCampaign(evId, {
+          sendToAllUnsent: true,
+          scheduledFor: scheduledIso,
+        });
+      } catch (prepErr) {
+        console.warn('Fallback to standalone event-register send:', prepErr);
+      }
+
+      if (prepRes && Array.isArray(prepRes.recipients) && prepRes.recipients.length > 0) {
+        // 2. Dispatch or Schedule via Core Platform Campaign Engine
+        const campaign = await api.createPRCampaign({
+          title: `Event Tickets: ${targetEvent?.name || 'Event'}`,
+          subject: emailTemplate.subject,
+          body: finalBody,
+          segmentType: 'custom_sheet',
+          status: isScheduled ? 'scheduled' : 'draft',
+          scheduledFor: scheduledIso,
+          customRecipients: prepRes.recipients,
+          metadata: {
+            category: 'event_ticket_dispatch',
+            source: 'operations_studio',
+            eventId: evId,
+            eventName: targetEvent?.name,
+            participantIds: prepRes.recipients.map((r) => r.participantId),
+          },
+        });
+
+        if (isScheduled) {
+          toast.success(
+            'Campaign Scheduled',
+            `Tickets scheduled for ${new Date(emailTemplate.scheduledFor).toLocaleString()} via Core Campaign Engine.`
+          );
+        } else {
+          await api.sendPRCampaign(campaign.id);
+          toast.success('Campaign Dispatched', `QR tickets dispatched to ${prepRes.recipients.length} attendees via Core Campaign Engine!`);
+        }
+      } else {
+        // Fallback to standalone direct send if no recipients from prepare or standalone mode
+        const res = await api.sendEventQRCodes(evId, {
+          emailSubject: emailTemplate.subject,
+          emailBody: finalBody,
+          subject: emailTemplate.subject,
+          bodyTemplate: finalBody,
+          scheduledFor: scheduledIso,
+          templateMode: emailTemplate.templateMode,
+        });
+        toast.success('Emails Dispatched', res.message || 'QR ticket emails dispatched to registered attendees!');
+      }
+
       setShowEmailDispatchModal(false);
       loadEventDetails(evId);
     } catch (err) {
@@ -4507,7 +4550,7 @@ export default function OperationsStudio() {
                   <div className="ops-email-editor-section">
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
                       <label className="form-label" style={{ margin: 0 }}>
-                        {emailTemplate.templateMode === 'full' ? 'Full Email HTML Template *' : 'Custom Announcement / Message *'}
+                        {emailTemplate.templateMode === 'full' ? 'Full Email HTML Template *' : 'Email Body *'}
                       </label>
 
                       <div style={{ display: 'inline-flex', background: 'var(--color-surface)', padding: '2px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)', gap: '2px' }}>
@@ -4533,7 +4576,7 @@ export default function OperationsStudio() {
                       </div>
                     </div>
 
-                    {emailTemplate.templateMode === 'full' ? (
+                    {emailTemplate.templateMode === 'full' && (
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(0, 98, 155, 0.08)', border: '1px solid rgba(0, 98, 155, 0.25)', padding: '0.35rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--color-text)' }}>
                         <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
                           Editing complete <code style={{ fontSize: '0.7rem', color: 'var(--color-primary)', fontWeight: 600 }}>&lt;!DOCTYPE html&gt;</code> document.
@@ -4547,22 +4590,6 @@ export default function OperationsStudio() {
                         >
                           <RotateCcw size={11} />
                           <span>Reset to Default</span>
-                        </button>
-                      </div>
-                    ) : (
-                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--color-bg-alt, rgba(0,0,0,0.02))', border: '1px solid var(--color-border)', padding: '0.35rem 0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                        <span>
-                          Editing high-frequency message body. Structural ticket header, QR badge, logistics, and footer are generated automatically.
-                        </span>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-xs"
-                          onClick={handleResetEmailToDefaultTemplate}
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.7rem', flexShrink: 0 }}
-                          title="Reset message body to default text"
-                        >
-                          <RotateCcw size={11} />
-                          <span>Reset Body</span>
                         </button>
                       </div>
                     )}
@@ -4665,7 +4692,7 @@ export default function OperationsStudio() {
                         fontSize: (emailTemplate.templateMode === 'full' || emailTemplate.editorMode === 'html') ? '0.78125rem' : '0.84rem',
                         fontFamily: (emailTemplate.templateMode === 'full' || emailTemplate.editorMode === 'html') ? 'var(--font-mono)' : 'inherit',
                         lineHeight: 1.55,
-                        minHeight: emailTemplate.templateMode === 'full' ? '340px' : '220px',
+                        minHeight: emailTemplate.templateMode === 'full' ? '340px' : '330px',
                         borderRadius: emailTemplate.templateMode === 'full' ? 'var(--radius-md)' : '0 0 var(--radius-md) var(--radius-md)',
                       }}
                       placeholder={
@@ -4676,14 +4703,24 @@ export default function OperationsStudio() {
                     />
                   </div>
 
-                  {/* Scheduled Dispatch & Expected Recipients Info */}
-                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.85rem', alignItems: 'end' }}>
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '0.75rem',
+                      alignItems: 'flex-end',
+                    }}
+                  >
                     <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label">Scheduled (Optional)</label>
+                      <label className="form-label" style={{ fontSize: '0.875rem', marginBottom: '0.25rem' }}>
+                        Schedule (Optional)
+                      </label>
                       <input
                         type="datetime-local"
                         className="form-input"
-                        value={emailTemplate.scheduledFor || ''}
+                        style={{ fontSize: '0.8125rem' }}
+                        value={emailTemplate.scheduledFor}
+                        min={new Date().toISOString().slice(0, 16)}
                         onChange={(e) => setEmailTemplate((p) => ({ ...p, scheduledFor: e.target.value }))}
                       />
                     </div>
@@ -4706,50 +4743,10 @@ export default function OperationsStudio() {
                       </div>
                     </div>
                   </div>
-
-                  {/* Recipient summary banner */}
-                  <div
-                    style={{
-                      background: 'var(--color-bg-alt, rgba(0,0,0,0.02))',
-                      border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '0.75rem 0.9rem',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 34,
-                        height: 34,
-                        borderRadius: '50%',
-                        background: 'rgba(0, 98, 155, 0.1)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--color-primary)',
-                        flexShrink: 0,
-                      }}
-                    >
-                      <Ticket size={17} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                        Dispatching personalized QR ticket passes
-                      </div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
-                        Each registered attendee will receive their digital badge with attached QR scan asset.
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Right Column: Live Simulated Email Client */}
                 <div className="ops-email-preview-col">
-                  <div style={{ fontSize: '0.76rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: '0.45rem', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                    Simulated Recipient Client
-                  </div>
                   <div className="pr-email-client">
                     {/* Window Bar (Matching PR & HR Studio) */}
                     <div className="pr-email-client__window-bar">
@@ -4759,7 +4756,7 @@ export default function OperationsStudio() {
                         <span className="pr-email-client__dot pr-email-client__dot--green" />
                       </div>
                       <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 600 }}>
-                        Ticket Dispatch Preview
+                        Client Preview
                       </span>
                       <div style={{ width: 30 }} />
                     </div>
@@ -4859,12 +4856,12 @@ export default function OperationsStudio() {
                 {dispatchingEmails ? (
                   <>
                     <RefreshCw size={14} className="ops-spin" />
-                    <span>Dispatching Emails…</span>
+                    <span>{emailTemplate.scheduledFor ? 'Scheduling Tickets…' : 'Dispatching Emails…'}</span>
                   </>
                 ) : (
                   <>
-                    <Send size={14} />
-                    <span>Send Tickets to {participants.length} Attendees</span>
+                    {emailTemplate.scheduledFor ? <Clock size={14} /> : <Send size={14} />}
+                    <span>{emailTemplate.scheduledFor ? 'Schedule' : 'Send'} Tickets to {participants.length} Attendees</span>
                   </>
                 )}
               </button>
@@ -6008,7 +6005,7 @@ export default function OperationsStudio() {
                       Showing first {sheetPreviewRows.length} rows
                     </span>
                   </div>
-                  <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', maxHeight: '180px' }}>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'}}>
                     <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
                       <thead style={{ background: 'var(--color-bg-alt)', position: 'sticky', top: 0 }}>
                         <tr>
@@ -6124,6 +6121,7 @@ export default function OperationsStudio() {
             style={{
               position: 'relative',
               maxWidth: '92vw',
+
               maxHeight: '92vh',
               background: 'var(--color-surface)',
               borderRadius: 'var(--radius-lg)',
