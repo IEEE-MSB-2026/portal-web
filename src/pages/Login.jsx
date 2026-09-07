@@ -110,7 +110,7 @@ export default function Login() {
 
           <form className="auth-form" onSubmit={handleSubmit} noValidate>
             <div className="auth-field">
-              <label htmlFor="email">Email or member ID</label>
+              <label htmlFor="email">Email</label>
               <div className="auth-input-shell">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="3" y="5" width="18" height="14" rx="2.4" />

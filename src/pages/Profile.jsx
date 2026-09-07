@@ -218,7 +218,6 @@ export default function Profile() {
     if (!text) return;
     navigator.clipboard.writeText(text);
     setCopiedKey(key);
-    toast.success('Copied!', `${key} copied to clipboard.`);
     setTimeout(() => setCopiedKey(null), 2500);
   };
 
@@ -645,12 +644,6 @@ export default function Profile() {
                     <span className="profile-hero__badge profile-hero__badge--joined" title={`Joined ${formatDate(memberSince)}`}>
                       <Calendar size={11} />
                       <span>Joined {formatDate(memberSince)}</span>
-                    </span>
-                  )}
-                  {user.scopeType && user.scopeType !== 'global' && (
-                    <span className="profile-hero__badge profile-hero__badge--scope">
-                      <Layers size={11} />
-                      <span>{user.committeeSlug?.toUpperCase() || user.committeeName || user.scopeType?.toUpperCase()}</span>
                     </span>
                   )}
                 </div>

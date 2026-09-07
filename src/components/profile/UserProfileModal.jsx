@@ -81,7 +81,6 @@ export default function UserProfileModal({ userId, isOpen, onClose }) {
       setCopiedPhone(true);
       setTimeout(() => setCopiedPhone(false), 2000);
     }
-    toast.success('Copied', `${text} copied to clipboard.`);
   };
 
   const getInitials = (name) => {

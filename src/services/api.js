@@ -17,6 +17,27 @@ function onRefreshed(newToken) {
   refreshSubscribers = [];
 }
 
+function isTokenExpiringSoon(token, bufferSeconds = 30) {
+  if (!token || typeof token !== 'string') return false;
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return false;
+    const base64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const payloadJson = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map((c) => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    const payload = JSON.parse(payloadJson);
+    if (!payload.exp) return false;
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    return payload.exp - nowSeconds <= bufferSeconds;
+  } catch {
+    return false;
+  }
+}
+
 async function performTokenRefresh() {
   const { refreshToken, user, logout, updateTokens, updateUser } = useAuthStore.getState();
   if (!refreshToken) {
@@ -29,6 +50,7 @@ async function performTokenRefresh() {
   try {
     const res = await fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
+      credentials: 'same-origin',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ refreshToken, activeScopeId }),
     });
@@ -53,7 +75,30 @@ async function performTokenRefresh() {
 async function request(endpoint, options = {}, isRetry = false) {
   const url = `${API_BASE}${endpoint}`;
   const authStore = useAuthStore.getState();
-  const token = authStore.token;
+  let token = authStore.token;
+
+  const isAuthEndpoint =
+    endpoint.startsWith('/api/auth/login') ||
+    endpoint.startsWith('/api/auth/register') ||
+    endpoint.startsWith('/api/auth/refresh');
+
+  // Proactive check: refresh before dispatching if access token is expired or expiring within 30s
+  if (!isAuthEndpoint && !isRetry && token && authStore.refreshToken && isTokenExpiringSoon(token, 30)) {
+    if (isRefreshing) {
+      token = await new Promise((resolve) => subscribeTokenRefresh(resolve));
+    } else {
+      isRefreshing = true;
+      try {
+        const refreshedToken = await performTokenRefresh();
+        isRefreshing = false;
+        token = refreshedToken;
+        onRefreshed(refreshedToken);
+      } catch {
+        isRefreshing = false;
+        refreshSubscribers = [];
+      }
+    }
+  }
 
   const headers = { ...options.headers };
 
@@ -83,11 +128,6 @@ async function request(endpoint, options = {}, isRetry = false) {
     const data = isJson ? await res.json() : await res.text();
 
     // Handle 401 Unauthorized with token refresh (except for auth endpoints)
-    const isAuthEndpoint =
-      endpoint.startsWith('/api/auth/login') ||
-      endpoint.startsWith('/api/auth/register') ||
-      endpoint.startsWith('/api/auth/refresh');
-
     if (res.status === 401 && !isRetry && !isAuthEndpoint && authStore.refreshToken) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
