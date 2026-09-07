@@ -529,7 +529,7 @@ img, svg {
   margin-bottom: 0.125rem;
 }
 
-.form-input, .input-field, .form-textarea, .textarea-field, .select-field {
+.form-input, .input-field, .form-textarea, .textarea-field, .select-field, .form-select {
   width: 100%;
   display: block;
   box-sizing: border-box;
@@ -549,10 +549,56 @@ img, svg {
   line-height: 1.5;
 }
 
-.form-input:focus, .input-field:focus, .form-textarea:focus, .textarea-field:focus, .select-field:focus {
+.form-input:focus, .input-field:focus, .form-textarea:focus, .textarea-field:focus, .select-field:focus, .form-select:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+/* Enhanced Native Dropdown Select Controls */
+.form-select,
+select.form-input,
+.select-field {
+  padding-right: 2.5rem !important;
+  cursor: pointer;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  -moz-appearance: none !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 0.875rem center !important;
+  background-size: 16px 16px !important;
+  line-height: 1.5;
+}
+
+.form-select:hover,
+select.form-input:hover {
+  border-color: var(--color-border-hover, var(--color-primary));
+}
+
+.form-select:focus,
+select.form-input:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2300629b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+[data-theme="dark"] .form-select:focus,
+[data-theme="dark"] select.form-input:focus {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2338bdf8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") !important;
+}
+
+.form-select option,
+select.form-input option,
+.select-field option {
+  background-color: var(--color-surface, #ffffff);
+  color: var(--color-text, #0f172a);
+  padding: 0.5rem;
+}
+
+[data-theme="dark"] .form-select option,
+[data-theme="dark"] select.form-input option,
+[data-theme="dark"] .select-field option {
+  background-color: #1e293b;
+  color: #f8fafc;
 }
 
 .modal-backdrop,
@@ -561,7 +607,7 @@ img, svg {
   inset: 0;
   background-color: rgba(0, 0, 0, 0.7);
   backdrop-filter: blur(8px);
-  z-index: 1000;
+  z-index: 1300;
   display: flex;
   align-items: center;
   justify-content: center;

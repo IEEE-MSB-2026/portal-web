@@ -849,6 +849,8 @@ export const api = {
     const qs = query.toString();
     return request(`/api/events/${eventId}/participants${qs ? `?${qs}` : ''}`);
   },
+  getGlobalEventStats: () => request('/api/events/stats'),
+  getGlobalEventKpis: () => request('/api/events/stats'),
   getParticipantById: (eventId, participantId) => request(`/api/events/${eventId}/participants/${participantId}`),
   manualCheckInParticipant: (eventId, participantId, activityId = null) =>
     request(`/api/events/${eventId}/participants/${participantId}/check-in`, {
@@ -858,6 +860,10 @@ export const api = {
   deleteParticipant: (eventId, participantId) =>
     request(`/api/events/${eventId}/participants/${participantId}`, {
       method: 'DELETE',
+    }),
+  resetParticipantCheckIn: (eventId, participantId) =>
+    request(`/api/events/${eventId}/participants/${participantId}/reset-checkin`, {
+      method: 'POST',
     }),
   uploadParticipantsCsv: (eventId, formData) =>
     request(`/api/events/${eventId}/participants/upload`, {
@@ -877,7 +883,12 @@ export const api = {
       body: data,
     }),
 
-  // Attendance & Reports
+  updateActivityWhitelist: (eventId, activityId, data) =>
+    request(`/api/events/${eventId}/activities/${activityId}/whitelist`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  exportAttendanceCsv: (eventId) => request(`/api/events/${eventId}/attendance/export`),
   getEventAttendanceReport: (eventId) => request(`/api/events/${eventId}/attendance/report`),
   awardEventActivityPoints: (eventId, data = {}) =>
     request(`/api/events/${eventId}/attendance/points`, {

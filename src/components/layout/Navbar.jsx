@@ -110,7 +110,8 @@ export default function Navbar() {
     user?.role === 'event_organizer' ||
     user?.role === 'event_scanner' ||
     user?.role === 'scanner' ||
-    ['admin', 'officer'].includes(user?.role);
+    ['admin', 'officer'].includes(user?.role) ||
+    Boolean(user?.isAssignedScanner);
 
   const handleScopeSwitch = async (targetScope) => {
     const targetScopeId = targetScope.id || targetScope.scopeId;

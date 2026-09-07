@@ -14,7 +14,7 @@ export default function ToastContainer() {
       case 'error':
         return <AlertCircle size={18} style={{ color: 'var(--color-danger)', flexShrink: 0 }} />;
       case 'warning':
-        return <AlertTriangle size={18} style={{ color: 'var(--color-accent)', flexShrink: 0 }} />;
+        return <AlertTriangle size={18} style={{ color: 'var(--color-warning, #f59e0b)', flexShrink: 0 }} />;
       case 'info':
       default:
         return <Info size={18} style={{ color: 'var(--color-primary)', flexShrink: 0 }} />;
@@ -28,7 +28,7 @@ export default function ToastContainer() {
       case 'error':
         return 'var(--color-danger)';
       case 'warning':
-        return 'var(--color-accent)';
+        return 'var(--color-warning, #f59e0b)';
       case 'info':
       default:
         return 'var(--color-primary)';

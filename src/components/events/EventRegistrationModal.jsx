@@ -13,7 +13,14 @@ import {
   ArrowLeft,
 } from 'lucide-react';
 
-export default function EventRegistrationModal({ event, isOpen, onClose, onSuccess }) {
+export default function EventRegistrationModal({
+  event,
+  isOpen,
+  onClose,
+  onSuccess,
+  isPreview = false,
+  embedded = false,
+}) {
   const { user, isAuthenticated } = useAuthStore();
 
   const [step, setStep] = useState(1);
@@ -39,23 +46,23 @@ export default function EventRegistrationModal({ event, isOpen, onClose, onSucce
       setError(null);
       setSuccessData(null);
       setFormData({
-        name: user?.name || '',
-        email: user?.email || '',
-        phoneNumber: user?.phoneNumber || '',
+        name: user?.name || (isPreview ? 'Yousef Mansour' : ''),
+        email: user?.email || (isPreview ? 'attendee@ieeemsb.org' : ''),
+        phoneNumber: user?.phoneNumber || (isPreview ? '+20 100 123 4567' : ''),
         university: user?.university || 'Menoufia University',
         faculty: user?.faculty || 'Faculty of Electronic Engineering',
-        major: user?.major || '',
+        major: user?.major || (isPreview ? 'Computer Science & Engineering' : ''),
       });
       setCustomResponses({});
     }
-  }, [isOpen, user]);
+  }, [isOpen, user, isPreview]);
 
   if (!isOpen || !event) return null;
 
   // Eligibility Guard
   const isPublic = !event.allowedAudience || event.allowedAudience === 'public';
   let eligibilityWarning = null;
-  if (!isAuthenticated && !isPublic) {
+  if (!isAuthenticated && !isPublic && !isPreview) {
     eligibilityWarning = 'This event is restricted to IEEE Portal members. Please log in to your account to register.';
   }
 
@@ -112,6 +119,16 @@ export default function EventRegistrationModal({ event, isOpen, onClose, onSucce
       }
     }
 
+    if (isPreview) {
+      setLoading(true);
+      setTimeout(() => {
+        setLoading(false);
+        setSuccessData({ id: 'TKT-PREVIEW-89241' });
+        setStep(3);
+      }, 350);
+      return;
+    }
+
     setLoading(true);
     try {
       const evId = event._id || event.id;
@@ -137,37 +154,57 @@ export default function EventRegistrationModal({ event, isOpen, onClose, onSucce
     }
   };
 
-  return (
-    <div className="modal-backdrop" onClick={onClose}>
-      <div
-        className="modal-content"
-        style={{
-          maxWidth: '560px',
-          width: '100%',
-          maxHeight: '85vh',
-          overflowY: 'auto',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {/* Modal Header */}
-        <div className="modal-header">
-          <div>
-            <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem' }}>
-              <span className="badge badge-primary">{event.category || 'Event'}</span>
-              <span className="badge badge-accent">Stage {step} of {event.customFields?.length > 0 ? 2 : 1}</span>
-            </div>
-            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--color-text)' }}>
-              {event.name}
-            </h2>
+  const modalBody = (
+    <div
+      className={embedded ? 'ops-embedded-modal-card' : 'modal-content'}
+      style={{
+        maxWidth: '560px',
+        width: '100%',
+        maxHeight: embedded ? 'none' : '85vh',
+        overflowY: embedded ? 'visible' : 'auto',
+        background: 'var(--color-surface)',
+        borderRadius: 'var(--radius-lg)',
+        border: embedded ? '1px solid var(--color-border)' : undefined,
+        boxShadow: embedded ? 'var(--shadow-md)' : undefined,
+        margin: embedded ? '0 auto' : undefined,
+      }}
+      onClick={(e) => e.stopPropagation()}
+    >
+      {/* Modal Header */}
+      <div className="modal-header">
+        <div>
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', alignItems: 'center' }}>
+            <span className="badge badge-primary">{event.category || 'Event'}</span>
+            <span className="badge badge-accent">Stage {step} of {event.customFields?.length > 0 ? 2 : 1}</span>
+            {isPreview && (
+              <span className="badge badge-secondary" style={{ fontSize: '0.68rem' }}>
+                Live Simulation
+              </span>
+            )}
           </div>
+          <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, margin: 0, color: 'var(--color-text)' }}>
+            {event.name}
+          </h2>
+        </div>
+        {embedded ? (
+          <button
+            type="button"
+            className="btn btn-secondary btn-xs"
+            onClick={() => setStep(1)}
+            title="Restart preview to Stage 1"
+          >
+            Reset
+          </button>
+        ) : (
           <button type="button" className="btn btn-secondary btn-icon" onClick={onClose}>
             <X size={16} />
           </button>
-        </div>
+        )}
+      </div>
 
-        {/* Modal Body */}
+      {/* Modal Body */}
         <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
-          
+
           {eligibilityWarning && (
             <div style={{ padding: 'var(--space-3)', borderRadius: 'var(--radius-sm)', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <AlertCircle size={16} />
@@ -353,20 +390,8 @@ export default function EventRegistrationModal({ event, isOpen, onClose, onSucce
                 Registration Confirmed!
               </h3>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem', maxWidth: '420px', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-                You are confirmed for <strong>{event.name}</strong>. Your ticket reference code is below:
+                Your event ticket will be sent to your email closer to the event date. Keep an eye on your inbox!.
               </p>
-
-              <div className="bento-card" style={{ padding: '1.25rem 2rem', width: '100%', marginBottom: '1.5rem', background: 'var(--color-bg)' }}>
-                <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', fontWeight: 700 }}>
-                  Ticket Reference ID
-                </span>
-                <div style={{ fontFamily: 'monospace', fontSize: '1.2rem', color: 'var(--color-primary)', fontWeight: 700, marginTop: '0.25rem' }}>
-                  {successData?._id || successData?.id || 'CONFIRMED'}
-                </div>
-                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.5rem' }}>
-                  📍 {event.venue || event.location} • ⭐ +{event.points || 25} pts
-                </div>
-              </div>
 
               <button
                 type="button"
@@ -381,6 +406,15 @@ export default function EventRegistrationModal({ event, isOpen, onClose, onSucce
 
         </div>
       </div>
+  );
+
+  if (embedded) {
+    return modalBody;
+  }
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      {modalBody}
     </div>
   );
 }

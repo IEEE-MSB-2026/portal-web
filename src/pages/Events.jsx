@@ -1,6 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../services/api';
+import { useAuthStore } from '../stores/authStore';
+import { useToastStore } from '../stores/toastStore';
 import EventRegistrationModal from '../components/events/EventRegistrationModal';
+import { formatEventDateRange, getEventRegistrationState } from '../utils/eventDateUtils';
 import {
   Calendar,
   MapPin,
@@ -10,49 +14,29 @@ import {
   X,
   AlertCircle,
   Sparkles,
+  Share2,
+  Maximize2,
 } from 'lucide-react';
 
-function getEventRegistrationStatus(event) {
-  if (!event) {
-    return { isOpen: true, label: 'REGISTRATION OPEN', isClosed: false };
-  }
-  if (event.isRegistrationOpen === false) {
-    return { isOpen: false, label: 'REGISTRATION CLOSED', isClosed: true, reason: 'Registration is currently closed by organizers.' };
-  }
-  if (!event.date) {
-    return { isOpen: true, label: 'REGISTRATION OPEN', isClosed: false };
-  }
-
-  const eventTime = new Date(event.date).getTime();
-  if (isNaN(eventTime)) {
-    return { isOpen: true, label: 'REGISTRATION OPEN', isClosed: false };
-  }
-
-  const now = Date.now();
-  const cutoffTime = eventTime - 24 * 60 * 60 * 1000; // 24 hours prior to event start
-
-  if (now > eventTime) {
-    return { isOpen: false, label: 'EVENT COMPLETED', isClosed: true, reason: 'This event has already taken place.' };
-  }
-  if (now >= cutoffTime) {
-    return { isOpen: false, label: 'REGISTRATION CLOSED', isClosed: true, reason: 'Registration closed 24 hours prior to the event date.' };
-  }
-
-  return { isOpen: true, label: 'REGISTRATION OPEN', isClosed: false };
-}
-
 export default function Events() {
+  const { user, isAuthenticated } = useAuthStore();
+  const toast = useToastStore();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [registrationModalOpen, setRegistrationModalOpen] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState(null);
 
   useEffect(() => {
     async function loadEvents() {
       try {
         const data = await api.getEvents();
         const eventList = data.events || (Array.isArray(data) ? data : []);
-        setEvents(eventList);
+        // Exclude archived events
+        setEvents(eventList.filter((e) => e.status !== 'archived'));
       } catch (err) {
         console.error('Failed to load events:', err);
       } finally {
@@ -62,40 +46,92 @@ export default function Events() {
     loadEvents();
   }, []);
 
+  // Check roles and scope permissions for allowedAudience
+  const isAdminOrOfficer =
+    user?.role === 'admin' ||
+    user?.role === 'officer' ||
+    user?.availableScopes?.some((s) => ['admin', 'officer'].includes(s.role));
+
+  const isLead =
+    isAdminOrOfficer ||
+    user?.role === 'lead' ||
+    user?.availableScopes?.some((s) => s.role === 'lead');
+
+  const isBranchMember =
+    isAdminOrOfficer ||
+    isLead ||
+    user?.isMember ||
+    user?.role === 'member' ||
+    (user?.availableScopes && user.availableScopes.length > 0);
+
+  // Audience filtering:
+  // 1- public: show always, allow registration for anyone
+  // 2- authenticated (login users): show always, unauthenticated redirects to login on register
+  // 3- members_only: show ONLY to members; public users do not see it at all
+  // 4- committee leads: show ONLY to committee leads (who have anyscope with role lead)
+  // Admins & officers always see all events
+  const visibleEvents = events.filter((ev) => {
+    if (isAdminOrOfficer) return true;
+    const audience = ev.allowedAudience || 'public';
+    if (audience === 'public') return true;
+    if (audience === 'authenticated') return true;
+    if (audience === 'members_only') return isBranchMember;
+    if (audience === 'leads_only') return isLead;
+    return false;
+  });
+
+  // Auto-open registration modal if redirected back with ?register=eventId
+  useEffect(() => {
+    const registerEventId = searchParams.get('register') || searchParams.get('event');
+    if (registerEventId && events.length > 0) {
+      const found = events.find((e) => (e._id || e.id) === registerEventId);
+      if (found) {
+        setSelectedEvent(found);
+        setRegistrationModalOpen(true);
+      }
+    }
+  }, [searchParams, events]);
+
   const handleOpenRegistration = (ev) => {
+    const audience = ev.allowedAudience || 'public';
+    const eventId = ev._id || ev.id;
+
+    // Login users requirement: when user is not logged in, show toast and redirect to login
+    if (audience === 'authenticated' && !isAuthenticated) {
+      toast.info('Login Required', 'Login is required to register for this event.');
+      navigate(`/login?redirect=${encodeURIComponent(`/events?register=${eventId}`)}`);
+      return;
+    }
+
     setSelectedEvent(ev);
     setRegistrationModalOpen(true);
   };
 
-  const handleFormSubmit = async (e) => {
-    e.preventDefault();
-    if (!formData.name || !formData.email) {
-      setFormError('Name and Email are required.');
-      return;
+  const handleShareEvent = async (ev, e) => {
+    if (e) e.stopPropagation();
+    const eventId = ev._id || ev.id;
+    const shareUrl = `${window.location.origin}/events?register=${eventId}`;
+    const title = ev.name || ev.title || 'IEEE Event';
+    const text = `Join ${title} with IEEE MSB!`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title, text, url: shareUrl });
+        return;
+      } catch (err) {
+        if (err.name !== 'AbortError') {
+          console.warn('Share sheet failed, falling back to clipboard:', err);
+        } else {
+          return;
+        }
+      }
     }
 
-    setSubmitting(true);
-    setFormError('');
-
     try {
-      const eventId = selectedEvent._id || selectedEvent.id;
-      const res = await api.registerParticipant(eventId, {
-        name: formData.name,
-        email: formData.email,
-        phoneNumber: formData.phone || undefined,
-        university: formData.university || undefined,
-        faculty: formData.faculty || undefined,
-      });
-
-      setTicketResult(res.participant || res);
-    } catch (err) {
-      if (err.status === 401 || err.status === 403) {
-        setFormError('Public self-registration requires logging in to your attendee portal account. Please sign in via the Portal Login button.');
-      } else {
-        setFormError(err.data?.error || err.message || 'Registration failed. Please try again.');
-      }
-    } finally {
-      setSubmitting(false);
+      await navigator.clipboard.writeText(shareUrl);
+      toast.success('Link Copied', 'Event link copied to clipboard!');
+    } catch {
+      toast.error('Copy Failed', 'Could not copy link to clipboard.');
     }
   };
 
@@ -114,7 +150,7 @@ export default function Events() {
           <div style={{ textAlign: 'center', padding: 'var(--space-12)', color: 'var(--color-text-muted)' }}>
             Loading events schedule...
           </div>
-        ) : events.length === 0 ? (
+        ) : visibleEvents.length === 0 ? (
           <div className="bento-card" style={{ padding: 'var(--space-12)', textAlign: 'center', color: 'var(--color-text-muted)', maxWidth: '600px', margin: '0 auto' }}>
             <Calendar size={48} style={{ margin: '0 auto var(--space-4)', opacity: 0.5 }} />
             <h3 style={{ fontSize: '1.25rem', marginBottom: 'var(--space-2)' }}>No Upcoming Events Listed</h3>
@@ -122,9 +158,9 @@ export default function Events() {
           </div>
         ) : (
           <div className="bento-grid">
-            {events.map((ev) => {
+            {visibleEvents.map((ev) => {
               const eventId = ev._id || ev.id;
-              const regStatus = getEventRegistrationStatus(ev);
+              const regStatus = getEventRegistrationState(ev);
               // Card strictly uses coverImageUrl (never substitutes bannerUrl)
               const coverUrl = ev.coverImageUrl;
 
@@ -152,21 +188,49 @@ export default function Events() {
                     }}
                   >
                     {coverUrl ? (
-                      <img
-                        src={coverUrl}
-                        alt={ev.name || ev.title}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          objectFit: 'cover',
-                          objectPosition: 'center',
-                          transition: 'transform var(--transition-slow)',
+                      <div
+                        style={{ width: '100%', height: '100%', cursor: 'pointer', position: 'relative' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLightboxImage({ url: coverUrl, title: ev.name || ev.title });
                         }}
-                        className="event-img"
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                        }}
-                      />
+                        title="Click to enlarge cover image"
+                      >
+                        <img
+                          src={coverUrl}
+                          alt={ev.name || ev.title}
+                          style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'cover',
+                            objectPosition: 'center',
+                            transition: 'transform var(--transition-slow)',
+                          }}
+                          className="event-img"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                        <div
+                          style={{
+                            position: 'absolute',
+                            bottom: '8px',
+                            right: '8px',
+                            background: 'rgba(0,0,0,0.65)',
+                            color: '#fff',
+                            borderRadius: '4px',
+                            padding: '3px 6px',
+                            fontSize: '0.7rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            zIndex: 2,
+                            pointerEvents: 'none',
+                          }}
+                        >
+                          <Maximize2 size={11} /> Enlarge
+                        </div>
+                      </div>
                     ) : (
                       <div
                         style={{
@@ -269,11 +333,7 @@ export default function Events() {
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <Clock size={16} style={{ color: 'var(--color-primary)' }} />
-                          <span>
-                            {ev.date
-                              ? new Date(ev.date).toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })
-                              : 'Date Announced Soon'}
-                          </span>
+                          <span>{formatEventDateRange(ev.startDate, ev.endDate, ev.date)}</span>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                           <MapPin size={16} style={{ color: 'var(--color-primary)' }} />
@@ -282,12 +342,12 @@ export default function Events() {
                       </div>
                     </div>
 
-                    <div>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
                       <button
                         type="button"
                         className={`btn ${regStatus.isOpen ? 'btn-primary' : 'btn-secondary'}`}
                         style={{
-                          width: '100%',
+                          flex: 1,
                           opacity: regStatus.isOpen ? 1 : 0.65,
                           cursor: regStatus.isOpen ? 'pointer' : 'not-allowed',
                         }}
@@ -297,6 +357,15 @@ export default function Events() {
                       >
                         <Ticket size={18} />
                         <span>{regStatus.isOpen ? 'Register for Event' : regStatus.label}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-icon"
+                        onClick={(e) => handleShareEvent(ev, e)}
+                        title="Share Event"
+                        style={{ width: '42px', height: '42px', flexShrink: 0 }}
+                      >
+                        <Share2 size={18} />
                       </button>
                     </div>
                   </div>
@@ -315,6 +384,70 @@ export default function Events() {
             api.getEvents().then((d) => setEvents(d.events || (Array.isArray(d) ? d : [])));
           }}
         />
+
+        {/* Click-to-Enlarge Lightbox Modal */}
+        {lightboxImage && (
+          <div
+            className="ops-lightbox-overlay"
+            style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 1600,
+              background: 'rgba(0, 0, 0, 0.88)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.5rem',
+              animation: 'fadeIn 0.2s ease-out',
+            }}
+            onClick={() => setLightboxImage(null)}
+          >
+            <div
+              style={{
+                position: 'relative',
+                maxWidth: '92vw',
+                maxHeight: '92vh',
+                background: 'var(--color-surface)',
+                borderRadius: 'var(--radius-lg)',
+                overflow: 'hidden',
+                boxShadow: '0 25px 60px rgba(0,0,0,0.6)',
+                display: 'flex',
+                flexDirection: 'column',
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  padding: '0.85rem 1.25rem',
+                  borderBottom: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)',
+                }}
+              >
+                <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--color-text)' }}>
+                  {lightboxImage.title || 'Event Cover Image'}
+                </span>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-icon btn-sm"
+                  onClick={() => setLightboxImage(null)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div style={{ overflow: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#0a0a0a', padding: '1rem' }}>
+                <img
+                  src={lightboxImage.url}
+                  alt={lightboxImage.title || 'Enlarged Banner'}
+                  style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '4px' }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hover Micro-interaction Styling */}

@@ -80,6 +80,9 @@ export default function Dashboard() {
   // Workspace Hub Category Tab Filter ('all' | 'committees' | 'studios')
   const [workspaceCategoryTab, setWorkspaceCategoryTab] = useState('all');
 
+  // Assigned Scanner Events
+  const [assignedScannerEvents, setAssignedScannerEvents] = useState([]);
+
   // Onboarding Items State
   const [onboardingItems, setOnboardingItems] = useState([]);
   const [updatingOnboardingId, setUpdatingOnboardingId] = useState(null);
@@ -90,12 +93,27 @@ export default function Dashboard() {
   const fetchDashboard = async () => {
     try {
       setLoading(true);
-      const [data, onboardingRes] = await Promise.all([
+      const [data, onboardingRes, eventsRes] = await Promise.all([
         api.getMyDashboard(),
         api.getHROnboarding('me').catch(() => ({ onboarding: { items: [] } })),
+        api.getEvents({ status: 'active' }).catch(() => []),
       ]);
       setDashboardData(data);
       setOnboardingItems(onboardingRes?.onboarding?.items || []);
+
+      const eventList = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.events || []);
+      const currentUserId = String(user?.id || user?._id || '');
+      const userAssigned = eventList.filter(
+        (e) =>
+          Array.isArray(e.scannerUserIds) &&
+          e.scannerUserIds.some((id) => String(typeof id === 'object' ? id.id || id._id : id) === currentUserId)
+      );
+      setAssignedScannerEvents(userAssigned);
+      if (userAssigned.length > 0 && !user?.isAssignedScanner) {
+        useAuthStore.getState().updateUser({ isAssignedScanner: true });
+      } else if (userAssigned.length === 0 && user?.isAssignedScanner) {
+        useAuthStore.getState().updateUser({ isAssignedScanner: false });
+      }
     } catch (err) {
       console.error('Failed to load dashboard:', err);
       toast.error('Dashboard Error', err.message || 'Could not load dashboard data.');
@@ -420,15 +438,18 @@ export default function Dashboard() {
     });
   }
 
-  if (isGlobalAdminOrOfficer || ocScope) {
+  const hasAssignedScannerEvents = assignedScannerEvents.length > 0;
+
+  if (isGlobalAdminOrOfficer || ocScope || hasAssignedScannerEvents) {
+    const isScannerOnlyUser = hasAssignedScannerEvents && !isGlobalAdminOrOfficer && !ocScope;
     specializedWorkspaces.push({
       id: 'workspace-operations-studio',
-      name: 'Operations Studio',
+      name: isScannerOnlyUser ? 'Operations (Scanner)' : 'Operations Studio',
       slug: 'oc',
-      role: isGlobalAdminOrOfficer ? 'OFFICER' : 'LEAD',
+      role: isGlobalAdminOrOfficer ? 'OFFICER' : ocScope ? 'LEAD' : 'SCANNER',
       type: 'studio',
       category: 'WORKSPACE',
-      path: '/operations',
+      path: isScannerOnlyUser ? '/operations?tab=scanner' : '/operations',
       isCommittee: false,
     });
   }
@@ -987,12 +1008,13 @@ export default function Dashboard() {
                     const isStudio = !w.isCommittee;
                     const isHRRole = w.role === 'HR';
                     const isLeadRole = w.role === 'LEAD';
+                    const isScannerRole = w.role === 'SCANNER';
                     const isFullAccess = w.role === 'FULL ACCESS';
 
                     return (
                       <div
                         key={w.id}
-                        className={`dashboard-workspace-card ${isStudio ? 'dashboard-workspace-card--studio' : ''}`}
+                        className={`dashboard-workspace-card ${isStudio ? 'dashboard-workspace-card--studio' : ''} ${isScannerRole ? 'dashboard-workspace-card--scanner' : ''}`}
                       >
                         {/* Top Line: Slug Badge + Name on Left, Role Badge on Right */}
                         <div className="dashboard-workspace-card__top">
@@ -1016,6 +1038,8 @@ export default function Dashboard() {
                                 ? 'badge-warning'
                                 : isHRRole
                                 ? 'badge-hr'
+                                : isScannerRole
+                                ? 'badge-accent'
                                 : 'badge-outline'
                             }`}
                             style={{
@@ -1031,7 +1055,7 @@ export default function Dashboard() {
                         {/* Bottom Line: Category Description on Left, Quick Action on Right */}
                         <div className="dashboard-workspace-card__bottom">
                           <span className="dashboard-workspace-card__type">
-                            {isStudio ? 'Specialized Studio' : 'Committee Workspace'}
+                            {isScannerRole ? 'Event Scanner' : isStudio ? 'Specialized Studio' : 'Committee Workspace'}
                           </span>
 
                           {isStudio ? (
