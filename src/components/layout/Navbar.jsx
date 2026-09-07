@@ -82,9 +82,12 @@ export default function Navbar() {
     { to: '/about', label: 'About' },
   ];
 
-  // Available scopes for the user (filter out generic redundant defaults)
+  // Available scopes for the user (filter out hr observer role and generic redundant defaults)
   const selectableScopes = (user?.availableScopes || []).filter(
-    (s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName || (s.role !== 'applicant' && s.role !== 'member')
+    (s) =>
+      s.role !== 'hr' &&
+      !(s.role === 'member' && s.scopeType === 'global') &&
+      (s.scopeType === 'committee' || s.committeeSlug || s.committeeName || (s.role !== 'applicant' && s.role !== 'member'))
   );
 
   // Studio Access Permissions

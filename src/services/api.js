@@ -18,17 +18,19 @@ function onRefreshed(newToken) {
 }
 
 async function performTokenRefresh() {
-  const { refreshToken, logout, updateTokens } = useAuthStore.getState();
+  const { refreshToken, user, logout, updateTokens, updateUser } = useAuthStore.getState();
   if (!refreshToken) {
     logout();
     throw new Error('No refresh token available');
   }
 
+  const activeScopeId = user?.scopeId || user?.activeScope?.id || null;
+
   try {
     const res = await fetch(`${API_BASE}/api/auth/refresh`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken }),
+      body: JSON.stringify({ refreshToken, activeScopeId }),
     });
 
     const data = await res.json();
@@ -38,6 +40,9 @@ async function performTokenRefresh() {
     }
 
     updateTokens({ token: data.token, refreshToken: data.refreshToken });
+    if (data.user) {
+      updateUser(data.user);
+    }
     return data.token;
   } catch (err) {
     logout();

@@ -505,7 +505,7 @@ export default function Profile() {
     }));
 
   const userCommitteesScopes = (authUser?.availableScopes || [])
-    .filter((s) => s.scopeType === 'committee' || s.committeeId)
+    .filter((s) => s.role !== 'hr' && !(s.role === 'member' && s.scopeType === 'global') && (s.scopeType === 'committee' || s.committeeId))
     .map((s) => ({
       id: s.committeeId || s.scopeId,
       scopeId: s.id || s.scopeId,

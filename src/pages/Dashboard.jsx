@@ -200,6 +200,83 @@ export default function Dashboard() {
     navigate(`/workspace?committee=${committee.id}`);
   };
 
+  const handleOpenStudio = async (studioWorkspace) => {
+    const slug = studioWorkspace.slug;
+    const available = user?.availableScopes || [];
+
+    // Check if the user's active role & scope already grant access:
+    const isAuthorized = () => {
+      const isGlobalAdminOrOff = user?.scopeType === 'global' && ['admin', 'officer'].includes(user?.role);
+      if (isGlobalAdminOrOff) return true;
+
+      if (slug === 'hr') {
+        return user?.role === 'lead' && user?.committeeSlug === 'hr';
+      }
+      if (slug === 'pr') {
+        return (user?.role === 'lead' && user?.committeeSlug === 'pr') || user?.role === 'publisher';
+      }
+      if (slug === 'media') {
+        return user?.role === 'lead' && user?.committeeSlug === 'media';
+      }
+      if (slug === 'oc') {
+        return (
+          (user?.role === 'lead' && user?.committeeSlug === 'oc') ||
+          ['event_organizer', 'event_scanner', 'scanner'].includes(user?.role) ||
+          Boolean(user?.isAssignedScanner)
+        );
+      }
+      return false;
+    };
+
+    // 1. If currently authorized, proceed directly
+    if (isAuthorized()) {
+      navigate(studioWorkspace.path);
+      return;
+    }
+
+    // 2. Otherwise find the best matching authorized scope to switch to
+    let bestScope = null;
+    if (slug === 'hr') {
+      bestScope = available.find((s) => s.role === 'lead' && s.committeeSlug === 'hr');
+    } else if (slug === 'pr') {
+      bestScope = available.find(
+        (s) => (s.role === 'lead' && s.committeeSlug === 'pr') || s.role === 'publisher'
+      );
+    } else if (slug === 'media') {
+      bestScope = available.find((s) => s.role === 'lead' && s.committeeSlug === 'media');
+    } else if (slug === 'oc') {
+      bestScope = available.find(
+        (s) =>
+          (s.role === 'lead' && s.committeeSlug === 'oc') ||
+          ['event_organizer', 'event_scanner', 'scanner'].includes(s.role)
+      );
+    }
+
+    // Fallback to Admin or Officer scope if held
+    if (!bestScope) {
+      bestScope = available.find((s) => ['admin', 'officer'].includes(s.role));
+    }
+
+    if (bestScope) {
+      const targetScopeId = bestScope.id || bestScope.scopeId;
+      if (targetScopeId && targetScopeId !== user?.scopeId) {
+        setSwitchingScopeId(studioWorkspace.id);
+        try {
+          const res = await api.switchContext({ targetScopeId });
+          if (res?.user) {
+            updateUser(res.user);
+          }
+        } catch (err) {
+          console.error('Failed to auto-switch scope for studio:', err);
+        } finally {
+          setSwitchingScopeId(null);
+        }
+      }
+    }
+
+    navigate(studioWorkspace.path);
+  };
+
   // Submit Assignment Delivery
   const handleSubmitDelivery = async (e) => {
     e.preventDefault();
@@ -1059,14 +1136,22 @@ export default function Dashboard() {
                           </span>
 
                           {isStudio ? (
-                            <Link
-                              to={w.path}
+                            <button
+                              type="button"
                               className="btn btn-outline btn-xs"
+                              disabled={isSwitching}
+                              onClick={() => handleOpenStudio(w)}
                               style={{ fontSize: '0.75rem', padding: '0.2rem 0.55rem', height: '26px' }}
                             >
-                              <span>Open</span>
-                              <ChevronRight size={12} />
-                            </Link>
+                              {isSwitching ? (
+                                'Opening…'
+                              ) : (
+                                <>
+                                  <span>Open</span>
+                                  <ChevronRight size={12} />
+                                </>
+                              )}
+                            </button>
                           ) : (
                             <button
                               type="button"
