@@ -129,7 +129,6 @@ export default function Events() {
 
     try {
       await navigator.clipboard.writeText(shareUrl);
-      toast.success('Link Copied', 'Event link copied to clipboard!');
     } catch {
       toast.error('Copy Failed', 'Could not copy link to clipboard.');
     }

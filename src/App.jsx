@@ -25,6 +25,7 @@ import PRStudio from './pages/PRStudio';
 import MediaStudio from './pages/MediaStudio';
 import OperationsStudio from './pages/OperationsStudio';
 import SelfServiceCheckIn from './pages/SelfServiceCheckIn';
+import EventLeaderboard from './pages/EventLeaderboard';
 
 function NotFound() {
   return (
@@ -73,6 +74,7 @@ export default function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/checkin/:activityQrId" element={<SelfServiceCheckIn />} />
+        <Route path="/leaderboard/:eventId" element={<EventLeaderboard />} />
 
         {/* Main application routes with global Navbar & Footer */}
         <Route path="/" element={<Layout />}>

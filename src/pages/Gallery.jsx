@@ -118,7 +118,6 @@ export default function Gallery() {
     const shareUrl = `${window.location.origin}/gallery?album=${album.id}`;
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopiedAlbumId(album.id);
-      toast.success('Link Copied', `Direct link to "${album.title}" copied to clipboard.`);
       setTimeout(() => setCopiedAlbumId(null), 2500);
     }).catch(() => {
       toast.error('Copy Failed', 'Could not copy link to clipboard.');

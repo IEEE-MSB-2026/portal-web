@@ -74,6 +74,8 @@ import {
   Bold,
   Italic,
   Image as ImageIcon,
+  Trophy,
+  BarChart2,
 } from 'lucide-react';
 
 function SelectOptionsChipsEditor({ options = [], onChange }) {
@@ -515,6 +517,33 @@ export default function OperationsStudio() {
   const [showEventMenu, setShowEventMenu] = useState(false);
   const [activeActivityMenuId, setActiveActivityMenuId] = useState(null);
   const [isProjectorFullscreen, setIsProjectorFullscreen] = useState(false);
+  const [showLeaderboardShareModal, setShowLeaderboardShareModal] = useState(false);
+  const [leaderboardCopied, setLeaderboardCopied] = useState(false);
+  const [isQrFullscreen, setIsQrFullscreen] = useState(false);
+  const qrFullscreenRef = useRef(null);
+
+  // Listen for native HTML5 fullscreen changes
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsQrFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleQrFullscreen = () => {
+    if (!document.fullscreenElement) {
+      if (qrFullscreenRef.current?.requestFullscreen) {
+        qrFullscreenRef.current.requestFullscreen().catch((err) => {
+          console.error('Fullscreen request failed:', err);
+        });
+      }
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch(() => {});
+      }
+    }
+  };
 
   // Global System Stats State (Decoupled from local presentation filters)
   const [globalStats, setGlobalStats] = useState(null);
@@ -2728,6 +2757,58 @@ export default function OperationsStudio() {
                       </div>
                     </div>
 
+                    {/* Live Event Performance & Leadership KPIs */}
+                    {(() => {
+                      const totalRegisteredKpi = eventStats?.totalRegistered ?? (drawerEvent.registeredCount || participants.length);
+                      const totalCheckedInKpi = eventStats?.totalCheckedIn ?? participants.filter((p) => p.checkedIn || p.status === 'checked_in' || (p.scannedActivities && p.scannedActivities.length > 0)).length;
+                      const totalPointsKpi = eventStats?.totalPointsDistributed ?? participants.reduce((sum, p) => sum + (p.pointsAwarded || 0), 0);
+                      const rankedScorersKpi = participants.filter((p) => (p.pointsAwarded || 0) > 0).length;
+                      const checkInRateKpi = totalRegisteredKpi > 0 ? Math.round((totalCheckedInKpi / totalRegisteredKpi) * 100) : 0;
+
+                      return (
+                        <div
+                          style={{
+                            margin: '1rem 0 1.25rem',
+                            padding: '0.4rem',
+                            background: 'var(--color-bg-alt, rgba(0,0,0,0.03))',
+                            border: '1px solid var(--color-border)',
+                            borderRadius: 'var(--radius-lg, 12px)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <BarChart2 size={13} color="var(--color-primary)" /> Event KPIs
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
+                              gap: '0.65rem',
+                            }}
+                          >
+                            <div style={{ background: 'var(--color-surface)', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--color-border)' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', display: 'block' }}>Total Enrolled</span>
+                              <strong style={{ fontSize: '1.15rem', color: 'var(--color-text)' }}>{totalRegisteredKpi}</strong>
+                            </div>
+                            <div style={{ background: 'var(--color-surface)', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--color-border)' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', display: 'block' }}>Checked In</span>
+                              <strong style={{ fontSize: '1.15rem', color: '#10b981' }}>{totalCheckedInKpi} <span style={{ fontSize: '0.72rem', fontWeight: 500 }}>({checkInRateKpi}%)</span></strong>
+                            </div>
+                            <div style={{ background: 'var(--color-surface)', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--color-border)' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', display: 'block' }}>Points Awarded</span>
+                              <strong style={{ fontSize: '1.15rem', color: '#f59e0b' }}>{totalPointsKpi} pts</strong>
+                            </div>
+                            <div style={{ background: 'var(--color-surface)', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius-md, 8px)', border: '1px solid var(--color-border)' }}>
+                              <span style={{ fontSize: '0.68rem', color: 'var(--color-text-muted)', display: 'block' }}>Ranked Scorers</span>
+                              <strong style={{ fontSize: '1.15rem', color: '#38bdf8' }}>{rankedScorersKpi}</strong>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="ops-event-action-bar">
                       <button
                         type="button"
@@ -2792,6 +2873,16 @@ export default function OperationsStudio() {
                               }}
                             >
                               <Mail size={14} /> Dispatch QR Tickets
+                            </button>
+                            <button
+                              type="button"
+                              className="ops-dropdown-item"
+                              onClick={() => {
+                                setShowEventMenu(false);
+                                setShowLeaderboardShareModal(true);
+                              }}
+                            >
+                              <Trophy size={14} /> Share Leaderboard
                             </button>
                             <button
                               type="button"
@@ -3384,6 +3475,16 @@ export default function OperationsStudio() {
                 style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
               >
                 <Mail size={15} /> Dispatch QR Tickets
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLeaderboardShareModal(true)}
+                className="btn btn-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                title="View & share public event points & leadership URL"
+              >
+                <Trophy size={15} /> Public Leaderboard
               </button>
 
               <button
@@ -6159,6 +6260,218 @@ export default function OperationsStudio() {
                 alt={lightboxImage.title || 'Enlarged Banner'}
                 style={{ maxWidth: '100%', maxHeight: '75vh', objectFit: 'contain', borderRadius: '4px' }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          MODAL 8: PUBLIC EVENT LEADERBOARD SHARING & QR
+         ════════════════════════════════════════════════════════════════════════ */}
+      {showLeaderboardShareModal && (
+        <div className="modal-backdrop" onClick={() => setShowLeaderboardShareModal(false)}>
+          <div
+            className="modal-content"
+            style={{ maxWidth: '520px', width: '92vw', background: 'var(--color-card)', color: 'var(--color-text)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="modal-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+                <div
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '10px',
+                    background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(217, 119, 6, 0.1))',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: '#f59e0b',
+                  }}
+                >
+                  <Trophy size={20} />
+                </div>
+                <div>
+                  <h3 className="modal-title" style={{ fontSize: '1.05rem', margin: 0, color: 'var(--color-text)' }}>
+                    Event Standings & Leaderboard
+                  </h3>
+                  <p style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', margin: 0 }}>
+                    {drawerEvent?.name || selectedEvent?.name || 'Event Leaderboard'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={() => setShowLeaderboardShareModal(false)}
+                aria-label="Close modal"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem', padding: '1.25rem' }}>
+              {/* QR Code Presentation Box with Enlarge / Fullscreen Button */}
+              <div
+                ref={qrFullscreenRef}
+                style={
+                  isQrFullscreen
+                    ? {
+                        position: 'fixed',
+                        inset: 0,
+                        zIndex: 99999,
+                        background: '#070a13',
+                        color: '#f8fafc',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        padding: '2rem',
+                        gap: '1.5rem',
+                      }
+                    : {
+                        background: 'var(--color-bg-alt, rgba(0,0,0,0.03))',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-lg)',
+                        padding: '1.25rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        textAlign: 'center',
+                        gap: '0.75rem',
+                        position: 'relative',
+                      }
+                }
+              >
+                {/* Enlarge / Fullscreen Exit Button */}
+                <button
+                  type="button"
+                  onClick={toggleQrFullscreen}
+                  className="btn btn-secondary btn-xs btn-icon"
+                  style={{
+                    position: 'absolute',
+                    top: isQrFullscreen ? '1.5rem' : '0.75rem',
+                    right: isQrFullscreen ? '1.5rem' : '0.75rem',
+                    zIndex: 10,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+                  }}
+                  title={isQrFullscreen ? 'Exit Fullscreen (Esc)' : 'Expand QR Code to Fullscreen'}
+                >
+                  {isQrFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={15} />}
+                </button>
+
+                {isQrFullscreen && (
+                  <div style={{ textAlign: 'center', maxWidth: 650 }}>
+                    <span style={{ fontSize: '0.9rem', fontWeight: 700, color: '#38bdf8', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                      IEEE Menoufia Student Branch
+                    </span>
+                    <h1 style={{ fontSize: '2.25rem', fontWeight: 800, margin: '0.4rem 0 0', color: '#ffffff' }}>
+                      {drawerEvent?.name || selectedEvent?.name || 'Event Standings & Leaderboard'}
+                    </h1>
+                  </div>
+                )}
+
+                <div
+                  style={{
+                    background: '#ffffff',
+                    padding: isQrFullscreen ? '24px' : '12px',
+                    borderRadius: isQrFullscreen ? '20px' : 'var(--radius-md)',
+                    boxShadow: isQrFullscreen ? '0 12px 40px rgba(0,0,0,0.5)' : '0 4px 15px rgba(0,0,0,0.1)',
+                  }}
+                >
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=${isQrFullscreen ? '500x500' : '200x200'}&margin=${isQrFullscreen ? '12' : '8'}&data=${encodeURIComponent(
+                      `${window.location.origin}/leaderboard/${drawerEvent?._id || drawerEvent?.id || selectedEventId}`
+                    )}`}
+                    alt="Event Leaderboard QR Code"
+                    width={isQrFullscreen ? 380 : 180}
+                    height={isQrFullscreen ? 380 : 180}
+                    style={{ display: 'block', border: 0, maxWidth: '100%', height: 'auto' }}
+                  />
+                </div>
+
+                <div
+                  style={{
+                    fontSize: isQrFullscreen ? '1.15rem' : '0.78rem',
+                    fontWeight: isQrFullscreen ? 600 : 400,
+                    color: isQrFullscreen ? '#94a3b8' : 'var(--color-text-muted)',
+                    maxWidth: isQrFullscreen ? 550 : 360,
+                    textAlign: 'center',
+                  }}
+                >
+                  {isQrFullscreen
+                    ? 'Scan with your smartphone camera to view live points, honors podium & attendee standings.'
+                    : 'Scan to view live points, top honors.'}
+                </div>
+              </div>
+
+              {/* Public URL Field with Copy Button */}
+              <div className="form-group" style={{ margin: 0 }}>
+                <label className="form-label" style={{ fontSize: '0.78rem', marginBottom: '0.35rem', color: 'var(--color-text)', fontWeight: 600 }}>
+                  Public Shareable URL
+                </label>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    readOnly
+                    className="form-input"
+                    style={{ fontSize: '0.8125rem', fontFamily: 'var(--font-mono)' }}
+                    value={`${window.location.origin}/leaderboard/${drawerEvent?._id || drawerEvent?.id || selectedEventId}`}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => {
+                      const url = `${window.location.origin}/leaderboard/${drawerEvent?._id || drawerEvent?.id || selectedEventId}`;
+                      navigator.clipboard.writeText(url);
+                      setLeaderboardCopied(true);
+                      setTimeout(() => setLeaderboardCopied(false), 2500);
+                    }}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', flexShrink: 0 }}
+                  >
+                    {leaderboardCopied ? <Check size={14} color="#10b981" /> : <Copy size={14} />}
+                    <span>{leaderboardCopied ? 'Copied' : 'Copy'}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg)' }}>
+              <a
+                href={`/leaderboard/${drawerEvent?._id || drawerEvent?.id || selectedEventId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="btn btn-ghost btn-sm"
+                style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8rem' }}
+              >
+                <ExternalLink size={13} />
+                <span>Open in New Tab</span>
+              </a>
+
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <a
+                  href={`https://api.qrserver.com/v1/create-qr-code/?size=600x600&margin=15&data=${encodeURIComponent(
+                    `${window.location.origin}/leaderboard/${drawerEvent?._id || drawerEvent?.id || selectedEventId}`
+                  )}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  download={`leaderboard-qr-${drawerEvent?._id || selectedEventId}.png`}
+                  className="btn btn-secondary btn-sm"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                >
+                  <Download size={13} />
+                  <span>Download QR</span>
+                </a>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={() => setShowLeaderboardShareModal(false)}
+                >
+                  Done
+                </button>
+              </div>
             </div>
           </div>
         </div>

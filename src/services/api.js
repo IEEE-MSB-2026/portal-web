@@ -900,5 +900,11 @@ export const api = {
       method: 'POST',
       body: data,
     }),
+  getPublicEventLeaderboard: (eventId, params = {}) => {
+    const qs = params.limit ? `?limit=${params.limit}` : '';
+    return request(`/api/events/${eventId}/leaderboard${qs}`);
+  },
+  lookupMyEventRank: (eventId, email) =>
+    request(`/api/events/${eventId}/leaderboard/my-rank?email=${encodeURIComponent(email)}`),
 };
 
