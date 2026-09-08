@@ -1814,13 +1814,18 @@ export default function OperationsStudio() {
           },
         });
 
+        const campaignId = campaign?.campaign?.id || campaign?.id;
+        if (!campaignId) {
+          throw new Error('Failed to retrieve campaign ID from campaign creation response.');
+        }
+
         if (isScheduled) {
           toast.success(
             'Campaign Scheduled',
             `Tickets scheduled for ${new Date(emailTemplate.scheduledFor).toLocaleString()} via Core Campaign Engine.`
           );
         } else {
-          await api.sendPRCampaign(campaign.id);
+          await api.sendPRCampaign(campaignId);
           toast.success('Campaign Dispatched', `QR tickets dispatched to ${prepRes.recipients.length} attendees via Core Campaign Engine!`);
         }
       } else {
@@ -4156,11 +4161,20 @@ export default function OperationsStudio() {
                               />
                               <select
                                 value={field.type}
-                                onChange={(e) => handleUpdateCustomField(idx, { type: e.target.value })}
+                                onChange={(e) => {
+                                  const newType = e.target.value;
+                                  const updates = { type: newType };
+                                  if (newType === 'national_id') {
+                                    if (!field.placeholder) updates.placeholder = '14-digit National ID';
+                                    if (!field.label || field.label === 'New Question') updates.label = 'National ID';
+                                  }
+                                  handleUpdateCustomField(idx, updates);
+                                }}
                                 className="form-input"
                                 style={{ fontSize: '0.85rem' }}
                               >
                                 <option value="text">Text Input</option>
+                                <option value="national_id">National ID (14 Digits)</option>
                                 <option value="select">Dropdown Select</option>
                                 <option value="number">Number</option>
                                 <option value="textarea">Textarea</option>

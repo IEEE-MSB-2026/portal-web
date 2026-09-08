@@ -758,31 +758,43 @@ export const api = {
       method: 'POST',
       body: data,
     }),
-  updatePRCampaign: (id, data) =>
-    request(`/api/core/pr/campaigns/${id}`, {
+  updatePRCampaign: (id, data) => {
+    if (!id || typeof id !== 'string') throw new Error(`Invalid campaign ID: ${id}`);
+    return request(`/api/core/pr/campaigns/${id}`, {
       method: 'PATCH',
       body: data,
-    }),
-  sendPRCampaign: (id) =>
-    request(`/api/core/pr/campaigns/${id}/send`, {
+    });
+  },
+  sendPRCampaign: (id) => {
+    if (!id || typeof id !== 'string') throw new Error(`Invalid campaign ID: ${id}`);
+    return request(`/api/core/pr/campaigns/${id}/send`, {
       method: 'POST',
-    }),
-  archivePRCampaign: (id) =>
-    request(`/api/core/pr/campaigns/${id}/archive`, {
+    });
+  },
+  archivePRCampaign: (id) => {
+    if (!id || typeof id !== 'string') throw new Error(`Invalid campaign ID: ${id}`);
+    return request(`/api/core/pr/campaigns/${id}/archive`, {
       method: 'POST',
-    }),
-  unarchivePRCampaign: (id) =>
-    request(`/api/core/pr/campaigns/${id}/unarchive`, {
+    });
+  },
+  unarchivePRCampaign: (id) => {
+    if (!id || typeof id !== 'string') throw new Error(`Invalid campaign ID: ${id}`);
+    return request(`/api/core/pr/campaigns/${id}/unarchive`, {
       method: 'POST',
-    }),
-  duplicatePRCampaign: (id) =>
-    request(`/api/core/pr/campaigns/${id}/duplicate`, {
+    });
+  },
+  duplicatePRCampaign: (id) => {
+    if (!id || typeof id !== 'string') throw new Error(`Invalid campaign ID: ${id}`);
+    return request(`/api/core/pr/campaigns/${id}/duplicate`, {
       method: 'POST',
-    }),
-  deletePRCampaign: (id) =>
-    request(`/api/core/pr/campaigns/${id}`, {
+    });
+  },
+  deletePRCampaign: (id) => {
+    if (!id || typeof id !== 'string') throw new Error(`Invalid campaign ID: ${id}`);
+    return request(`/api/core/pr/campaigns/${id}`, {
       method: 'DELETE',
-    }),
+    });
+  },
   previewPRCampaignRecipients: (data) =>
     request('/api/core/pr/campaigns/recipients-preview', {
       method: 'POST',

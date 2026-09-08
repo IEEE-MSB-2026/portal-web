@@ -74,8 +74,12 @@ export default function EventRegistrationModal({
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCustomResponseChange = (fieldId, value) => {
-    setCustomResponses((prev) => ({ ...prev, [fieldId]: value }));
+  const handleCustomResponseChange = (fieldId, value, fieldType) => {
+    let sanitized = value;
+    if (fieldType === 'national_id') {
+      sanitized = typeof value === 'string' ? value.replace(/\D/g, '').slice(0, 14) : '';
+    }
+    setCustomResponses((prev) => ({ ...prev, [fieldId]: sanitized }));
   };
 
   const validateStep1 = () => {
@@ -87,10 +91,21 @@ export default function EventRegistrationModal({
   const validateStep2 = () => {
     const fields = event.customFields || [];
     for (const f of fields) {
+      const val = customResponses[f.id];
+      const strVal = val !== undefined && val !== null ? String(val).trim() : '';
+
       if (f.required) {
-        const val = customResponses[f.id];
         if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
           return `Please complete the required question: "${f.label}"`;
+        }
+      }
+
+      if (f.type === 'national_id') {
+        if (f.required && !strVal) {
+          return `Please enter your 14-digit National ID for "${f.label}"`;
+        }
+        if (strVal && !/^\d{14}$/.test(strVal)) {
+          return `"${f.label}" must be exactly 14 digits (numbers only, currently ${strVal.length}/14)`;
         }
       }
     }
@@ -339,6 +354,43 @@ export default function EventRegistrationModal({
                         <option key={opt} value={opt}>{opt}</option>
                       ))}
                     </select>
+                  ) : field.type === 'national_id' ? (
+                    <div style={{ position: 'relative' }}>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        pattern="[0-9]*"
+                        maxLength={14}
+                        value={customResponses[field.id] || ''}
+                        onChange={(e) => handleCustomResponseChange(field.id, e.target.value, 'national_id')}
+                        placeholder={field.placeholder || 'Enter 14-digit National ID'}
+                        className="form-input"
+                        style={{
+                          paddingRight: '4.8rem',
+                          fontFamily: 'monospace',
+                          letterSpacing: '0.08em',
+                        }}
+                      />
+                      <span
+                        style={{
+                          position: 'absolute',
+                          right: '0.75rem',
+                          top: '50%',
+                          transform: 'translateY(-50%)',
+                          fontSize: '0.75rem',
+                          fontWeight: 600,
+                          color:
+                            (customResponses[field.id]?.length === 14)
+                              ? 'var(--color-success, #10b981)'
+                              : 'var(--color-text-muted)',
+                          pointerEvents: 'none',
+                          userSelect: 'none',
+                          transition: 'color 0.2s',
+                        }}
+                      >
+                        {customResponses[field.id]?.length || 0}/14
+                      </span>
+                    </div>
                   ) : field.type === 'textarea' ? (
                     <textarea
                       rows={3}
