@@ -5,10 +5,7 @@ const THEME_STORAGE_KEY = 'ieee_portal_theme';
 function getInitialTheme() {
   const saved = localStorage.getItem(THEME_STORAGE_KEY);
   if (saved === 'light' || saved === 'dark') return saved;
-  if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-    return 'light';
-  }
-  return 'dark';
+  return 'light';
 }
 
 export const useThemeStore = create((set, get) => ({
