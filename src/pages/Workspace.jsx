@@ -48,11 +48,13 @@ import {
   UserCheck,
   CheckSquare,
   Square,
+  Activity,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
 import UserProfileModal from '../components/profile/UserProfileModal';
+import ExecutiveBoardView from '../components/workspace/ExecutiveBoardView';
 import { api } from '../services/api';
 import '../styles/workspace.css';
 
@@ -60,7 +62,17 @@ export default function Workspace() {
   const { user, updateUser } = useAuthStore();
   const toast = useToastStore();
   const [selectedProfileUserId, setSelectedProfileUserId] = useState(null);
-  const VALID_WORKSPACE_TABS = ['kanban', 'assignments', 'announcements', 'resources', 'roster', 'archived'];
+  const VALID_WORKSPACE_TABS = [
+    'kanban',
+    'assignments',
+    'announcements',
+    'resources',
+    'roster',
+    'archived',
+    'cockpit',
+    'vault',
+    'excom',
+  ];
   const [searchParams, setSearchParams] = useSearchParams();
   const initialTab = VALID_WORKSPACE_TABS.includes(searchParams.get('tab')) ? searchParams.get('tab') : 'kanban';
   const [activeTab, setActiveTabState] = useState(initialTab);
@@ -204,13 +216,84 @@ export default function Workspace() {
     isOpen: !!editingResource,
   });
 
-  // Active committee ID resolution (supports query param ?committee=<id> for follow-up navigation)
+  // Active committee ID & view resolution
   const queryCommitteeId = searchParams.get('committee') || searchParams.get('committeeId');
-  const activeCommitteeId = queryCommitteeId || user?.committeeId || (user?.scopeType === 'committee' ? user?.scopeId : null);
-  
+  const viewParam = searchParams.get('view');
+
   // Committee & Follow-up permissions resolution
   const isAdmin = user?.role === 'admin' || user?.availableScopes?.some((s) => s.role === 'admin');
   const isOfficer = user?.role === 'officer' || user?.availableScopes?.some((s) => s.role === 'officer');
+  const isOfficerOrAdmin = isAdmin || isOfficer;
+
+  // Executive Board is displayed if user is Officer/Admin AND either explicitly requested ?view=executive OR no ?committee= param provided
+  const isExecutiveView = isOfficerOrAdmin && (viewParam === 'executive' || !queryCommitteeId);
+
+  const activeCommitteeId = isExecutiveView
+    ? null
+    : (queryCommitteeId || user?.committeeId || (user?.scopeType === 'committee' ? user?.scopeId : null));
+
+  const [allCommitteesList, setAllCommitteesList] = useState([]);
+
+  useEffect(() => {
+    if (isOfficerOrAdmin) {
+      api
+        .getPublicCommittees()
+        .then((data) => {
+          setAllCommitteesList(data.committees || []);
+        })
+        .catch((err) => {
+          console.error('Failed to load committees for workspace switcher:', err);
+        });
+    }
+  }, [isOfficerOrAdmin]);
+
+  const handleSwitchWorkspace = (target) => {
+    if (target === 'executive') {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('committee');
+          next.delete('committeeId');
+          next.set('view', 'executive');
+          const currentTab = next.get('tab');
+          if (currentTab && !['kanban', 'cockpit', 'vault', 'excom', 'archived'].includes(currentTab)) {
+            next.delete('tab');
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    } else {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.delete('view');
+          next.set('committee', target);
+          const currentTab = next.get('tab');
+          if (currentTab && !['kanban', 'assignments', 'announcements', 'resources', 'roster', 'archived'].includes(currentTab)) {
+            next.delete('tab');
+          }
+          return next;
+        },
+        { replace: true }
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (isExecutiveView) {
+      const validExecTabs = ['kanban', 'cockpit', 'vault', 'excom', 'archived'];
+      if (!validExecTabs.includes(activeTab)) {
+        setActiveTab('kanban');
+      }
+    } else if (activeCommitteeId) {
+      const validCommTabs = ['kanban', 'assignments', 'announcements', 'resources', 'roster', 'archived'];
+      if (!validCommTabs.includes(activeTab)) {
+        setActiveTab('kanban');
+      }
+    }
+  }, [isExecutiveView, activeCommitteeId]);
+
   const isHRLead = user?.availableScopes?.some(
     (s) => (s.committeeSlug === 'hr' || s.committeeName?.toLowerCase().includes('human resource')) && s.role === 'lead'
   );
@@ -419,7 +502,6 @@ export default function Workspace() {
 
     try {
       await api.updateTaskStatus({ taskId, status: newStatus });
-      toast.success('Task Status Updated', `Task moved to ${newStatus.replace('_', ' ')}`);
     } catch (err) {
       fetchWorkspace(activeCommitteeId);
       toast.error('Status Update Failed', err.message || 'Could not update task status.');
@@ -976,7 +1058,7 @@ export default function Workspace() {
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
-  if (!activeCommitteeId && !loading) {
+  if (!activeCommitteeId && !isExecutiveView && !loading) {
     return (
       <div className="workspace-picker-container">
         <div className="workspace-picker-header">
@@ -988,6 +1070,25 @@ export default function Workspace() {
         </div>
 
         <div className="workspace-picker-grid">
+          {isOfficerOrAdmin && (
+            <div className="workspace-picker-card">
+              <div className="workspace-picker-card__icon">
+                <Layers size={24} />
+              </div>
+              <div className="workspace-picker-card__title">Executive Board</div>
+              <p className="workspace-picker-card__desc">
+                Role: <strong>{isAdmin ? 'ADMIN' : 'OFFICER'}</strong> &bull; Executive governance, tasks & health cockpit
+              </p>
+              <button
+                type="button"
+                className="workspace-picker-card__btn"
+                onClick={() => handleSwitchWorkspace('executive')}
+              >
+                <span>Enter Board</span>
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          )}
           {(user?.availableScopes || []).map((scope) => (
             <div key={scope.id || scope.scopeId} className="workspace-picker-card">
               <div className="workspace-picker-card__icon">
@@ -1026,65 +1127,164 @@ export default function Workspace() {
 
   return (
     <div className="workspace-page">
-      {/* 1. WORKSPACE HEADER HERO */}
-      <header className="workspace-header">
-        <div className="workspace-header__layout">
-          <div className="workspace-header__identity">
-            <div className="workspace-header__icon-badge">
-              <Layers size={30} />
-            </div>
-            <div>
-              <h1 className="workspace-header__title">{committee.name || 'Committee Workspace'}</h1>
-              <div className="workspace-header__badges">
-                <span
-                  className={`badge ${
-                    isLead
-                      ? 'badge-warning'
-                      : isReadOnlyHR
-                      ? 'badge-hr'
-                      : 'badge-outline'
-                  }`}
-                >
-                  {isLead ? <Shield size={12} /> : isReadOnlyHR ? <ShieldCheck size={12} /> : <User size={12} />}
-                  {isLead ? 'TEAM LEAD' : isReadOnlyHR ? 'HR' : 'MEMBER'}
-                </span>
-                <span className="badge badge-committee" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
-                  {workspaceData?.committee?.slug || user?.committeeSlug}
-                </span>
-                <span style={{ fontSize: '0.8125rem', opacity: 0.9 }}>
-                  {allTasks.length} Tasks &bull; {assignments.length} Assignments &bull; {resources.length} Resources
-                </span>
+      {isExecutiveView ? (
+        <>
+          {/* 1. WORKSPACE HEADER HERO (Executive Board) */}
+          <header className="workspace-header workspace-header--executive">
+            <div className="workspace-header__layout">
+              <div className="workspace-header__identity">
+                <div className="workspace-header__icon-badge">
+                  <Layers size={30} />
+                </div>
+                <div>
+                  <h1 className="workspace-header__title">Executive Board</h1>
+                  <div className="workspace-header__badges">
+                    <span className="badge badge-primary">
+                      <Shield size={12} />
+                      {isAdmin ? 'ADMINISTRATOR' : 'OFFICER'}
+                    </span>
+                    <span className="badge badge-committee" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                      EXCOM
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          {/* Action CTAs for Leads */}
-          <div className="workspace-header__actions">
-            {isLead && (
-              <>
+              {/* Action CTAs */}
+              <div className="workspace-header__actions">
                 <button
                   type="button"
                   className="workspace-btn-primary"
-                  id="btn-create-task"
-                  onClick={() => setCreateTaskModalOpen(true)}
+                  onClick={() => {
+                    const btn = document.getElementById('btn-exec-create-task');
+                    if (btn) btn.click();
+                  }}
                 >
                   <Plus size={16} />
-                  <span>New Task</span>
+                  <span>New Strategic Task</span>
                 </button>
+              </div>
+            </div>
+          </header>
 
-                <button
-                  type="button"
-                  className="workspace-btn-secondary"
-                  onClick={() => setCreateAnnouncementModalOpen(true)}
-                >
-                  <Plus size={15} />
-                  <span>Post Announcement</span>
-                </button>
-              </>
-            )}
-          </div>
-        </div>
-      </header>
+          {/* 2. TAB NAVIGATION (Executive Board) */}
+          <nav className="workspace-tabs" aria-label="Executive Workspace Sections">
+            <button
+              type="button"
+              className={`workspace-tab ${activeTab === 'kanban' ? 'workspace-tab--active' : ''}`}
+              onClick={() => setActiveTab('kanban')}
+            >
+              <ListTodo size={16} />
+              <span>Strategic Tasks</span>
+            </button>
+
+            <button
+              type="button"
+              className={`workspace-tab ${activeTab === 'cockpit' ? 'workspace-tab--active' : ''}`}
+              onClick={() => setActiveTab('cockpit')}
+            >
+              <Activity size={16} />
+              <span>Health Cockpit</span>
+            </button>
+
+            <button
+              type="button"
+              className={`workspace-tab ${activeTab === 'vault' ? 'workspace-tab--active' : ''}`}
+              onClick={() => setActiveTab('vault')}
+            >
+              <FolderDown size={16} />
+              <span>Governance Vault</span>
+            </button>
+
+            <button
+              type="button"
+              className={`workspace-tab ${activeTab === 'excom' ? 'workspace-tab--active' : ''}`}
+              onClick={() => setActiveTab('excom')}
+            >
+              <Users size={16} />
+              <span>Excom Team</span>
+            </button>
+
+            <button
+              type="button"
+              className={`workspace-tab ${activeTab === 'archived' ? 'workspace-tab--active' : ''}`}
+              onClick={() => setActiveTab('archived')}
+            >
+              <Archive size={16} />
+              <span>Archived</span>
+            </button>
+          </nav>
+
+          {/* 3. EXECUTIVE BOARD VIEW BODY */}
+          <ExecutiveBoardView
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            onSwitchWorkspace={handleSwitchWorkspace}
+            isAdmin={isAdmin}
+            isOfficer={isOfficer}
+          />
+        </>
+      ) : (
+        <>
+          {/* 1. WORKSPACE HEADER HERO */}
+          <header className="workspace-header">
+            <div className="workspace-header__layout">
+              <div className="workspace-header__identity">
+                <div className="workspace-header__icon-badge">
+                  <Layers size={30} />
+                </div>
+                <div>
+                  <h1 className="workspace-header__title">{committee.name || 'Committee Workspace'}</h1>
+                  <div className="workspace-header__badges">
+                    <span
+                      className={`badge ${
+                        isLead
+                          ? 'badge-warning'
+                          : isReadOnlyHR
+                          ? 'badge-hr'
+                          : 'badge-outline'
+                      }`}
+                    >
+                      {isLead ? <Shield size={12} /> : isReadOnlyHR ? <ShieldCheck size={12} /> : <User size={12} />}
+                      {isLead ? 'TEAM LEAD' : isReadOnlyHR ? 'HR' : 'MEMBER'}
+                    </span>
+                    <span className="badge badge-committee" style={{ fontSize: '0.7rem', textTransform: 'uppercase' }}>
+                      {workspaceData?.committee?.slug || user?.committeeSlug}
+                    </span>
+                    <span style={{ fontSize: '0.8125rem', opacity: 0.9 }}>
+                      {allTasks.length} Tasks &bull; {assignments.length} Assignments &bull; {resources.length} Resources
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action CTAs for Leads */}
+              <div className="workspace-header__actions">
+                {isLead && (
+                  <>
+                    <button
+                      type="button"
+                      className="workspace-btn-primary"
+                      id="btn-create-task"
+                      onClick={() => setCreateTaskModalOpen(true)}
+                    >
+                      <Plus size={16} />
+                      <span>New Task</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      className="workspace-btn-secondary"
+                      onClick={() => setCreateAnnouncementModalOpen(true)}
+                    >
+                      <Plus size={15} />
+                      <span>Post Announcement</span>
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </header>
 
       {/* HR Banner */}
       {isReadOnlyHR && (
@@ -1282,7 +1482,6 @@ export default function Workspace() {
                               onClick={() => handleUpdateTaskStatus(task.id, 'in_progress')}
                             >
                               <Play size={12} />
-                              <span>Start</span>
                             </button>
                           ) : (
                             <span className="workspace-task-card__locked" title="Assigned to another team member">
@@ -2163,6 +2362,8 @@ export default function Workspace() {
             </div>
           )}
         </section>
+      )}
+        </>
       )}
 
       {/* 9. CREATE / EDIT ASSIGNMENT MODAL (Lead) */}

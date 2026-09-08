@@ -974,5 +974,106 @@ export const api = {
   },
   lookupMyEventRank: (eventId, email) =>
     request(`/api/events/${eventId}/leaderboard/my-rank?email=${encodeURIComponent(email)}`),
+
+  // ── Officer Executive Workspace ───────────────────────────────────────────
+  // Tab 1: Board Kanban Tasks
+  getBoardTasks: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.status) query.append('status', params.status);
+    if (params.priority) query.append('priority', params.priority);
+    const qs = query.toString();
+    return request(`/api/core/officers/tasks${qs ? `?${qs}` : ''}`);
+  },
+  getArchivedBoardTasks: () => request('/api/core/officers/tasks/archived'),
+  createBoardTask: (data) =>
+    request('/api/core/officers/tasks', {
+      method: 'POST',
+      body: data,
+    }),
+  updateBoardTask: (id, data) =>
+    request(`/api/core/officers/tasks/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  deleteBoardTask: (id) =>
+    request(`/api/core/officers/tasks/${id}`, {
+      method: 'DELETE',
+    }),
+  archiveBoardTask: (id, isArchived = true) =>
+    request(`/api/core/officers/tasks/${id}/archive`, {
+      method: 'POST',
+      body: { isArchived },
+    }),
+
+  // Tab 2: Cross-Committee Health & Progress Cockpit
+  getBranchCockpitStats: () => request('/api/core/officers/cockpit'),
+
+  // Tab 3: Governance Vault Documents
+  getGovernanceDocuments: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.tag) query.append('tag', params.tag);
+    if (params.search) query.append('search', params.search);
+    const qs = query.toString();
+    return request(`/api/core/officers/documents${qs ? `?${qs}` : ''}`);
+  },
+  createGovernanceDocument: (data) =>
+    request('/api/core/officers/documents', {
+      method: 'POST',
+      body: data,
+    }),
+  updateGovernanceDocument: (id, data) =>
+    request(`/api/core/officers/documents/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  deleteGovernanceDocument: (id) =>
+    request(`/api/core/officers/documents/${id}`, {
+      method: 'DELETE',
+    }),
+
+  // Tab 4: Excom Internal Team & Role Assignment
+  getExcomMembers: (params = {}) => {
+    const query = new URLSearchParams();
+    if (params.season) query.append('season', params.season);
+    const qs = query.toString();
+    return request(`/api/core/officers/excom${qs ? `?${qs}` : ''}`);
+  },
+  assignExcomMember: (data) =>
+    request('/api/core/officers/excom', {
+      method: 'POST',
+      body: data,
+    }),
+  removeExcomMember: (id) =>
+    request(`/api/core/officers/excom/${id}`, {
+      method: 'DELETE',
+    }),
+  searchCandidateOfficers: (q) =>
+    request(`/api/core/officers/candidates?q=${encodeURIComponent(q || '')}`),
+
+  // Public Officers Reorder & Admin Management
+  createPublicOfficer: (data) =>
+    request('/api/core/admin/officers', {
+      method: 'POST',
+      body: data,
+    }),
+  updatePublicOfficer: (id, data) =>
+    request(`/api/core/admin/officers/${id}`, {
+      method: 'PATCH',
+      body: data,
+    }),
+  deletePublicOfficer: (id) =>
+    request(`/api/core/admin/officers/${id}`, {
+      method: 'DELETE',
+    }),
+  reorderPublicOfficers: (orderedItems) =>
+    request('/api/core/admin/officers/reorder', {
+      method: 'PUT',
+      body: { orderedItems },
+    }),
+  setActiveSeason: (season) =>
+    request('/api/core/admin/officers/seasons/set-active', {
+      method: 'PUT',
+      body: { season },
+    }),
 };
 

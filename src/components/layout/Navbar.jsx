@@ -22,6 +22,7 @@ import {
   Camera,
   Megaphone,
   QrCode,
+  ShieldCheck,
 } from 'lucide-react';
 
 export default function Navbar() {
@@ -115,6 +116,10 @@ export default function Navbar() {
     user?.role === 'scanner' ||
     ['admin', 'officer'].includes(user?.role) ||
     Boolean(user?.isAssignedScanner);
+
+  const isOfficerAuthorized =
+    ['admin', 'officer'].includes(user?.role) ||
+    (user?.availableScopes && user.availableScopes.some((s) => ['admin', 'officer'].includes(s.role)));
 
   const handleScopeSwitch = async (targetScope) => {
     const targetScopeId = targetScope.id || targetScope.scopeId;
@@ -445,7 +450,7 @@ export default function Navbar() {
                         >
                           <div className="nav-profile-link__left">
                             <Layers size={15} />
-                            <span>Committee Workspace</span>
+                            <span>Workspace</span>
                           </div>
                           <ChevronRight size={13} className="nav-profile-link__arrow" />
                         </Link>

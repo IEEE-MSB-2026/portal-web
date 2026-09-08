@@ -1104,7 +1104,6 @@ export default function HRStudio() {
   const handleToggleCampaignStatus = async (campaign, newStatus) => {
     try {
       await api.updateHRCampaignStatus(campaign.id, newStatus);
-      toast.success('Status Updated', `Campaign is now "${newStatus}".`);
       loadCampaigns();
     } catch (err) {
       toast.error('Update Failed', err.message);

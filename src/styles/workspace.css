@@ -344,6 +344,7 @@
 
 .workspace-task-card__priority-badge {
   font-size: 0.65rem;
+  margin-right: 7px;
   font-weight: 700;
   padding: 0.125rem 0.4rem;
   border-radius: 9999px;
@@ -1244,3 +1245,124 @@
     grid-template-columns: repeat(2, 1fr);
   }
 }
+
+/* --------------------------------------------------------------------------
+   Unified Workspace Switcher & Executive Board Styling
+   -------------------------------------------------------------------------- */
+.workspace-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: var(--radius-md);
+  padding: 0.35rem 0.75rem;
+}
+
+.workspace-switcher__select {
+  background: transparent;
+  color: #ffffff !important;
+  border: none;
+  font-weight: 700;
+  font-size: 0.875rem;
+  outline: none;
+  cursor: pointer;
+  padding: 0.15rem 0.25rem;
+}
+
+.workspace-switcher__select option {
+  background: var(--color-surface, #1e293b);
+  color: var(--color-text, #f8fafc);
+  font-weight: 500;
+}
+
+.workspace-header--executive {
+  background: linear-gradient(135deg, #002855 0%, #00629b 100%);
+  border: 1px solid var(--color-border);
+}
+
+.workspace-header--executive .workspace-header__icon-badge {
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   User & Candidate Search Picker (Appoint Officers & Assign Members)
+   -------------------------------------------------------------------------- */
+.hr-search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 200px;
+}
+
+.hr-search-wrap svg {
+  position: absolute;
+  left: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.hr-search-input {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  padding-left: 2.25rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-size: 0.875rem;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.hr-search-input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.user-picker-list {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-bg);
+  margin-top: 0.5rem;
+}
+
+.user-picker-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.55rem 0.85rem;
+  border-bottom: 1px solid var(--color-border);
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.user-picker-item:last-child {
+  border-bottom: none;
+}
+
+.user-picker-item:hover {
+  background: var(--color-card-hover);
+}
+
+.user-picker-item--selected {
+  background: var(--color-primary-light);
+}
+
+.user-picker-item__name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.user-picker-item__email {
+  font-size: 0.75rem;
+  color: var(--color-text-muted);
+}
+

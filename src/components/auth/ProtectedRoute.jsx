@@ -2,7 +2,11 @@ import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 
-export default function ProtectedRoute({ children, requireCommittee = false }) {
+export default function ProtectedRoute({
+  children,
+  requireCommittee = false,
+  requireOfficerOrAdmin = false,
+}) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const user = useAuthStore((state) => state.user);
   const location = useLocation();
@@ -12,12 +16,22 @@ export default function ProtectedRoute({ children, requireCommittee = false }) {
     return <Navigate to={`/login?redirect=${redirectPath}`} replace />;
   }
 
+  if (requireOfficerOrAdmin) {
+    const isOfficerOrAdmin =
+      ['admin', 'officer'].includes(user?.role) ||
+      (user?.availableScopes && user.availableScopes.some((s) => ['admin', 'officer'].includes(s.role)));
+    if (!isOfficerOrAdmin) {
+      return <Navigate to="/dashboard" replace />;
+    }
+  }
+
   if (requireCommittee) {
     const hasCommitteeAccess = Boolean(
       user?.scopeType === 'committee' ||
       user?.committeeId ||
       (user?.availableScopes && user.availableScopes.some((s) => s.scopeType === 'committee' || s.committeeSlug || s.committeeName)) ||
-      ['admin', 'officer'].includes(user?.role)
+      ['admin', 'officer'].includes(user?.role) ||
+      (user?.availableScopes && user.availableScopes.some((s) => ['admin', 'officer'].includes(s.role)))
     );
     if (!hasCommitteeAccess) {
       return <Navigate to="/" replace />;

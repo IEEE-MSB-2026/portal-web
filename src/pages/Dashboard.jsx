@@ -499,6 +499,19 @@ export default function Dashboard() {
 
   const specializedWorkspaces = [];
 
+  if (isGlobalAdminOrOfficer) {
+    specializedWorkspaces.push({
+      id: 'workspace-officer-executive',
+      name: 'Officer Executive Board',
+      slug: 'executive',
+      role: isGlobalAdmin ? 'ADMIN' : 'OFFICER',
+      type: 'executive',
+      category: 'EXECUTIVE',
+      path: '/workspace',
+      isCommittee: false,
+    });
+  }
+
   if (isGlobalAdminOrOfficer || hrScope) {
     specializedWorkspaces.push({
       id: 'workspace-hr-studio',
@@ -789,7 +802,7 @@ export default function Dashboard() {
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
             <Link to="/workspace" className="dashboard-hero__cta" id="btn-open-workspace">
               <Layers size={17} />
-              <span>Committee Workspace</span>
+              <span>{isGlobalAdminOrOfficer ? 'Officer Workspace' : 'Committee Workspace'}</span>
               <ArrowRight size={16} />
             </Link>
           </div>
