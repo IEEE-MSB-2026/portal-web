@@ -196,10 +196,10 @@ export const api = {
     return data;
   },
 
-  switchContext: async ({ targetScopeId }) => {
+  switchContext: async ({ targetScopeId, scopeId, id } = {}) => {
     const data = await request('/api/auth/switch-context', {
       method: 'POST',
-      body: { targetScopeId },
+      body: { targetScopeId: targetScopeId || scopeId || id },
     });
     if (data.token && data.user) {
       useAuthStore.getState().setAuth({
@@ -343,6 +343,13 @@ export const api = {
     purpose = 'general',
     tags,
   }) => {
+    // Universal 10MB limit enforcement before uploading
+    const MAX_ALLOWED_BYTES = 10 * 1024 * 1024;
+    if (file && file.size > MAX_ALLOWED_BYTES) {
+      const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+      throw new Error(`File size (${sizeMb}MB) exceeds the maximum allowed limit of 10MB.`);
+    }
+
     const isImage = file.type && file.type.startsWith('image/');
     const resolvedResourceType = resourceType === 'auto' ? (isImage ? 'image' : 'raw') : resourceType;
 
@@ -405,6 +412,22 @@ export const api = {
       cloudinary: cldData,
     };
   },
+
+  deleteFileAsset: (id) =>
+    request(`/api/files/assets/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
+
+  deleteFileByUrl: (url, resourceType = 'image') =>
+    request('/api/files/by-url', {
+      method: 'DELETE',
+      body: { url, resourceType },
+    }),
+
+  cleanupOrphanFiles: (dryRun = false) =>
+    request(`/api/files/cleanup/orphans${dryRun ? '?dryRun=true' : ''}`, {
+      method: 'POST',
+    }),
 
   // Public Catalog
   getPublicCommittees: () => request('/api/core/public/committees'),

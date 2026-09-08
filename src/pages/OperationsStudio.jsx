@@ -1894,6 +1894,11 @@ export default function OperationsStudio() {
       toast.error('Invalid File', 'Please select an image file (PNG, JPG, WebP).');
       return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Maximum event cover image size is 10MB.');
+      if (e.target) e.target.value = '';
+      return;
+    }
     setUploadingCover(true);
     try {
       const res = await api.uploadDirectToCloudinary({

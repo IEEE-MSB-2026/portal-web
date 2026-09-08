@@ -481,6 +481,10 @@ export default function PRStudio() {
       toast.error('Invalid File', 'Please upload a PNG, JPG, or WebP image file.');
       return;
     }
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Maximum banner size is 10MB.');
+      return;
+    }
 
     setUploadingBanner(true);
     try {
@@ -1940,7 +1944,7 @@ export default function PRStudio() {
                               <>
                                 <ImageIcon size={22} style={{ opacity: 0.5, marginBottom: '0.2rem' }} />
                                 <span style={{ fontSize: '0.84375rem', fontWeight: 600 }}>Click to upload header banner</span>
-                                <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>PNG, JPG, WebP up to 5MB</span>
+                                <span style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>PNG, JPG, WebP up to 10MB</span>
                               </>
                             )}
                             <input

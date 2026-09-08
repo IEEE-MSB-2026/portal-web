@@ -300,7 +300,30 @@ export default function MediaStudio() {
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    const newUploads = files.map((file, idx) => ({
+    const validFiles = [];
+    const oversizedFiles = [];
+
+    for (const file of files) {
+      if (file.size > 10 * 1024 * 1024) {
+        oversizedFiles.push(file.name);
+      } else {
+        validFiles.push(file);
+      }
+    }
+
+    if (oversizedFiles.length > 0) {
+      toast.warning(
+        'Files Exceed 10MB',
+        `${oversizedFiles.length} file(s) exceeded the 10MB limit and were skipped: ${oversizedFiles.slice(0, 3).join(', ')}${oversizedFiles.length > 3 ? '...' : ''}`
+      );
+    }
+
+    if (!validFiles.length) {
+      if (e.target) e.target.value = '';
+      return;
+    }
+
+    const newUploads = validFiles.map((file, idx) => ({
       id: `up_${Date.now()}_${idx}`,
       file,
       name: file.name,
@@ -555,6 +578,12 @@ export default function MediaStudio() {
   const handleBrandFileSelect = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('File Too Large', 'Maximum brand asset size is 10MB.');
+      if (e.target) e.target.value = '';
+      return;
+    }
 
     const ext = file.name.includes('.') ? file.name.split('.').pop().toLowerCase() : 'bin';
     const isImage = file.type.startsWith('image/') || ['svg', 'png', 'jpg', 'jpeg', 'webp'].includes(ext);
