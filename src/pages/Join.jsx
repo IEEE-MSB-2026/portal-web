@@ -215,6 +215,10 @@ export default function Join() {
   };
 
   const handleSubmit = async () => {
+    if (user && !user.isEmailVerified) {
+      toast.warning('Verification Required', 'Please verify your email address before submitting your application.');
+      return;
+    }
     setSubmitting(true);
     try {
       await api.submitHRApplication({
@@ -280,12 +284,8 @@ export default function Join() {
       <div className="join-page">
         <div className="join-page__header">
           <h1>Join IEEE MSB</h1>
-          <p>Be part of Egypt's most innovative student engineering branch.</p>
         </div>
         <div className="join-card" style={{ textAlign: 'center', padding: 'var(--space-12)' }}>
-          <div style={{ width: '4rem', height: '4rem', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.15)', color: '#f59e0b', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-4)' }}>
-            <Sparkles size={28} />
-          </div>
           <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.35rem', fontWeight: 700, marginBottom: 'var(--space-2)' }}>
             Recruitment is Not Open Yet
           </h2>
@@ -677,6 +677,29 @@ export default function Join() {
                   <div className="join-summary__row"><span className="join-summary__label">File</span><span className="join-summary__value">{cvFile.name}</span></div>
                 </div>
               )}
+
+              {user && !user.isEmailVerified && (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'flex-start',
+                    gap: '12px',
+                    padding: '14px 16px',
+                    borderRadius: '8px',
+                    background: 'rgba(234, 179, 8, 0.12)',
+                    border: '1px solid rgba(234, 179, 8, 0.35)',
+                    marginTop: '1.25rem',
+                    fontSize: '14px',
+                    lineHeight: '1.5',
+                  }}
+                >
+                  <AlertCircle size={20} style={{ color: '#d97706', flexShrink: 0, marginTop: '2px' }} />
+                  <div>
+                    <strong style={{ color: '#d97706', display: 'block', marginBottom: '2px' }}>Email Verification Required</strong>
+                    <span>Please verify your email address (<strong>{user.email}</strong>) before submitting your application. A verification link was sent upon registration, or you can use the banner at the top of the page to resend.</span>
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}
@@ -701,8 +724,20 @@ export default function Join() {
               <span>View Application Status</span>
             </Link>
           ) : (
-            <button type="button" className="btn btn-primary" disabled={submitting} onClick={handleSubmit} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-              {submitting ? 'Submitting...' : <><Send size={16} /> Submit Application</>}
+            <button
+              type="button"
+              className="btn btn-primary"
+              disabled={submitting || (user && !user.isEmailVerified)}
+              onClick={handleSubmit}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+            >
+              {user && !user.isEmailVerified ? (
+                'Verification Required'
+              ) : submitting ? (
+                'Submitting...'
+              ) : (
+                <><Send size={16} /> Submit Application</>
+              )}
             </button>
           )}
         </div>

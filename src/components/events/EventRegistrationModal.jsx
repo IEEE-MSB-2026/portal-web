@@ -61,9 +61,13 @@ export default function EventRegistrationModal({
 
   // Eligibility Guard
   const isPublic = !event.allowedAudience || event.allowedAudience === 'public';
+  const isEmailUnverified = Boolean(isAuthenticated && user && !user.isEmailVerified && !isPreview);
+
   let eligibilityWarning = null;
   if (!isAuthenticated && !isPublic && !isPreview) {
     eligibilityWarning = 'This event is restricted to IEEE Portal members. Please log in to your account to register.';
+  } else if (isEmailUnverified) {
+    eligibilityWarning = `Email verification required: Please verify your email address (${user?.email}) before registering for events.`;
   }
 
   const handleInputChange = (field, value) => {
@@ -111,6 +115,10 @@ export default function EventRegistrationModal({
 
   const handleSubmit = async () => {
     setError(null);
+    if (isEmailUnverified) {
+      setError(`Please verify your email address (${user?.email}) to register for events.`);
+      return;
+    }
     if (step === 2) {
       const err = validateStep2();
       if (err) {
@@ -291,11 +299,13 @@ export default function EventRegistrationModal({
                 <button
                   type="button"
                   onClick={handleNext}
-                  disabled={loading}
+                  disabled={loading || isEmailUnverified}
                   className="btn btn-primary"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  {event.customFields && event.customFields.length > 0 ? (
+                  {isEmailUnverified ? (
+                    'Verification Required'
+                  ) : event.customFields && event.customFields.length > 0 ? (
                     <>Next: Questions <ChevronRight size={15} /></>
                   ) : (
                     loading ? 'Confirming...' : 'Complete Registration'
@@ -371,10 +381,10 @@ export default function EventRegistrationModal({
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={loading}
+                  disabled={loading || isEmailUnverified}
                   className="btn btn-primary"
                 >
-                  {loading ? 'Submitting...' : 'Complete Registration ✓'}
+                  {isEmailUnverified ? 'Verification Required' : loading ? 'Submitting...' : 'Complete Registration ✓'}
                 </button>
               </div>
             </div>

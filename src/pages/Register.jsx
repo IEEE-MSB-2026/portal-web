@@ -5,6 +5,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { useThemeStore } from '../store/themeStore';
 import AuthVisualPanel from '../components/auth/AuthVisualPanel';
+import GoogleAuthButton from '../components/auth/GoogleAuthButton';
 import '../styles/auth.css';
 
 export default function Register() {
@@ -100,10 +101,6 @@ export default function Register() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleSignIn = () => {
-    toast.info('Google SSO', 'Google Workspace Single Sign-On will be activated in the upcoming production release.');
   };
 
   return (
@@ -336,13 +333,11 @@ export default function Register() {
 
             <div className="auth-divider">or continue with</div>
 
-            <button className="auth-btn-secondary" type="button" onClick={handleGoogleSignIn}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="12" cy="8" r="3.4" />
-                <path d="M5 20c1.2-3.6 4-5.4 7-5.4s5.8 1.8 7 5.4" />
-              </svg>
-              Sign up with Google
-            </button>
+            <GoogleAuthButton
+              mode="signup"
+              redirectUrl={redirectUrl}
+              onError={(errMsg) => setError(errMsg)}
+            />
           </form>
 
           <p className="auth-foot-note">

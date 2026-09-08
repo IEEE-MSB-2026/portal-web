@@ -16,6 +16,7 @@ import Gallery from './pages/Gallery';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
+import VerifyEmail from './pages/VerifyEmail';
 import Profile from './pages/Profile';
 import Dashboard from './pages/Dashboard';
 import Workspace from './pages/Workspace';
@@ -84,6 +85,7 @@ export default function App() {
           <Route path="events" element={<Events />} />
           <Route path="announcements" element={<Announcements />} />
           <Route path="gallery" element={<Gallery />} />
+          <Route path="verify-email" element={<VerifyEmail />} />
           <Route
             path="join"
             element={

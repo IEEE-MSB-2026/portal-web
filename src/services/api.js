@@ -80,7 +80,10 @@ async function request(endpoint, options = {}, isRetry = false) {
   const isAuthEndpoint =
     endpoint.startsWith('/api/auth/login') ||
     endpoint.startsWith('/api/auth/register') ||
-    endpoint.startsWith('/api/auth/refresh');
+    endpoint.startsWith('/api/auth/refresh') ||
+    endpoint.startsWith('/api/auth/google') ||
+    endpoint.startsWith('/api/auth/verify-email') ||
+    endpoint.startsWith('/api/auth/forgot-password');
 
   // Proactive check: refresh before dispatching if access token is expired or expiring within 30s
   if (!isAuthEndpoint && !isRetry && token && authStore.refreshToken && isTokenExpiringSoon(token, 30)) {
@@ -232,6 +235,34 @@ export const api = {
       useAuthStore.getState().logout();
     }
   },
+
+  loginWithGoogle: async ({ credential }) => {
+    const data = await request('/api/auth/google', {
+      method: 'POST',
+      body: { credential },
+    });
+    if (data.token && data.user) {
+      useAuthStore.getState().setAuth(data);
+    }
+    return data;
+  },
+
+  verifyEmail: async ({ token }) => {
+    const data = await request('/api/auth/verify-email', {
+      method: 'POST',
+      body: { token },
+    });
+    if (data.user) {
+      useAuthStore.getState().updateUser(data.user);
+    }
+    return data;
+  },
+
+  resendVerificationEmail: ({ email } = {}) =>
+    request('/api/auth/resend-verification', {
+      method: 'POST',
+      body: email ? { email } : {},
+    }),
 
   // Member Profile & User Settings
   updateProfile: ({ membershipId, name }) =>
