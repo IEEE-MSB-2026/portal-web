@@ -122,7 +122,14 @@ export default function Dashboard() {
         api.getEvents({ status: 'active' }).catch(() => []),
       ]);
       setDashboardData(data);
-      setOnboardingItems(onboardingRes?.onboarding?.items || []);
+      const items = onboardingRes?.onboarding?.items || [];
+      setOnboardingItems(items);
+      if (items.some((i) => i.status !== 'done')) {
+        setDismissedOnboarding(false);
+        try {
+          localStorage.removeItem('dismiss_onboarding_completed');
+        } catch (_) {}
+      }
 
       const eventList = Array.isArray(eventsRes) ? eventsRes : (eventsRes?.events || []);
       const currentUserId = String(user?.id || user?._id || '');
