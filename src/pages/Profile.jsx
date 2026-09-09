@@ -528,16 +528,39 @@ export default function Profile() {
   const authUserRole = (authUser?.role || '').toLowerCase();
   const canViewApplications = isOwner || ['admin', 'officer', 'lead', 'hr'].includes(authUserRole) || authUser?.isHR;
 
-  // Resolve user role with robust fallback (ensuring role badge ALWAYS renders)
-  const resolvedRole = (
-    user.role ||
-    user.defaultRole ||
-    (isViewingSelf ? authUser?.role : null) ||
-    committees.find((c) => (c.roleInCommittee || '').toLowerCase() === 'lead')?.roleInCommittee ||
-    committees.find((c) => (c.roleInCommittee || '').toLowerCase() === 'hr')?.roleInCommittee ||
-    (committees.length > 0 ? committees[0].roleInCommittee : null) ||
-    'member'
-  ).toLowerCase();
+  // Resolve the highest-priority role across all sources.
+  // Priority: admin > officer > lead > hr > publisher > event_scanner/scanner > member > applicant
+  const ROLE_PRIORITY = {
+    admin: 1,
+    officer: 2,
+    lead: 3,
+    hr: 4,
+    publisher: 5,
+    event_scanner: 6,
+    scanner: 6,
+    member: 7,
+    applicant: 8,
+  };
+
+  const roleCandidates = [
+    // Highest priority: the currently active session role (synced with navbar)
+    ...(isViewingSelf && authUser?.role ? [authUser.role.toLowerCase()] : []),
+    // All scopes available to the auth user (if viewing self)
+    ...(isViewingSelf ? (authUser?.availableScopes || []).map((s) => (s.role || '').toLowerCase()) : []),
+    // Profile data role / default role
+    user.role ? user.role.toLowerCase() : null,
+    user.defaultRole ? user.defaultRole.toLowerCase() : null,
+    // Committee roles
+    ...committees.map((c) => (c.roleInCommittee || '').toLowerCase()),
+  ].filter(Boolean);
+
+  const resolvedRole = roleCandidates.length > 0
+    ? roleCandidates.reduce((best, r) => {
+        const bestPriority = ROLE_PRIORITY[best] ?? 99;
+        const rPriority = ROLE_PRIORITY[r] ?? 99;
+        return rPriority < bestPriority ? r : best;
+      })
+    : 'member';
 
   return (
     <div className="section" style={{ minHeight: '85vh' }}>

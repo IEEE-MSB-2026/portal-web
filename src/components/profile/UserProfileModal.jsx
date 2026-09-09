@@ -88,6 +88,38 @@ export default function UserProfileModal({ userId, isOpen, onClose }) {
     return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
   };
 
+  // Resolve highest-priority role from profile data (same logic as Profile.jsx)
+  const ROLE_PRIORITY = {
+    admin: 1, officer: 2, lead: 3, hr: 4, publisher: 5,
+    event_scanner: 6, scanner: 6, member: 7, applicant: 8,
+  };
+
+  const getResolvedRole = (p) => {
+    if (!p) return 'member';
+    const candidates = [
+      p.role,
+      p.defaultRole,
+      ...((p.committees || []).map((c) => c.roleInCommittee)),
+    ].filter(Boolean).map((r) => r.toLowerCase());
+    if (candidates.length === 0) return 'member';
+    return candidates.reduce((best, r) => {
+      const bP = ROLE_PRIORITY[best] ?? 99;
+      const rP = ROLE_PRIORITY[r] ?? 99;
+      return rP < bP ? r : best;
+    });
+  };
+
+  const getRoleBadgeStyle = (role) => {
+    switch (role) {
+      case 'admin':    return { bg: 'rgba(239,68,68,0.35)', color: '#fecaca', border: 'rgba(252,165,165,0.45)' };
+      case 'officer':  return { bg: 'rgba(139,92,246,0.35)', color: '#ddd6fe', border: 'rgba(196,181,253,0.45)' };
+      case 'lead':     return { bg: 'rgba(245,158,11,0.35)', color: '#fde68a', border: 'rgba(251,191,36,0.45)' };
+      case 'hr':       return { bg: 'rgba(16,185,129,0.35)', color: '#a7f3d0', border: 'rgba(52,211,153,0.45)' };
+      case 'publisher': return { bg: 'rgba(6,182,212,0.35)', color: '#a5f3fc', border: 'rgba(34,211,238,0.45)' };
+      default:         return { bg: 'rgba(59,130,246,0.35)', color: '#bfdbfe', border: 'rgba(147,197,253,0.4)' };
+    }
+  };
+
   const formatDate = (dateStr) => {
     if (!dateStr) return 'Joined Member';
     try {
@@ -201,7 +233,22 @@ export default function UserProfileModal({ userId, isOpen, onClose }) {
                   <h3 style={{ margin: 0, fontSize: '1.25rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.02em' }}>
                     {profile.name}
                   </h3>
-                 
+                  {(() => {
+                    const role = getResolvedRole(profile);
+                    const style = getRoleBadgeStyle(role);
+                    return (
+                      <span style={{
+                        display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                        padding: '0.2rem 0.55rem', borderRadius: '999px',
+                        fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                        background: style.bg, color: style.color, border: `1px solid ${style.border}`,
+                        backdropFilter: 'blur(6px)',
+                      }}>
+                        <Shield size={10} />
+                        {role}
+                      </span>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginTop: '0.3rem', fontSize: '0.75rem', opacity: 0.9 }}>
