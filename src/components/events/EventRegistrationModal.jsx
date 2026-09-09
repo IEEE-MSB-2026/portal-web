@@ -282,7 +282,7 @@ export default function EventRegistrationModal({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">University / Org</label>
+                  <label className="form-label">University</label>
                   <input
                     type="text"
                     value={formData.university}
