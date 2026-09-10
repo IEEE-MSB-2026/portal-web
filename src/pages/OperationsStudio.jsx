@@ -5074,22 +5074,6 @@ export default function OperationsStudio() {
               <Smartphone size={20} style={{ color: '#38bdf8' }} />
               Scan with your mobile camera to check in instantly
             </p>
-
-            {/* Direct Attendee URL Pill */}
-            <button
-              type="button"
-              className="ops-projector-url-chip"
-              onClick={(e) => handleCopyKey(`${window.location.origin}/checkin/${kioskActivity.qrId}`, e)}
-              title="Click to copy direct link"
-            >
-              <span className="ops-pulse-dot" />
-              <span>{window.location.origin}/checkin/{kioskActivity.qrId}</span>
-              {copiedKey === `${window.location.origin}/checkin/${kioskActivity.qrId}` ? (
-                <Check size={14} color="#10b981" />
-              ) : (
-                <Copy size={13} />
-              )}
-            </button>
           </div>
         </div>
       )}

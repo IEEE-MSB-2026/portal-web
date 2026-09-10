@@ -47,7 +47,7 @@ const POSITION_OPTIONS = [
   { value: 'chairman', label: 'Chairman (Branch Chair)' },
   { value: 'vice_chairman', label: 'Vice Chairman' },
   { value: 'treasurer', label: 'Treasurer' },
-  { value: 'secretary', label: 'General Secretary' },
+  { value: 'secretary', label: 'Secretary' },
   { value: 'webmaster', label: 'Webmaster' },
   { value: 'custom', label: 'Custom Officer Position...' },
 ];
