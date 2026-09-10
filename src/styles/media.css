@@ -148,7 +148,7 @@
 .media-tab-btn--active {
   color: var(--color-primary);
   background: var(--color-primary-light);
-  border-color: rgba(37, 99, 235, 0.2);
+  border-color: rgba(15, 111, 175, 0.2);
 }
 
 .media-tab-badge {
@@ -221,7 +221,7 @@
 
 .media-search-input:focus {
   border-color: var(--color-primary);
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  box-shadow: 0 0 0 3px rgba(15, 111, 175, 0.15);
 }
 
 .media-filter-select {

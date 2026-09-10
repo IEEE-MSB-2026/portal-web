@@ -610,7 +610,7 @@ export default function Gallery() {
                               opacity: idx === activePhotoIdx ? 1 : 0.55,
                               transition: 'all 0.15s ease',
                               flexShrink: 0,
-                              boxShadow: idx === activePhotoIdx ? '0 0 0 2px rgba(37, 99, 235, 0.25)' : 'none',
+                              boxShadow: idx === activePhotoIdx ? '0 0 0 2px rgba(15, 111, 175, 0.25)' : 'none',
                             }}
                           >
                             <img

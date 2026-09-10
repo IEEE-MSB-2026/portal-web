@@ -41,9 +41,9 @@
    -------------------------------------------------------------------------- */
 :root,
 [data-theme="light"] {
-  --color-primary: #2563EB;
-  --color-primary-hover: #1D4ED8;
-  --color-primary-light: #EFF6FF;
+  --color-primary: #0F6FAF;
+  --color-primary-hover: #0C5A8E;
+  --color-primary-light: #E8F4FC;
   --color-primary-text: #FFFFFF;
 
   --color-secondary: #0F172A;
@@ -93,9 +93,9 @@
    Theme: Dark Mode
    -------------------------------------------------------------------------- */
 [data-theme="dark"] {
-  --color-primary: #3B82F6;
-  --color-primary-hover: #60A5FA;
-  --color-primary-light: rgba(59, 130, 246, 0.15);
+  --color-primary: #3B9FD8;
+  --color-primary-hover: #5BB5E5;
+  --color-primary-light: rgba(15, 111, 175, 0.18);
   --color-primary-text: #FFFFFF;
 
   --color-secondary: #94A3B8;
