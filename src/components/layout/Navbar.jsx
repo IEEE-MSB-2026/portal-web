@@ -223,17 +223,23 @@ export default function Navbar() {
               width: '2.5rem',
               height: '2.5rem',
               borderRadius: 'var(--radius-md)',
-              backgroundColor: 'var(--color-primary)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              fontWeight: 900,
-              fontSize: '0.875rem',
-              boxShadow: '0 2px 8px rgba(37, 99, 235, 0.3)',
+              backgroundColor: '#0F6FAF',
+              overflow: 'hidden',
+              flexShrink: 0,
+              boxShadow: '0 2px 8px rgba(15, 111, 175, 0.35)',
             }}
           >
-            IEEE
+            <img
+              src="/ieee-msb-logo.jpg"
+              alt="IEEE Menoufia Student Branch"
+              style={{
+                width: '200%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: '8% center',
+                display: 'block',
+              }}
+            />
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
             <span>Menoufia SB</span>

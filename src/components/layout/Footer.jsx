@@ -37,16 +37,23 @@ export default function Footer() {
                   width: '2rem',
                   height: '2rem',
                   borderRadius: 'var(--radius-sm)',
-                  backgroundColor: 'var(--color-primary)',
-                  color: 'white',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  fontWeight: 900,
-                  fontSize: '0.75rem',
+                  backgroundColor: '#0F6FAF',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  boxShadow: '0 2px 6px rgba(15, 111, 175, 0.3)',
                 }}
               >
-                IEEE
+                <img
+                  src="/ieee-msb-logo.jpg"
+                  alt="IEEE Menoufia Student Branch"
+                  style={{
+                    width: '200%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: '8% center',
+                    display: 'block',
+                  }}
+                />
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
                 <span
