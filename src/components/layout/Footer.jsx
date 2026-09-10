@@ -86,7 +86,7 @@ export default function Footer() {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Mail size={16} style={{ color: 'var(--color-primary)' }} />
-                <span>contact@ieee-menoufia.org</span>
+                <span>ieee.mnofiasb@gmail.com</span>
               </div>
             </div>
           </div>

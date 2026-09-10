@@ -791,17 +791,19 @@ export default function Home() {
                   style={{
                     padding: 0,
                     overflow: 'hidden',
-                    borderRadius: 'var(--radius-lg)',
+                    borderRadius: 'var(--radius-xl)',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'space-between',
+                    position: 'relative',
+                    transition: 'all var(--transition-fast)',
                   }}
                 >
-                  {/* Dominant Image Portrait Container */}
+                  {/* Portrait Image Container */}
                   <div
                     style={{
                       width: '100%',
-                      height: '280px',
+                      height: '290px',
                       backgroundColor: 'var(--color-bg-alt)',
                       position: 'relative',
                       overflow: 'hidden',
@@ -827,7 +829,7 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* Officer Info & Clean Contact Icons */}
+                  {/* Name, Role Badge, and Contact Icons Row */}
                   <div style={{ padding: 'var(--space-5)', textAlign: 'center' }}>
                     <h3 style={{ fontSize: '1.125rem', fontWeight: 700, marginBottom: '0.375rem' }}>{officer.name}</h3>
                     <div style={{ marginBottom: 'var(--space-4)' }}>
@@ -836,8 +838,23 @@ export default function Home() {
                       </span>
                     </div>
 
+                    {officer.bio && (
+                      <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: 'var(--space-3)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {officer.bio}
+                      </p>
+                    )}
+
                     {/* Social / Contact Action Row */}
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.625rem', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--space-3)' }}>
+                    <div
+                      style={{
+                        borderTop: '1px solid var(--color-border)',
+                        paddingTop: 'var(--space-3)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '0.75rem',
+                      }}
+                    >
                       {officer.linkedinUrl && (
                         <a
                           href={officer.linkedinUrl}
@@ -855,7 +872,7 @@ export default function Home() {
                           href={`mailto:${officer.email}`}
                           className="btn btn-secondary btn-icon"
                           style={{ width: '2.25rem', height: '2.25rem', padding: 0 }}
-                          title={`Send Email to ${officer.name}`}
+                          title={`Send email to ${officer.name}`}
                         >
                           <Mail size={15} style={{ color: 'var(--color-accent)' }} />
                         </a>
@@ -864,6 +881,7 @@ export default function Home() {
                   </div>
                 </div>
               ))}
+
             </div>
           </div>
         </section>
