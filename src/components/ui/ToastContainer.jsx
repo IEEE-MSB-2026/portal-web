@@ -2,33 +2,34 @@ import React from 'react';
 import { useToastStore } from '../../stores/toastStore';
 import { CheckCircle2, AlertCircle, Info, AlertTriangle, X } from 'lucide-react';
 
-const TYPE_CONFIG = {
-  success: {
-    icon: CheckCircle2,
-    iconColor: '#10b981',
-    borderColor: '#10b981',
-  },
-  error: {
-    icon: AlertCircle,
-    iconColor: '#ef4444',
-    borderColor: '#ef4444',
-  },
-  warning: {
-    icon: AlertTriangle,
-    iconColor: '#f59e0b',
-    borderColor: '#f59e0b',
-  },
-  info: {
-    icon: Info,
-    iconColor: 'var(--color-primary)',
-    borderColor: 'var(--color-primary)',
-  },
-};
-
 export default function ToastContainer() {
   const { toasts, removeToast } = useToastStore();
 
   if (!toasts || toasts.length === 0) return null;
+
+  // Defined inside component to avoid TDZ issues with module-level const + tree-shaken icons
+  const TYPE_CONFIG = {
+    success: {
+      icon: CheckCircle2,
+      iconColor: '#10b981',
+      borderColor: '#10b981',
+    },
+    error: {
+      icon: AlertCircle,
+      iconColor: '#ef4444',
+      borderColor: '#ef4444',
+    },
+    warning: {
+      icon: AlertTriangle,
+      iconColor: '#f59e0b',
+      borderColor: '#f59e0b',
+    },
+    info: {
+      icon: Info,
+      iconColor: 'var(--color-primary)',
+      borderColor: 'var(--color-primary)',
+    },
+  };
 
   return (
     <div
@@ -65,7 +66,6 @@ export default function ToastContainer() {
               borderLeft: `4px solid ${cfg.borderColor}`,
               borderRadius: 'var(--radius-md)',
               boxShadow: '0 20px 25px -5px rgba(0,0,0,0.12), 0 8px 10px -6px rgba(0,0,0,0.08)',
-              /* Always solid, not transparent: readable in light & dark */
               backgroundColor: 'var(--color-surface)',
               animation: 'toastSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
             }}
