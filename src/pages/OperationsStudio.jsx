@@ -1816,19 +1816,80 @@ export default function OperationsStudio() {
     }
   };
 
-  const toggleScannerFullscreen = () => {
-    setIsScannerFullscreen((v) => !v);
+  const toggleScannerFullscreen = async () => {
+    const container = scannerFsRef.current;
+    const isCurrentlyFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement || isScannerFullscreen);
+
+    if (isCurrentlyFs) {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        try {
+          if (document.exitFullscreen) {
+            await document.exitFullscreen();
+          } else if (document.webkitExitFullscreen) {
+            await document.webkitExitFullscreen();
+          }
+        } catch (err) {
+          console.warn('Exit fullscreen error:', err);
+        }
+      }
+      setIsScannerFullscreen(false);
+      return;
+    }
+
+    // Attempt native browser fullscreen first
+    if (container) {
+      try {
+        if (container.requestFullscreen) {
+          await container.requestFullscreen();
+          setIsScannerFullscreen(true);
+          return;
+        } else if (container.webkitRequestFullscreen) {
+          await container.webkitRequestFullscreen();
+          setIsScannerFullscreen(true);
+          return;
+        }
+      } catch (err) {
+        console.warn('Native requestFullscreen denied or unavailable, using CSS overlay:', err);
+      }
+    }
+
+    // Fallback: full viewport CSS overlay
+    setIsScannerFullscreen(true);
   };
 
-  // Close scanner fullscreen on Escape key
+  // Synchronize scanner fullscreen state on native fullscreenchange & Escape key
   useEffect(() => {
+    const handleFsChange = () => {
+      const isNativeFs = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
+      if (!isNativeFs && isScannerFullscreen) {
+        setIsScannerFullscreen(false);
+      } else if (isNativeFs && !isScannerFullscreen) {
+        setIsScannerFullscreen(true);
+      }
+    };
+
     const handleKey = (e) => {
       if (e.key === 'Escape' && isScannerFullscreen) {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          if (document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen().catch(() => {});
+          }
+        }
         setIsScannerFullscreen(false);
       }
     };
+
+    document.addEventListener('fullscreenchange', handleFsChange);
+    document.addEventListener('webkitfullscreenchange', handleFsChange);
     document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFsChange);
+      document.removeEventListener('webkitfullscreenchange', handleFsChange);
+      document.removeEventListener('keydown', handleKey);
+    };
   }, [isScannerFullscreen]);
 
   const executeCheckInScan = async (ticketPayload, allowOverride = false) => {
@@ -3520,7 +3581,7 @@ export default function OperationsStudio() {
             <div className="ops-scanner-layout">
 
             {/* Left Column: Camera Viewport */}
-            <div className="bento-card" style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <div className={`bento-card ${isScannerFullscreen ? 'bento-card--scanner-fullscreen' : ''}`} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
                 <div>
                   <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
@@ -3546,6 +3607,7 @@ export default function OperationsStudio() {
 
               {/* Video Box */}
               <div
+                ref={scannerFsRef}
                 className={[
                   'ops-video-container',
                   scanFeedbackState !== 'idle' ? `ops-video-container--${scanFeedbackState}` : '',
@@ -3580,7 +3642,7 @@ export default function OperationsStudio() {
                           type="button"
                           className="ops-scanner-fs-close"
                           onClick={toggleScannerFullscreen}
-                          title="Exit Fullscreen"
+                          title="Exit Fullscreen (Esc)"
                         >
                           <Minimize2 size={18} />
                         </button>
@@ -3615,9 +3677,27 @@ export default function OperationsStudio() {
                           <button
                             type="button"
                             className="ops-scanner-fs-btn ops-scanner-fs-btn--danger"
-                            onClick={() => { stopCamera(); setIsScannerFullscreen(false); }}
+                            onClick={async () => {
+                              if (document.fullscreenElement || document.webkitFullscreenElement) {
+                                if (document.exitFullscreen) {
+                                  await document.exitFullscreen().catch(() => {});
+                                } else if (document.webkitExitFullscreen) {
+                                  await document.webkitExitFullscreen().catch(() => {});
+                                }
+                              }
+                              stopCamera();
+                              setIsScannerFullscreen(false);
+                            }}
                           >
                             <Pause size={15} /> Stop
+                          </button>
+                          <button
+                            type="button"
+                            className="ops-scanner-fs-btn"
+                            onClick={toggleScannerFullscreen}
+                            title="Exit Fullscreen (Esc)"
+                          >
+                            <Minimize2 size={15} /> Exit
                           </button>
                         </div>
                       </>
