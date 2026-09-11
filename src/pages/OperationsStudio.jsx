@@ -556,20 +556,6 @@ export default function OperationsStudio() {
     }
   };
 
-  const toggleScannerFullscreen = () => {
-    setIsScannerFullscreen((v) => !v);
-  };
-
-  // Close scanner fullscreen on Escape key
-  useEffect(() => {
-    const handleKey = (e) => {
-      if (e.key === 'Escape' && isScannerFullscreen) {
-        setIsScannerFullscreen(false);
-      }
-    };
-    document.addEventListener('keydown', handleKey);
-    return () => document.removeEventListener('keydown', handleKey);
-  }, [isScannerFullscreen]);
 
   // Global System Stats State (Decoupled from local presentation filters)
   const [globalStats, setGlobalStats] = useState(null);
@@ -1829,6 +1815,21 @@ export default function OperationsStudio() {
       toast.warning('Torch Unavailable', 'Flashlight control is not supported on this device.');
     }
   };
+
+  const toggleScannerFullscreen = () => {
+    setIsScannerFullscreen((v) => !v);
+  };
+
+  // Close scanner fullscreen on Escape key
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape' && isScannerFullscreen) {
+        setIsScannerFullscreen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isScannerFullscreen]);
 
   const executeCheckInScan = async (ticketPayload, allowOverride = false) => {
     if (!selectedEventId || !ticketPayload) return;
