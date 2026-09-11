@@ -70,6 +70,8 @@
 
   --color-destructive: #DC2626;
   --color-destructive-light: #FEF2F2;
+  --color-danger: #DC2626;
+  --color-danger-light: #FEF2F2;
 
   --color-warning: #D97706;
   --color-warning-light: #FFFBEB;
@@ -122,6 +124,8 @@
 
   --color-destructive: #EF4444;
   --color-destructive-light: rgba(239, 68, 68, 0.15);
+  --color-danger: #EF4444;
+  --color-danger-light: rgba(239, 68, 68, 0.15);
 
   --color-warning: #F59E0B;
   --color-warning-light: rgba(245, 158, 11, 0.15);

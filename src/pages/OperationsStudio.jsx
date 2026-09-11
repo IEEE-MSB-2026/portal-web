@@ -556,6 +556,21 @@ export default function OperationsStudio() {
     }
   };
 
+  const toggleScannerFullscreen = () => {
+    setIsScannerFullscreen((v) => !v);
+  };
+
+  // Close scanner fullscreen on Escape key
+  useEffect(() => {
+    const handleKey = (e) => {
+      if (e.key === 'Escape' && isScannerFullscreen) {
+        setIsScannerFullscreen(false);
+      }
+    };
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [isScannerFullscreen]);
+
   // Global System Stats State (Decoupled from local presentation filters)
   const [globalStats, setGlobalStats] = useState(null);
 
@@ -731,6 +746,9 @@ export default function OperationsStudio() {
   const [cameraActive, setCameraActive] = useState(false);
   const [manualTicketInput, setManualTicketInput] = useState('');
   const [manualSearchQuery, setManualSearchQuery] = useState('');
+  const [scanRecentItems, setScanRecentItems] = useState([]); // for fullscreen feed overlay
+  const [isScannerFullscreen, setIsScannerFullscreen] = useState(false);
+  const scannerFsRef = useRef(null);
   const [scanning, setScanning] = useState(false);
   const [lastScanResult, setLastScanResult] = useState(null);
   const [scanFeed, setScanFeed] = useState([]);
@@ -3511,10 +3529,28 @@ export default function OperationsStudio() {
                     Point camera at attendee QR ticket pass to record attendance and award points
                   </span>
                 </div>
+                {cameraActive && (
+                  <button
+                    type="button"
+                    onClick={toggleScannerFullscreen}
+                    className="btn btn-ghost"
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem', padding: '0.45rem 0.85rem' }}
+                    title="Enter fullscreen scanner"
+                  >
+                    <Maximize2 size={14} />
+                    Fullscreen
+                  </button>
+                )}
               </div>
 
               {/* Video Box */}
-              <div className={`ops-video-container ${scanFeedbackState !== 'idle' ? `ops-video-container--${scanFeedbackState}` : ''}`}>
+              <div
+                className={[
+                  'ops-video-container',
+                  scanFeedbackState !== 'idle' ? `ops-video-container--${scanFeedbackState}` : '',
+                  isScannerFullscreen ? 'ops-video-container--fullscreen' : '',
+                ].filter(Boolean).join(' ')}
+              >
                 <video
                   ref={videoRef}
                   playsInline
@@ -3524,8 +3560,8 @@ export default function OperationsStudio() {
                 
                 {cameraActive && (
                   <>
-                    <div className="ops-scanner-laser" />
-                    <div className="ops-scanner-reticle-frame" />
+                    <div className={`ops-scanner-laser ${scanning ? 'ops-scanner-laser--verifying' : ''}`} />
+                    <div className={`ops-scanner-reticle-frame ${scanning ? 'ops-scanner-reticle-frame--verifying' : ''}`} />
                     <div className="ops-scanner-status-pill">
                       <span className="ops-scanner-status-pill__dot" />
                       <span>
@@ -3534,6 +3570,57 @@ export default function OperationsStudio() {
                           : `Scanning for: ${currentScannerActivity?.name || 'Main Check-In'}`}
                       </span>
                     </div>
+
+                    {/* Fullscreen-only controls */}
+                    {isScannerFullscreen && (
+                      <>
+                        {/* Close button */}
+                        <button
+                          type="button"
+                          className="ops-scanner-fs-close"
+                          onClick={toggleScannerFullscreen}
+                          title="Exit Fullscreen"
+                        >
+                          <Minimize2 size={18} />
+                        </button>
+
+                        {/* Recent scan feed overlay */}
+                        {scanFeed.length > 0 && (
+                          <div className="ops-scanner-fs-feed">
+                            {scanFeed.slice(-3).reverse().map((item, idx) => (
+                              <div key={idx} className={`ops-scanner-fs-feed-item ops-scanner-fs-feed-item--${item.type || 'success'}`}>
+                                {item.type === 'success' ? <CheckCircle2 size={12} /> : item.type === 'duplicate' ? <AlertTriangle size={12} /> : <X size={12} />}
+                                <span style={{ marginLeft: '0.3rem' }}>{item.message}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Bottom glass toolbar */}
+                        <div className="ops-scanner-fs-toolbar">
+                          <button type="button" className="ops-scanner-fs-btn" onClick={handleFlipCamera}>
+                            <RotateCcw size={15} /> Flip
+                          </button>
+                          {torchSupported && (
+                            <button
+                              type="button"
+                              className={`ops-scanner-fs-btn ${torchActive ? 'ops-scanner-fs-btn--active' : ''}`}
+                              onClick={handleToggleTorch}
+                            >
+                              {torchActive ? <ZapOff size={15} /> : <Zap size={15} />}
+                              {torchActive ? 'Flash On' : 'Flash Off'}
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="ops-scanner-fs-btn ops-scanner-fs-btn--danger"
+                            onClick={() => { stopCamera(); setIsScannerFullscreen(false); }}
+                          >
+                            <Pause size={15} /> Stop
+                          </button>
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 
@@ -3543,12 +3630,12 @@ export default function OperationsStudio() {
                       <Camera size={36} />
                     </div>
                     <div>
-                      <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem', fontWeight: 700 }}>Camera Offline</h4>
-                      <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)', maxWidth: '300px' }}>
+                      <h4 className="ops-camera-offline-title">Camera</h4>
+                      <p className="ops-camera-offline-desc">
                         Start your webcam or device camera to scan attendee QR passes in real time.
                       </p>
                       {cameraError && (
-                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--color-danger, #ef4444)' }}>
+                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#f87171' }}>
                           {cameraError}
                         </p>
                       )}
@@ -3569,21 +3656,6 @@ export default function OperationsStudio() {
               {cameraActive && (
                 <div className="ops-camera-toolbar">
                   <div className="ops-camera-toolbar__group">
-                    {availableCameras.length > 1 && (
-                      <select
-                        value={selectedCameraId}
-                        onChange={(e) => handleSelectCameraDevice(e.target.value)}
-                        className="ops-camera-toolbar__select"
-                        title="Choose camera device"
-                      >
-                        {availableCameras.map((cam, idx) => (
-                          <option key={cam.deviceId || idx} value={cam.deviceId}>
-                            {cam.label || `Camera ${idx + 1}`}
-                          </option>
-                        ))}
-                      </select>
-                    )}
-
                     <button
                       type="button"
                       onClick={handleFlipCamera}
@@ -3591,7 +3663,7 @@ export default function OperationsStudio() {
                       title="Flip front / rear camera"
                     >
                       <RotateCcw size={13} />
-                      <span>{facingMode === 'environment' ? 'Rear Cam' : 'Front Cam'}</span>
+                      <span>Flip Camera</span>
                     </button>
 
                     {torchSupported && (
@@ -3622,24 +3694,6 @@ export default function OperationsStudio() {
                 </div>
               )}
 
-              {/* Manual Ticket Input Fallback */}
-              <form onSubmit={handleManualCheckInSubmit} style={{ display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  value={manualTicketInput}
-                  onChange={(e) => setManualTicketInput(e.target.value)}
-                  placeholder="Paste attendee ticket ID..."
-                  className="form-input"
-                  style={{ flex: 1 }}
-                />
-                <button
-                  type="submit"
-                  disabled={scanning}
-                  className="btn btn-primary"
-                >
-                  {scanning ? 'Verifying...' : 'Check-In'}
-                </button>
-              </form>
             </div>
 
             {/* Right Column: Feedback, Manual Desk & Scan Log */}
@@ -3821,6 +3875,7 @@ export default function OperationsStudio() {
           )}
         </div>
       )}
+
 
       {/* ════════════════════════════════════════════════════════════════════════
           TAB 3: ATTENDANCE REPORT
