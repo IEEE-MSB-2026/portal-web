@@ -239,43 +239,220 @@
   }
 }
 
-.ops-camera-box {
+.ops-video-container {
   position: relative;
-  background: #0f172a;
+  background: #090d16;
   border-radius: var(--radius-lg, 0.75rem);
   overflow: hidden;
   aspect-ratio: 4 / 3;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: 2px solid var(--color-border);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.25);
+  transition: border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ops-video-container--success {
+  border-color: #10b981 !important;
+  box-shadow: 0 0 25px rgba(16, 185, 129, 0.45) !important;
+  animation: scannerSuccessPulse 0.6s ease-out;
+}
+
+.ops-video-container--duplicate {
+  border-color: #f59e0b !important;
+  box-shadow: 0 0 25px rgba(245, 158, 11, 0.45) !important;
+  animation: scannerWarningPulse 0.6s ease-out;
+}
+
+.ops-video-container--error {
+  border-color: #ef4444 !important;
+  box-shadow: 0 0 25px rgba(239, 68, 68, 0.45) !important;
+  animation: scannerErrorShake 0.45s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+
+@keyframes scannerSuccessPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.015); }
+  100% { transform: scale(1); }
+}
+
+@keyframes scannerWarningPulse {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.01); }
+  100% { transform: scale(1); }
+}
+
+@keyframes scannerErrorShake {
+  10%, 90% { transform: translate3d(-2px, 0, 0); }
+  20%, 80% { transform: translate3d(3px, 0, 0); }
+  30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+  40%, 60% { transform: translate3d(4px, 0, 0); }
+}
+
+.ops-video-feed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ops-video-feed--mirrored {
+  transform: scaleX(-1);
+}
+
+.ops-scanner-reticle-frame {
+  position: absolute;
+  width: 230px;
+  height: 230px;
+  max-width: 80%;
+  max-height: 80%;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  border-radius: var(--radius-md, 0.5rem);
+  box-shadow: 0 0 0 9999px rgba(10, 15, 29, 0.62);
+  pointer-events: none;
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.ops-video-container--success .ops-scanner-reticle-frame {
+  border-color: #10b981;
+  box-shadow: 0 0 0 9999px rgba(6, 78, 59, 0.4);
+}
+
+.ops-video-container--duplicate .ops-scanner-reticle-frame {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 9999px rgba(120, 53, 15, 0.4);
+}
+
+.ops-video-container--error .ops-scanner-reticle-frame {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 9999px rgba(127, 29, 29, 0.4);
+}
+
+.ops-scanner-laser {
+  position: absolute;
+  width: 230px;
+  max-width: 80%;
+  height: 2px;
+  background: #06b6d4;
+  box-shadow: 0 0 10px #06b6d4, 0 0 4px #fff;
+  pointer-events: none;
+  animation: scanLaserAnim 2s linear infinite alternate;
+}
+
+.ops-video-container--success .ops-scanner-laser {
+  background: #10b981;
+  box-shadow: 0 0 12px #10b981, 0 0 4px #fff;
+}
+
+.ops-video-container--duplicate .ops-scanner-laser {
+  background: #f59e0b;
+  box-shadow: 0 0 12px #f59e0b, 0 0 4px #fff;
+}
+
+.ops-video-container--error .ops-scanner-laser {
+  background: #ef4444;
+  box-shadow: 0 0 12px #ef4444, 0 0 4px #fff;
+}
+
+@keyframes scanLaserAnim {
+  0% { transform: translateY(-105px); opacity: 0.9; }
+  50% { opacity: 1; }
+  100% { transform: translateY(105px); opacity: 0.9; }
+}
+
+.ops-scanner-status-pill {
+  position: absolute;
+  top: 0.85rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.85rem;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+
+.ops-scanner-status-pill__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 6px #10b981;
+  animation: scannerDotBlink 1.4s infinite ease-in-out;
+}
+
+@keyframes scannerDotBlink {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+.ops-camera-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  background: var(--color-surface, #1e293b);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md, 0.5rem);
+}
+
+.ops-camera-toolbar__group {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.ops-camera-toolbar__select {
+  max-width: 180px;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--radius-sm, 4px);
+  background: var(--color-bg);
+  color: var(--color-text);
   border: 1px solid var(--color-border);
 }
 
-.ops-camera-reticle {
-  position: absolute;
-  width: 220px;
-  height: 220px;
-  border: 2px solid rgba(255, 255, 255, 0.85);
-  border-radius: var(--radius-md, 0.5rem);
-  box-shadow: 0 0 0 9999px rgba(15, 23, 42, 0.6);
-  pointer-events: none;
+.ops-camera-toolbar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--color-border);
+  background: var(--color-bg);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.ops-camera-reticle::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: #06b6d4;
-  box-shadow: 0 0 8px #06b6d4;
-  animation: scanLine 2s linear infinite alternate;
+.ops-camera-toolbar__btn:hover:not(:disabled) {
+  background: var(--color-surface-hover, rgba(255, 255, 255, 0.08));
+  border-color: var(--color-primary);
 }
 
-@keyframes scanLine {
-  0% { top: 0%; }
-  100% { top: 100%; }
+.ops-camera-toolbar__btn--active {
+  background: rgba(14, 165, 233, 0.15);
+  border-color: #0ea5e9;
+  color: #38bdf8;
+}
+
+.ops-camera-toolbar__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 /* ── Sub-Activity Cards (Redesigned per ui-ux-pro-max) ── */

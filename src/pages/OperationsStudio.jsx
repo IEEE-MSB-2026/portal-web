@@ -13,6 +13,13 @@ import {
   getEventLifecycleStatus,
 } from '../utils/eventDateUtils';
 import '../styles/operations.css';
+import jsQR from 'jsqr';
+import { parseScannedQrPayload } from '../utils/qrCodeParser';
+import {
+  playScanSuccessSound,
+  playScanDuplicateSound,
+  playScanErrorSound,
+} from '../utils/qrScannerAudio';
 import {
   QrCode,
   Calendar,
@@ -76,6 +83,10 @@ import {
   Image as ImageIcon,
   Trophy,
   BarChart2,
+  Play,
+  Pause,
+  Zap,
+  ZapOff,
 } from 'lucide-react';
 
 function SelectOptionsChipsEditor({ options = [], onChange }) {
@@ -723,7 +734,22 @@ export default function OperationsStudio() {
   const [scanning, setScanning] = useState(false);
   const [lastScanResult, setLastScanResult] = useState(null);
   const [scanFeed, setScanFeed] = useState([]);
+  const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
+  const [availableCameras, setAvailableCameras] = useState([]);
+  const [selectedCameraId, setSelectedCameraId] = useState('');
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchActive, setTorchActive] = useState(false);
+  const [scanFeedbackState, setScanFeedbackState] = useState('idle'); // 'idle' | 'success' | 'duplicate' | 'error'
+  const [cameraError, setCameraError] = useState(null);
+
   const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+  const streamRef = useRef(null);
+  const animFrameIdRef = useRef(null);
+  const isScanningFrameRef = useRef(false);
+  const lastScanTimestampRef = useRef(0);
+  const lastScannedCodeRef = useRef('');
+  const feedbackTimeoutRef = useRef(null);
 
   // Filters
   const [eventCategoryFilter, setEventCategoryFilter] = useState('all');
@@ -1657,27 +1683,133 @@ export default function OperationsStudio() {
   }, [scannerUserSearch]);
 
   // ── Scanner & Check-In Handlers ───────────────────────────────────────────
-  const startCamera = async () => {
-    setCameraActive(true);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' },
+  const triggerVisualFeedback = (stateType) => {
+    if (feedbackTimeoutRef.current) {
+      clearTimeout(feedbackTimeoutRef.current);
+    }
+    setScanFeedbackState(stateType);
+    feedbackTimeoutRef.current = setTimeout(() => {
+      setScanFeedbackState('idle');
+    }, 1200);
+  };
+
+  const stopCamera = useCallback(() => {
+    if (animFrameIdRef.current) {
+      cancelAnimationFrame(animFrameIdRef.current);
+      animFrameIdRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch {}
       });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setTorchActive(false);
+    setTorchSupported(false);
+    setCameraActive(false);
+    isScanningFrameRef.current = false;
+  }, []);
+
+  const updateAvailableCameras = useCallback(async () => {
+    if (!navigator.mediaDevices?.enumerateDevices) return;
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter((d) => d.kind === 'videoinput');
+      setAvailableCameras(videoInputs);
+      if (videoInputs.length > 0 && !selectedCameraId) {
+        const envCam = videoInputs.find((d) => /back|rear|environment/i.test(d.label));
+        if (envCam) {
+          setSelectedCameraId(envCam.deviceId);
+        }
       }
     } catch (err) {
-      console.warn('Webcam permission denied or unavailable:', err);
-      toast.warning('Camera Notice', 'Webcam preview simulated. You can scan via input or mobile.');
+      console.debug('Failed to enumerate media devices:', err);
+    }
+  }, [selectedCameraId]);
+
+  const startCamera = useCallback(async (forcedCameraId = null, forcedFacingMode = null) => {
+    stopCamera();
+    setCameraError(null);
+
+    const targetCameraId = forcedCameraId !== null ? forcedCameraId : selectedCameraId;
+    const targetFacing = forcedFacingMode !== null ? forcedFacingMode : facingMode;
+
+    try {
+      const constraints = {
+        audio: false,
+        video: targetCameraId
+          ? { deviceId: { exact: targetCameraId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+          : { facingMode: { ideal: targetFacing }, width: { ideal: 1280 }, height: { ideal: 720 } },
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        await videoRef.current.play().catch(() => {});
+      }
+
+      setCameraActive(true);
+
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        try {
+          const capabilities = track.getCapabilities ? track.getCapabilities() : {};
+          setTorchSupported(Boolean(capabilities.torch));
+        } catch {
+          setTorchSupported(false);
+        }
+      }
+
+      await updateAvailableCameras();
+    } catch (err) {
+      console.error('Camera access failed:', err);
+      const errMsg = err.name === 'NotAllowedError'
+        ? 'Camera permission denied. Please allow camera access in your browser settings.'
+        : (err.message || 'Could not access camera.');
+      setCameraError(errMsg);
+      toast.error('Camera Access', errMsg);
+      setCameraActive(false);
+    }
+  }, [selectedCameraId, facingMode, stopCamera, updateAvailableCameras]);
+
+  const handleFlipCamera = () => {
+    const nextFacing = facingMode === 'environment' ? 'user' : 'environment';
+    setFacingMode(nextFacing);
+    setSelectedCameraId('');
+    if (cameraActive) {
+      startCamera('', nextFacing);
     }
   };
 
-  const stopCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach((track) => track.stop());
+  const handleSelectCameraDevice = (deviceId) => {
+    setSelectedCameraId(deviceId);
+    if (cameraActive) {
+      startCamera(deviceId, facingMode);
     }
-    setCameraActive(false);
+  };
+
+  const handleToggleTorch = async () => {
+    if (!streamRef.current || !torchSupported) return;
+    const track = streamRef.current.getVideoTracks()[0];
+    if (!track) return;
+    try {
+      const nextTorch = !torchActive;
+      await track.applyConstraints({
+        advanced: [{ torch: nextTorch }],
+      });
+      setTorchActive(nextTorch);
+    } catch (err) {
+      console.warn('Could not toggle torch:', err);
+      toast.warning('Torch Unavailable', 'Flashlight control is not supported on this device.');
+    }
   };
 
   const executeCheckInScan = async (ticketPayload, allowOverride = false) => {
@@ -1705,6 +1837,8 @@ export default function OperationsStudio() {
 
       setLastScanResult(successRecord);
       setScanFeed((prev) => [successRecord, ...prev.slice(0, 19)]);
+      playScanSuccessSound();
+      triggerVisualFeedback('success');
       toast.success('Check-In Confirmed', `${res.participant?.name} checked in (+${res.participant?.pointsEarned || 0} pts)!`);
 
       // Refresh stats & participants
@@ -1723,11 +1857,18 @@ export default function OperationsStudio() {
       };
       setLastScanResult(errRecord);
       setScanFeed((prev) => [errRecord, ...prev.slice(0, 19)]);
+
       if (isDuplicate) {
+        playScanDuplicateSound();
+        triggerVisualFeedback('duplicate');
         toast.warning('Already Scanned', 'Attendee has already been scanned for this activity.');
       } else if (isRestricted) {
+        playScanErrorSound();
+        triggerVisualFeedback('error');
         toast.warning('Whitelist Required', 'Attendee is not enrolled on this activity whitelist.');
       } else {
+        playScanErrorSound();
+        triggerVisualFeedback('error');
         toast.error('Scan Failed', err.message || 'Ticket verification failed');
       }
     } finally {
@@ -1735,10 +1876,165 @@ export default function OperationsStudio() {
     }
   };
 
+  const handleQrDetected = useCallback(async (rawText) => {
+    if (!rawText || scanning) return;
+
+    const now = Date.now();
+    // Cooldown: at least 1.2s between consecutive scans
+    if (now - lastScanTimestampRef.current < 1200) return;
+    // Cooldown: at least 2.5s before rescanning the exact same code
+    if (lastScannedCodeRef.current === rawText && now - lastScanTimestampRef.current < 2500) return;
+
+    const parsed = parseScannedQrPayload(rawText);
+
+    if (parsed.type === 'activity_kiosk') {
+      lastScanTimestampRef.current = now;
+      lastScannedCodeRef.current = rawText;
+      playScanDuplicateSound();
+      triggerVisualFeedback('duplicate');
+      toast.warning('Activity Kiosk QR Scanned', parsed.message);
+      setLastScanResult({
+        type: 'duplicate',
+        message: parsed.message,
+        timestamp: new Date().toLocaleTimeString(),
+        rawPayload: rawText,
+      });
+      return;
+    }
+
+    if (parsed.type === 'ticket' && parsed.ticketId) {
+      lastScanTimestampRef.current = now;
+      lastScannedCodeRef.current = rawText;
+      await executeCheckInScan(parsed.ticketId);
+    }
+  }, [scanning, executeCheckInScan]);
+
+  // Real-time camera frame scanner loop (BarcodeDetector + jsQR fallback)
+  useEffect(() => {
+    if (!cameraActive || activeTab !== 'scanner') {
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
+      return;
+    }
+
+    let barcodeDetector = null;
+    if (typeof window !== 'undefined' && 'BarcodeDetector' in window) {
+      try {
+        barcodeDetector = new window.BarcodeDetector({ formats: ['qr_code'] });
+      } catch {
+        barcodeDetector = null;
+      }
+    }
+
+    let lastFrameTime = 0;
+    const FRAME_INTERVAL_MS = 80; // ~12 FPS throttle for optimal performance
+
+    const scanFrame = async () => {
+      const video = videoRef.current;
+      if (!video || video.readyState < 2 || video.videoWidth === 0 || video.videoHeight === 0) {
+        animFrameIdRef.current = requestAnimationFrame(scanFrame);
+        return;
+      }
+
+      const now = performance.now();
+      if (now - lastFrameTime >= FRAME_INTERVAL_MS && !isScanningFrameRef.current) {
+        lastFrameTime = now;
+        isScanningFrameRef.current = true;
+
+        try {
+          let detectedCode = null;
+
+          if (barcodeDetector) {
+            try {
+              const barcodes = await barcodeDetector.detect(video);
+              if (barcodes && barcodes.length > 0 && barcodes[0].rawValue) {
+                detectedCode = barcodes[0].rawValue;
+              }
+            } catch {
+              barcodeDetector = null; // Fall back to canvas jsQR if detect throws
+            }
+          }
+
+          if (!detectedCode) {
+            if (!canvasRef.current) {
+              canvasRef.current = document.createElement('canvas');
+            }
+            const canvas = canvasRef.current;
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            if (ctx) {
+              const scale = Math.min(1, 640 / video.videoWidth);
+              const w = Math.floor(video.videoWidth * scale);
+              const h = Math.floor(video.videoHeight * scale);
+
+              if (canvas.width !== w || canvas.height !== h) {
+                canvas.width = w;
+                canvas.height = h;
+              }
+
+              ctx.drawImage(video, 0, 0, w, h);
+              const imgData = ctx.getImageData(0, 0, w, h);
+              const qrResult = jsQR(imgData.data, imgData.width, imgData.height, {
+                inversionAttempts: 'dontInvert',
+              });
+
+              if (qrResult && qrResult.data) {
+                detectedCode = qrResult.data;
+              }
+            }
+          }
+
+          if (detectedCode) {
+            handleQrDetected(detectedCode);
+          }
+        } catch (scanErr) {
+          console.debug('Frame scanning cycle error:', scanErr);
+        } finally {
+          isScanningFrameRef.current = false;
+        }
+      }
+
+      animFrameIdRef.current = requestAnimationFrame(scanFrame);
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(scanFrame);
+
+    return () => {
+      if (animFrameIdRef.current) {
+        cancelAnimationFrame(animFrameIdRef.current);
+        animFrameIdRef.current = null;
+      }
+    };
+  }, [cameraActive, activeTab, handleQrDetected]);
+
+  // Clean up camera on tab change away from 'scanner'
+  useEffect(() => {
+    if (activeTab !== 'scanner' && cameraActive) {
+      stopCamera();
+    }
+  }, [activeTab, cameraActive, stopCamera]);
+
+  // Clean up on component unmount
+  useEffect(() => {
+    return () => {
+      stopCamera();
+      if (feedbackTimeoutRef.current) {
+        clearTimeout(feedbackTimeoutRef.current);
+      }
+    };
+  }, [stopCamera]);
+
   const handleManualCheckInSubmit = (e) => {
     e.preventDefault();
     if (!manualTicketInput.trim()) return;
-    executeCheckInScan(manualTicketInput.trim());
+    const parsed = parseScannedQrPayload(manualTicketInput.trim());
+    if (parsed.type === 'activity_kiosk') {
+      toast.warning('Activity Kiosk QR', parsed.message);
+      return;
+    }
+    const targetTicket = parsed.ticketId || manualTicketInput.trim();
+    executeCheckInScan(targetTicket);
     setManualTicketInput('');
   };
 
@@ -3218,29 +3514,113 @@ export default function OperationsStudio() {
               </div>
 
               {/* Video Box */}
-              <div className="ops-video-container">
+              <div className={`ops-video-container ${scanFeedbackState !== 'idle' ? `ops-video-container--${scanFeedbackState}` : ''}`}>
                 <video
                   ref={videoRef}
                   playsInline
                   muted
-                  className="ops-video-feed"
+                  className={`ops-video-feed ${facingMode === 'user' ? 'ops-video-feed--mirrored' : ''}`}
                 />
-                <div className="ops-scanner-laser" />
-                <div className="ops-scanner-reticle-frame" />
+                
+                {cameraActive && (
+                  <>
+                    <div className="ops-scanner-laser" />
+                    <div className="ops-scanner-reticle-frame" />
+                    <div className="ops-scanner-status-pill">
+                      <span className="ops-scanner-status-pill__dot" />
+                      <span>
+                        {scanning
+                          ? 'Verifying Check-In...'
+                          : `Scanning for: ${currentScannerActivity?.name || 'Main Check-In'}`}
+                      </span>
+                    </div>
+                  </>
+                )}
 
                 {!cameraActive && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(0, 0, 0, 0.85)', gap: '1rem' }}>
-                    <Camera size={44} style={{ color: 'var(--color-primary)' }} />
+                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(9, 13, 22, 0.92)', gap: '1rem', padding: '1.5rem', textAlign: 'center' }}>
+                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(14, 165, 233, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
+                      <Camera size={36} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: '0 0 0.35rem', fontSize: '1.1rem', fontWeight: 700 }}>Camera Offline</h4>
+                      <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)', maxWidth: '300px' }}>
+                        Start your webcam or device camera to scan attendee QR passes in real time.
+                      </p>
+                      {cameraError && (
+                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--color-danger, #ef4444)' }}>
+                          {cameraError}
+                        </p>
+                      )}
+                    </div>
                     <button
                       type="button"
-                      onClick={startCamera}
+                      onClick={() => startCamera()}
                       className="btn btn-primary"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1.25rem', fontWeight: 700 }}
                     >
-                      Start Web Camera
+                      <Play size={16} /> Start Web Camera
                     </button>
                   </div>
                 )}
               </div>
+
+              {/* Camera Toolbar */}
+              {cameraActive && (
+                <div className="ops-camera-toolbar">
+                  <div className="ops-camera-toolbar__group">
+                    {availableCameras.length > 1 && (
+                      <select
+                        value={selectedCameraId}
+                        onChange={(e) => handleSelectCameraDevice(e.target.value)}
+                        className="ops-camera-toolbar__select"
+                        title="Choose camera device"
+                      >
+                        {availableCameras.map((cam, idx) => (
+                          <option key={cam.deviceId || idx} value={cam.deviceId}>
+                            {cam.label || `Camera ${idx + 1}`}
+                          </option>
+                        ))}
+                      </select>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleFlipCamera}
+                      className="ops-camera-toolbar__btn"
+                      title="Flip front / rear camera"
+                    >
+                      <RotateCcw size={13} />
+                      <span>{facingMode === 'environment' ? 'Rear Cam' : 'Front Cam'}</span>
+                    </button>
+
+                    {torchSupported && (
+                      <button
+                        type="button"
+                        onClick={handleToggleTorch}
+                        className={`ops-camera-toolbar__btn ${torchActive ? 'ops-camera-toolbar__btn--active' : ''}`}
+                        title="Toggle Flashlight"
+                      >
+                        {torchActive ? <ZapOff size={13} /> : <Zap size={13} />}
+                        <span>{torchActive ? 'Flash On' : 'Flash Off'}</span>
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="ops-camera-toolbar__group">
+                    <button
+                      type="button"
+                      onClick={stopCamera}
+                      className="ops-camera-toolbar__btn"
+                      style={{ color: 'var(--color-danger, #ef4444)' }}
+                      title="Turn off camera"
+                    >
+                      <Pause size={13} />
+                      <span>Stop Camera</span>
+                    </button>
+                  </div>
+                </div>
+              )}
 
               {/* Manual Ticket Input Fallback */}
               <form onSubmit={handleManualCheckInSubmit} style={{ display: 'flex', gap: '0.5rem' }}>
