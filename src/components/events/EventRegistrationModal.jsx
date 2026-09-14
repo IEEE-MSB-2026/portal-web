@@ -135,14 +135,15 @@ export default function EventRegistrationModal({
     }
   }, [isOpen, user, isPreview]);
 
-  // Fetch user profile from /me/profile on open to populate university, faculty, and phone if already set by user
+  // Fetch user profile from /api/core/users/{:id}/profile on open to populate university, faculty, and phone if already set
   useEffect(() => {
-    if (!isOpen || !isAuthenticated) return;
+    const userId = user?.id || user?.userId || user?._id;
+    if (!isOpen || !isAuthenticated || !userId) return;
 
     let isMounted = true;
     const loadUserProfile = async () => {
       try {
-        const res = await api.getMyProfile();
+        const res = await api.getUserProfile(userId);
         const profile = res?.profile || res?.user || res;
 
         if (!isMounted || !profile) return;
@@ -176,7 +177,7 @@ export default function EventRegistrationModal({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, isAuthenticated, updateUser]);
+  }, [isOpen, isAuthenticated, user?.id, user?.userId, user?._id, updateUser]);
 
   // Derive sections from event.customFields unconditionally before any early return
   const sections = useMemo(() => {
