@@ -4331,9 +4331,36 @@ export default function OperationsStudio() {
                       </td>
                       {selectedEvent?.customFields?.map((f) => {
                         const val = (p.customResponses || {})[f.id];
+                        const isUrl = f.type === 'url' && typeof val === 'string' && val.trim().length > 0;
+                        const urlHref = isUrl ? (val.startsWith('http://') || val.startsWith('https://') ? val : `https://${val}`) : null;
                         return (
                           <td key={f.id} style={{ color: 'var(--color-text-muted)' }}>
-                            {Array.isArray(val) ? val.join(', ') : (val != null ? String(val) : '—')}
+                            {Array.isArray(val) ? (
+                              val.join(', ')
+                            ) : isUrl ? (
+                              <a
+                                href={urlHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  color: 'var(--color-primary)',
+                                  textDecoration: 'underline',
+                                  maxWidth: '180px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }}
+                                title={val}
+                              >
+                                <ExternalLink size={11} style={{ flexShrink: 0 }} />
+                                <span>{val.replace(/^https?:\/\//i, '')}</span>
+                              </a>
+                            ) : (
+                              val != null && val !== '' ? String(val) : '—'
+                            )}
                           </td>
                         );
                       })}

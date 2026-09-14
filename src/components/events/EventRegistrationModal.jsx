@@ -11,7 +11,85 @@ import {
   Ticket,
   ChevronRight,
   ArrowLeft,
+  Link2,
+  ExternalLink,
 } from 'lucide-react';
+
+export const normalizeWebUrl = (val) => {
+  if (!val || typeof val !== 'string') return '';
+  const trimmed = val.trim();
+  if (!trimmed) return '';
+  if (/^https?:\/\//i.test(trimmed)) {
+    return trimmed;
+  }
+  return `https://${trimmed}`;
+};
+
+export const isValidWebUrl = (val) => {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim();
+  if (!trimmed) return false;
+
+  // Whitespace anywhere in the URL is invalid
+  if (/\s/.test(trimmed)) return false;
+
+  // Block dangerous schemes
+  if (/^(javascript|data|file|vbscript):/i.test(trimmed)) return false;
+
+  // If a scheme is provided, only accept http:// or https://
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(trimmed)) {
+    if (!/^https?:\/\//i.test(trimmed)) {
+      return false;
+    }
+  }
+
+  const testUrl = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+
+  try {
+    const parsed = new URL(testUrl);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return false;
+    }
+
+    const hostname = parsed.hostname;
+    if (!hostname) return false;
+
+    // Allow localhost or loopback IP (useful in dev/testing)
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+
+    // Hostname must contain at least one dot (domain.tld or sub.domain.tld)
+    if (!hostname.includes('.')) {
+      return false;
+    }
+
+    // Cannot start or end with dot or hyphen
+    if (hostname.startsWith('.') || hostname.endsWith('.') || hostname.startsWith('-') || hostname.endsWith('-')) {
+      return false;
+    }
+
+    const labels = hostname.split('.');
+    if (labels.length < 2) return false;
+
+    // TLD must be at least 2 alpha chars (or punycode)
+    const tld = labels[labels.length - 1];
+    if (!/^[a-zA-Z]{2,}$/.test(tld) && !/^xn--[a-zA-Z0-9]+$/i.test(tld)) {
+      return false;
+    }
+
+    for (const label of labels) {
+      if (!label || label.length > 63) return false;
+      if (!/^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?$/.test(label)) {
+        return false;
+      }
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 export default function EventRegistrationModal({
   event,
@@ -102,6 +180,19 @@ export default function EventRegistrationModal({
     setCustomResponses((prev) => ({ ...prev, [fieldId]: sanitized }));
   };
 
+  const handleUrlBlur = (fieldId) => {
+    setCustomResponses((prev) => {
+      const current = prev[fieldId];
+      if (typeof current !== 'string') return prev;
+      const trimmed = current.trim();
+      if (!trimmed) return { ...prev, [fieldId]: '' };
+      if (isValidWebUrl(trimmed)) {
+        return { ...prev, [fieldId]: normalizeWebUrl(trimmed) };
+      }
+      return { ...prev, [fieldId]: trimmed };
+    });
+  };
+
   const handleToggleMultiSelect = (fieldId, option) => {
     setCustomResponses((prev) => {
       const currentList = Array.isArray(prev[fieldId]) ? [...prev[fieldId]] : [];
@@ -129,19 +220,15 @@ export default function EventRegistrationModal({
     for (const f of fields) {
       const val = customResponses[f.id];
       const strVal = val !== undefined && val !== null ? String(val).trim() : '';
+      const isBlank = val === undefined || val === null || (typeof val === 'string' && val.trim() === '') || (Array.isArray(val) && val.length === 0);
 
-      if (f.required) {
-        if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
-          return `Please complete the required question: "${f.label}"`;
-        }
+      if (f.required && isBlank) {
+        return `Please complete the required question: "${f.label}"`;
       }
 
       if (f.type === 'url' && strVal) {
-        try {
-          const testUrl = strVal.startsWith('http://') || strVal.startsWith('https://') ? strVal : `https://${strVal}`;
-          new URL(testUrl);
-        } catch {
-          return `Please enter a valid link/URL for "${f.label}"`;
+        if (!isValidWebUrl(strVal)) {
+          return `Please enter a valid link/URL for "${f.label}" (e.g. drive.google.com/... or https://...)`;
         }
       }
 
@@ -179,6 +266,25 @@ export default function EventRegistrationModal({
           setError(err);
           return;
         }
+
+        // Auto-normalize valid URLs for current section
+        setCustomResponses((prev) => {
+          const updated = { ...prev };
+          let changed = false;
+          sec.fields.forEach((f) => {
+            if (f.type === 'url' && typeof updated[f.id] === 'string') {
+              const trimmed = updated[f.id].trim();
+              if (trimmed && isValidWebUrl(trimmed)) {
+                const norm = normalizeWebUrl(trimmed);
+                if (norm !== updated[f.id]) {
+                  updated[f.id] = norm;
+                  changed = true;
+                }
+              }
+            }
+          });
+          return changed ? updated : prev;
+        });
       }
 
       if (step < totalSteps) {
@@ -223,6 +329,20 @@ export default function EventRegistrationModal({
     setLoading(true);
     try {
       const evId = event._id || event.id;
+
+      // Sanitize and normalize URL custom responses for payload
+      const sanitizedResponses = { ...customResponses };
+      for (const sec of sections) {
+        for (const f of sec.fields) {
+          if (f.type === 'url' && typeof sanitizedResponses[f.id] === 'string') {
+            const trimmed = sanitizedResponses[f.id].trim();
+            if (trimmed && isValidWebUrl(trimmed)) {
+              sanitizedResponses[f.id] = normalizeWebUrl(trimmed);
+            }
+          }
+        }
+      }
+
       const payload = {
         name: formData.name,
         email: formData.email,
@@ -230,7 +350,7 @@ export default function EventRegistrationModal({
         university: formData.university,
         faculty: formData.faculty,
         major: formData.major,
-        customResponses,
+        customResponses: sanitizedResponses,
       };
 
       const res = await api.registerForEvent(evId, payload);
@@ -307,14 +427,87 @@ export default function EventRegistrationModal({
     }
 
     if (field.type === 'url') {
+      const currentVal = customResponses[field.id] || '';
+      const trimmedVal = typeof currentVal === 'string' ? currentVal.trim() : '';
+      const isValid = trimmedVal.length > 0 && isValidWebUrl(trimmedVal);
+      const isInvalid = trimmedVal.length > 0 && !isValid;
+      const previewUrl = isValid ? normalizeWebUrl(trimmedVal) : null;
+
       return (
-        <input
-          type="url"
-          value={customResponses[field.id] || ''}
-          onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
-          placeholder={field.placeholder || 'https://...'}
-          className="form-input"
-        />
+        <div>
+          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+            <span
+              style={{
+                position: 'absolute',
+                left: '0.85rem',
+                color: isInvalid
+                  ? 'var(--color-danger, #ef4444)'
+                  : isValid
+                  ? 'var(--color-success, #10b981)'
+                  : 'var(--color-text-muted)',
+                display: 'flex',
+                alignItems: 'center',
+                pointerEvents: 'none',
+                transition: 'color 0.2s',
+              }}
+            >
+              <Link2 size={16} />
+            </span>
+            <input
+              type="text"
+              inputMode="url"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck="false"
+              value={currentVal}
+              onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
+              onBlur={() => handleUrlBlur(field.id)}
+              placeholder={field.placeholder || 'https://drive.google.com/... or linkedin.com/in/...'}
+              className="form-input"
+              style={{
+                paddingLeft: '2.4rem',
+                paddingRight: isValid ? '5.2rem' : '1rem',
+                borderColor: isInvalid
+                  ? 'var(--color-danger, #ef4444)'
+                  : isValid
+                  ? 'rgba(16, 185, 129, 0.4)'
+                  : undefined,
+              }}
+            />
+            {isValid && previewUrl && (
+              <a
+                href={previewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-ghost btn-xs"
+                style={{
+                  position: 'absolute',
+                  right: '0.45rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  fontSize: '0.72rem',
+                  padding: '0.2rem 0.45rem',
+                  color: 'var(--color-primary)',
+                  borderRadius: 'var(--radius-xs)',
+                  textDecoration: 'none',
+                  background: 'var(--color-surface-hover, rgba(255, 255, 255, 0.06))',
+                  border: '1px solid var(--color-border)',
+                }}
+                title="Open and verify link in new tab"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <span>Test</span>
+                <ExternalLink size={11} />
+              </a>
+            )}
+          </div>
+          {isInvalid && (
+            <span style={{ display: 'block', color: 'var(--color-danger, #ef4444)', fontSize: '0.74rem', marginTop: '0.3rem' }}>
+              Please enter a valid link (e.g. drive.google.com/... or https://...)
+            </span>
+          )}
+        </div>
       );
     }
 
