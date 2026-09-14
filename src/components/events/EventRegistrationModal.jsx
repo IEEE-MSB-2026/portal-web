@@ -504,7 +504,7 @@ export default function EventRegistrationModal({
           </div>
           {isInvalid && (
             <span style={{ display: 'block', color: 'var(--color-danger, #ef4444)', fontSize: '0.74rem', marginTop: '0.3rem' }}>
-              Please enter a valid link (e.g. drive.google.com/... or https://...)
+              Please enter a valid link
             </span>
           )}
         </div>
