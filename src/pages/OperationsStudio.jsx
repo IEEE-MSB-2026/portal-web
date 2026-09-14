@@ -40,6 +40,8 @@ import {
   AlertTriangle,
   X,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
   MapPin,
   Clock,
   ArrowRight,
@@ -509,6 +511,8 @@ export default function OperationsStudio() {
   const [dragEnabledIdx, setDragEnabledIdx] = useState(null);
   const [draggedCustomFieldIdx, setDraggedCustomFieldIdx] = useState(null);
   const [dragOverCustomFieldIdx, setDragOverCustomFieldIdx] = useState(null);
+  const [dragOverSectionId, setDragOverSectionId] = useState(null);
+  const [customSections, setCustomSections] = useState([{ id: 'sec_default', title: 'General Questions' }]);
   const [hasAttemptedStage1, setHasAttemptedStage1] = useState(false);
   const [hasAttemptedStage2, setHasAttemptedStage2] = useState(false);
   const [touchedFields, setTouchedFields] = useState({});
@@ -532,6 +536,27 @@ export default function OperationsStudio() {
   const [leaderboardCopied, setLeaderboardCopied] = useState(false);
   const [isQrFullscreen, setIsQrFullscreen] = useState(false);
   const qrFullscreenRef = useRef(null);
+  const eventMenuRef = useRef(null);
+  const activityMenuRef = useRef(null);
+
+  // Dismiss drawer three-dots menus on click outside
+  useEffect(() => {
+    if (!showEventMenu && !activeActivityMenuId) return;
+
+    const handleDocumentClick = (e) => {
+      if (showEventMenu && eventMenuRef.current && !eventMenuRef.current.contains(e.target)) {
+        setShowEventMenu(false);
+      }
+      if (activeActivityMenuId && activityMenuRef.current && !activityMenuRef.current.contains(e.target)) {
+        setActiveActivityMenuId(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleDocumentClick);
+    return () => {
+      document.removeEventListener('mousedown', handleDocumentClick);
+    };
+  }, [showEventMenu, activeActivityMenuId]);
 
   // Listen for native HTML5 fullscreen changes
   useEffect(() => {
@@ -551,7 +576,7 @@ export default function OperationsStudio() {
       }
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
     }
   };
@@ -655,9 +680,9 @@ export default function OperationsStudio() {
         fullHtmlBody: p.fullHtmlBody && p.fullHtmlBody.trim().length > 0
           ? p.fullHtmlBody
           : getDefaultEmailTemplate(
-              p.editorMode === 'html' ? p.standardBody : renderMarkdownToHtml(p.standardBody || ''),
-              selectedEvent?.name || 'IEEE Event Pass'
-            ),
+            p.editorMode === 'html' ? p.standardBody : renderMarkdownToHtml(p.standardBody || ''),
+            selectedEvent?.name || 'IEEE Event Pass'
+          ),
       }));
     } else {
       setEmailTemplate((p) => ({
@@ -769,7 +794,6 @@ export default function OperationsStudio() {
   const emailModalBackdrop = useBackdropDismiss(() => setShowEmailDispatchModal(false), { isOpen: showEmailDispatchModal });
   const whitelistModalBackdrop = useBackdropDismiss(() => setShowWhitelistModal(false), { isOpen: showWhitelistModal });
   const scannersModalBackdrop = useBackdropDismiss(() => setShowScannersModal(false), { isOpen: showScannersModal });
-  const eventMenuBackdrop = useBackdropDismiss(() => setShowEventMenu(false), { isOpen: showEventMenu });
   const importSheetModalBackdrop = useBackdropDismiss(() => setShowImportSheetModal(false), { isOpen: showImportSheetModal });
   const lightboxBackdrop = useBackdropDismiss(() => setLightboxImage(null), { isOpen: Boolean(lightboxImage) });
 
@@ -1039,12 +1063,13 @@ export default function OperationsStudio() {
       description: '',
       isRestricted: false,
     });
+    const defaultSecId = `sec_${Date.now()}`;
     setEventForm({
       name: '',
       description: '',
-      location: 'Faculty of Electronic Engineering',
-      venue: 'Main Auditorium',
-      category: 'General',
+      location: '',
+      venue: '',
+      category: 'Workshop',
       startDate: '',
       endDate: '',
       capacity: 100,
@@ -1056,6 +1081,7 @@ export default function OperationsStudio() {
       coverImageUrl: '',
       bannerUrl: '',
     });
+    setCustomSections([{ id: defaultSecId, title: 'General Questions' }]);
     setCreationStage(1);
     setHasAttemptedStage1(false);
     setHasAttemptedStage2(false);
@@ -1075,6 +1101,29 @@ export default function OperationsStudio() {
       : (ev.date ? new Date(ev.date).toISOString().split('T')[0] : '');
     const endIso = ev.endDate ? new Date(ev.endDate).toISOString().split('T')[0] : '';
 
+    const foundSections = [];
+    const seenTitles = new Map();
+    (ev.customFields || []).forEach((f, idx) => {
+      const s = (f.section && f.section.trim()) ? f.section.trim() : 'General Questions';
+      if (!seenTitles.has(s)) {
+        const secId = `sec_${idx}_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+        seenTitles.set(s, secId);
+        foundSections.push({ id: secId, title: s });
+      }
+    });
+    const initialSections = foundSections.length > 0 ? foundSections : [{ id: `sec_${Date.now()}`, title: 'General Questions' }];
+    setCustomSections(initialSections);
+
+    const fieldsWithSectionId = (ev.customFields || []).map((f) => {
+      const s = (f.section && f.section.trim()) ? f.section.trim() : 'General Questions';
+      const secId = seenTitles.get(s) || initialSections[0].id;
+      return {
+        ...f,
+        sectionId: f.sectionId || secId,
+        section: s,
+      };
+    });
+
     setEventForm({
       name: ev.name || '',
       description: ev.description || '',
@@ -1088,7 +1137,7 @@ export default function OperationsStudio() {
       isRegistrationOpen: ev.isRegistrationOpen !== false,
       allowedAudience: ev.allowedAudience || 'public',
       status: ev.status || 'active',
-      customFields: ev.customFields || [],
+      customFields: fieldsWithSectionId,
       coverImageUrl: ev.coverImageUrl || '',
       bannerUrl: ev.bannerUrl || '',
     });
@@ -1099,7 +1148,123 @@ export default function OperationsStudio() {
     setShowEventModal(true);
   };
 
-  const handleAddCustomField = () => {
+  const handleAddSection = () => {
+    const nextNum = customSections.length + 1;
+    const newSec = {
+      id: `sec_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      title: `Section ${nextNum}`,
+    };
+    setCustomSections((prev) => [...prev, newSec]);
+  };
+
+  const handleRenameSection = (secId, newTitle) => {
+    setCustomSections((prev) =>
+      prev.map((sec) => (sec.id === secId ? { ...sec, title: newTitle } : sec))
+    );
+  };
+
+  const handleSectionBlur = (secId, secIdx) => {
+    setCustomSections((prev) =>
+      prev.map((sec, idx) => {
+        if (sec.id === secId) {
+          const trimmed = (sec.title || '').trim();
+          return {
+            ...sec,
+            title: trimmed.length > 0 ? trimmed : `Section ${secIdx + 1}`,
+          };
+        }
+        return sec;
+      })
+    );
+  };
+
+  const handleMoveSectionUp = (secIdx) => {
+    if (secIdx <= 0) return;
+    const newSections = [...customSections];
+    const [moved] = newSections.splice(secIdx, 1);
+    newSections.splice(secIdx - 1, 0, moved);
+    setCustomSections(newSections);
+
+    setEventForm((prev) => {
+      const defaultSec = newSections[0];
+      const reordered = [];
+      newSections.forEach((sec) => {
+        const secFields = prev.customFields.filter(
+          (f) => (f.sectionId ? f.sectionId === sec.id : (f.section || defaultSec?.title) === sec.title)
+        );
+        reordered.push(...secFields);
+      });
+      const matchedIds = new Set(reordered.map((f) => f.id));
+      prev.customFields.forEach((f) => {
+        if (!matchedIds.has(f.id)) reordered.push(f);
+      });
+      return {
+        ...prev,
+        customFields: reordered.map((f, idx) => ({ ...f, order: idx })),
+      };
+    });
+  };
+
+  const handleMoveSectionDown = (secIdx) => {
+    if (secIdx >= customSections.length - 1) return;
+    const newSections = [...customSections];
+    const [moved] = newSections.splice(secIdx, 1);
+    newSections.splice(secIdx + 1, 0, moved);
+    setCustomSections(newSections);
+
+    setEventForm((prev) => {
+      const defaultSec = newSections[0];
+      const reordered = [];
+      newSections.forEach((sec) => {
+        const secFields = prev.customFields.filter(
+          (f) => (f.sectionId ? f.sectionId === sec.id : (f.section || defaultSec?.title) === sec.title)
+        );
+        reordered.push(...secFields);
+      });
+      const matchedIds = new Set(reordered.map((f) => f.id));
+      prev.customFields.forEach((f) => {
+        if (!matchedIds.has(f.id)) reordered.push(f);
+      });
+      return {
+        ...prev,
+        customFields: reordered.map((f, idx) => ({ ...f, order: idx })),
+      };
+    });
+  };
+
+  const handleDeleteSection = (secId) => {
+    const targetSec = customSections.find((s) => s.id === secId);
+    if (!targetSec) return;
+
+    const defaultSec = customSections[0];
+    const fieldsInSec = eventForm.customFields.filter(
+      (f) => (f.sectionId ? f.sectionId === secId : (f.section || defaultSec?.title) === targetSec.title)
+    );
+
+    if (fieldsInSec.length > 0) {
+      const ok = window.confirm(
+        `Section "${targetSec.title}" contains ${fieldsInSec.length} question(s). Are you sure you want to delete this section and all its questions?`
+      );
+      if (!ok) return;
+    }
+
+    setCustomSections((prev) => {
+      const filtered = prev.filter((s) => s.id !== secId);
+      return filtered.length > 0 ? filtered : [{ id: `sec_${Date.now()}`, title: 'General Questions' }];
+    });
+
+    setEventForm((prev) => ({
+      ...prev,
+      customFields: prev.customFields.filter(
+        (f) => (f.sectionId ? f.sectionId !== secId : (f.section || defaultSec?.title) !== targetSec.title)
+      ),
+    }));
+  };
+
+  const handleAddCustomFieldToSection = (secId) => {
+    const targetSec = customSections.find((s) => s.id === secId) || customSections[0];
+    const targetSecId = targetSec ? targetSec.id : `sec_${Date.now()}`;
+    const targetSecTitle = targetSec ? targetSec.title : 'General Questions';
     setEventForm((prev) => ({
       ...prev,
       customFields: [
@@ -1111,10 +1276,33 @@ export default function OperationsStudio() {
           options: [],
           required: false,
           placeholder: '',
+          sectionId: targetSecId,
+          section: targetSecTitle,
           order: prev.customFields.length,
         },
       ],
     }));
+  };
+
+  const handleAddCustomField = () => {
+    const targetSec = customSections[0];
+    handleAddCustomFieldToSection(targetSec ? targetSec.id : null);
+  };
+
+  const handleMoveFieldToSection = (fieldIndex, targetSecId) => {
+    if (fieldIndex === null || fieldIndex === undefined) return;
+    const targetSec = customSections.find((s) => s.id === targetSecId) || customSections[0];
+    setEventForm((prev) => {
+      const updated = [...prev.customFields];
+      if (updated[fieldIndex]) {
+        updated[fieldIndex] = {
+          ...updated[fieldIndex],
+          sectionId: targetSec ? targetSec.id : updated[fieldIndex].sectionId,
+          section: targetSec ? targetSec.title : updated[fieldIndex].section,
+        };
+      }
+      return { ...prev, customFields: updated };
+    });
   };
 
   const handleUpdateCustomField = (index, updates) => {
@@ -1132,14 +1320,51 @@ export default function OperationsStudio() {
     }));
   };
 
-  const handleReorderCustomField = (fromIndex, toIndex) => {
-    if (fromIndex === null || toIndex === null || fromIndex === toIndex) return;
+  const handleReorderCustomField = (fromIndex, toIndex, targetSecId) => {
+    if (fromIndex === null || toIndex === null) return;
+    const targetSec = targetSecId ? (customSections.find((s) => s.id === targetSecId) || customSections[0]) : null;
     setEventForm((prev) => {
       const list = [...prev.customFields];
       const [moved] = list.splice(fromIndex, 1);
+      if (targetSec) {
+        moved.sectionId = targetSec.id;
+        moved.section = targetSec.title;
+      }
       list.splice(toIndex, 0, moved);
       const reordered = list.map((item, idx) => ({ ...item, order: idx }));
       return { ...prev, customFields: reordered };
+    });
+  };
+
+  const handleMoveQuestionWithinSection = (globalIdx, direction) => {
+    const field = eventForm.customFields[globalIdx];
+    if (!field) return;
+
+    const targetSecId = field.sectionId;
+    const targetSecTitle = field.section;
+    const defaultSec = customSections[0];
+
+    const secFields = eventForm.customFields
+      .map((f, idx) => ({ ...f, _idx: idx }))
+      .filter((f) => (f.sectionId ? f.sectionId === targetSecId : (f.section || defaultSec?.title) === targetSecTitle));
+
+    const posInSection = secFields.findIndex((f) => f._idx === globalIdx);
+    if (posInSection === -1) return;
+
+    const targetPos = posInSection + direction;
+    if (targetPos < 0 || targetPos >= secFields.length) return;
+
+    const targetGlobalIdx = secFields[targetPos]._idx;
+
+    setEventForm((prev) => {
+      const list = [...prev.customFields];
+      const temp = list[globalIdx];
+      list[globalIdx] = list[targetGlobalIdx];
+      list[targetGlobalIdx] = temp;
+      return {
+        ...prev,
+        customFields: list.map((item, idx) => ({ ...item, order: idx })),
+      };
     });
   };
 
@@ -1159,11 +1384,16 @@ export default function OperationsStudio() {
 
   const getStage2Errors = () => {
     const errs = [];
+    customSections.forEach((sec, sIdx) => {
+      if (!sec.title?.trim()) {
+        errs.push(`Section #${sIdx + 1} requires a title`);
+      }
+    });
     eventForm.customFields.forEach((field, idx) => {
       if (!field.label?.trim()) {
         errs.push(`Question #${idx + 1} is missing a title`);
-      } else if (field.type === 'select' && (!field.options || field.options.length === 0)) {
-        errs.push(`Question #${idx + 1} ("${field.label}") requires at least one dropdown option`);
+      } else if ((field.type === 'select' || field.type === 'multi_select') && (!field.options || field.options.length === 0)) {
+        errs.push(`Question #${idx + 1} ("${field.label}") requires at least one option`);
       }
     });
     return errs;
@@ -1267,6 +1497,25 @@ export default function OperationsStudio() {
     }
 
     try {
+      const sanitizedCustomFields = eventForm.customFields.map((f, idx) => {
+        const matchingSec = customSections.find((s) => s.id === f.sectionId);
+        const defaultSec = customSections[0];
+        const resolvedSection = (matchingSec && matchingSec.title?.trim())
+          ? matchingSec.title.trim()
+          : (f.section && f.section.trim() ? f.section.trim() : (defaultSec?.title?.trim() || 'General Questions'));
+
+        return {
+          id: f.id || `field_${Date.now()}_${idx}`,
+          label: f.label || '',
+          type: f.type || 'text',
+          options: f.options || [],
+          required: Boolean(f.required),
+          placeholder: f.placeholder || '',
+          section: resolvedSection,
+          order: idx,
+        };
+      });
+
       const payload = {
         name: eventForm.name.trim(),
         description: eventForm.description.trim(),
@@ -1279,7 +1528,7 @@ export default function OperationsStudio() {
         isRegistrationOpen: Boolean(eventForm.isRegistrationOpen),
         allowedAudience: eventForm.allowedAudience,
         status: eventForm.status || 'published',
-        customFields: eventForm.customFields,
+        customFields: sanitizedCustomFields,
         coverImageUrl: eventForm.coverImageUrl ? eventForm.coverImageUrl.trim() : null,
         bannerUrl: eventForm.bannerUrl ? eventForm.bannerUrl.trim() : null,
       };
@@ -1471,7 +1720,7 @@ export default function OperationsStudio() {
       setIsProjectorFullscreen(true);
     } else {
       if (document.exitFullscreen) {
-        document.exitFullscreen().catch(() => {});
+        document.exitFullscreen().catch(() => { });
       }
       setIsProjectorFullscreen(false);
     }
@@ -1496,7 +1745,7 @@ export default function OperationsStudio() {
     const handleKeyDown = (e) => {
       if (showKioskModal && e.key === 'Escape') {
         if (document.fullscreenElement) {
-          document.exitFullscreen().catch(() => {});
+          document.exitFullscreen().catch(() => { });
         }
         setShowKioskModal(false);
       }
@@ -1706,7 +1955,7 @@ export default function OperationsStudio() {
       streamRef.current.getTracks().forEach((track) => {
         try {
           track.stop();
-        } catch {}
+        } catch { }
       });
       streamRef.current = null;
     }
@@ -1757,7 +2006,7 @@ export default function OperationsStudio() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.setAttribute('playsinline', 'true');
-        await videoRef.current.play().catch(() => {});
+        await videoRef.current.play().catch(() => { });
       }
 
       setCameraActive(true);
@@ -1872,9 +2121,9 @@ export default function OperationsStudio() {
       if (e.key === 'Escape' && isScannerFullscreen) {
         if (document.fullscreenElement || document.webkitFullscreenElement) {
           if (document.exitFullscreen) {
-            document.exitFullscreen().catch(() => {});
+            document.exitFullscreen().catch(() => { });
           } else if (document.webkitExitFullscreen) {
-            document.webkitExitFullscreen().catch(() => {});
+            document.webkitExitFullscreen().catch(() => { });
           }
         }
         setIsScannerFullscreen(false);
@@ -1961,7 +2210,7 @@ export default function OperationsStudio() {
 
     const now = Date.now();
     // Cooldown: at least 1.2s between consecutive scans
-    if (now - lastScanTimestampRef.current < 1200) return;
+    if (now - lastScanTimestampRef.current < 2500) return;
     // Cooldown: at least 2.5s before rescanning the exact same code
     if (lastScannedCodeRef.current === rawText && now - lastScanTimestampRef.current < 2500) return;
 
@@ -2151,25 +2400,20 @@ export default function OperationsStudio() {
       const finalBody = isFull
         ? (emailTemplate.fullHtmlBody || '')
         : getDefaultEmailTemplate(
-            emailTemplate.editorMode === 'html'
-              ? emailTemplate.standardBody
-              : renderMarkdownToHtml(emailTemplate.standardBody || ''),
-            targetEvent?.name || 'IEEE Event Pass'
-          );
+          emailTemplate.editorMode === 'html'
+            ? emailTemplate.standardBody
+            : renderMarkdownToHtml(emailTemplate.standardBody || ''),
+          targetEvent?.name || 'IEEE Event Pass'
+        );
 
       const isScheduled = Boolean(emailTemplate.scheduledFor);
       const scheduledIso = isScheduled ? new Date(emailTemplate.scheduledFor).toISOString() : null;
 
       // 1. Prepare attendee ticket payloads and personalized QR buffers via event-register
-      let prepRes;
-      try {
-        prepRes = await api.prepareEventQRCampaign(evId, {
-          sendToAllUnsent: true,
-          scheduledFor: scheduledIso,
-        });
-      } catch (prepErr) {
-        console.warn('Fallback to standalone event-register send:', prepErr);
-      }
+      const prepRes = await api.prepareEventQRCampaign(evId, {
+        sendToAllUnsent: true,
+        scheduledFor: scheduledIso,
+      });
 
       if (prepRes && Array.isArray(prepRes.recipients) && prepRes.recipients.length > 0) {
         // 2. Dispatch or Schedule via Core Platform Campaign Engine
@@ -2205,16 +2449,7 @@ export default function OperationsStudio() {
           toast.success('Campaign Dispatched', `QR tickets dispatched to ${prepRes.recipients.length} attendees via Core Campaign Engine!`);
         }
       } else {
-        // Fallback to standalone direct send if no recipients from prepare or standalone mode
-        const res = await api.sendEventQRCodes(evId, {
-          emailSubject: emailTemplate.subject,
-          emailBody: finalBody,
-          subject: emailTemplate.subject,
-          bodyTemplate: finalBody,
-          scheduledFor: scheduledIso,
-          templateMode: emailTemplate.templateMode,
-        });
-        toast.success('Emails Dispatched', res.message || 'QR ticket emails dispatched to registered attendees!');
+        toast.info('No Tickets to Send', prepRes?.message || 'No eligible attendees found for QR ticket dispatch.');
       }
 
       setShowEmailDispatchModal(false);
@@ -2980,7 +3215,7 @@ export default function OperationsStudio() {
           EVENT DETAIL DRAWER (Slide-In Right)
          ════════════════════════════════════════════════════════════════════════ */}
       {drawerEvent && (
-        <div className="ops-drawer-overlay" onClick={() => setDrawerEvent(null)}>
+        <div className="ops-drawer-overlay" onClick={() => { setShowEventMenu(false); setActiveActivityMenuId(null); setDrawerEvent(null); }}>
           <div className="ops-drawer-content" onClick={(e) => e.stopPropagation()}>
 
             <div className="ops-drawer-header">
@@ -3003,7 +3238,7 @@ export default function OperationsStudio() {
               <button
                 type="button"
                 className="btn btn-secondary btn-icon"
-                onClick={() => setDrawerEvent(null)}
+                onClick={() => { setShowEventMenu(false); setActiveActivityMenuId(null); setDrawerEvent(null); }}
               >
                 <X size={18} />
               </button>
@@ -3222,7 +3457,7 @@ export default function OperationsStudio() {
                         <UserCheck size={14} /> Scanners ({drawerEvent.scannerUserIds?.length || 0})
                       </button>
 
-                      <div className="ops-dropdown-wrapper">
+                      <div className="ops-dropdown-wrapper" ref={eventMenuRef}>
                         <button
                           type="button"
                           onClick={() => setShowEventMenu((prev) => !prev)}
@@ -3234,7 +3469,7 @@ export default function OperationsStudio() {
                         </button>
 
                         {showEventMenu && (
-                          <div className="ops-dropdown-menu" {...eventMenuBackdrop.getBackdropProps()}>
+                          <div className="ops-dropdown-menu">
                             <button
                               type="button"
                               className="ops-dropdown-item"
@@ -3397,7 +3632,11 @@ export default function OperationsStudio() {
                               )}
 
                               {/* Three-Dots Actions Droplist */}
-                              <div className="ops-dropdown-wrapper" style={{ zIndex: isMenuOpen ? 1010 : undefined }}>
+                              <div
+                                className="ops-dropdown-wrapper"
+                                style={{ zIndex: isMenuOpen ? 1010 : undefined }}
+                                ref={isMenuOpen ? activityMenuRef : undefined}
+                              >
                                 <button
                                   type="button"
                                   onClick={(e) => {
@@ -3546,7 +3785,7 @@ export default function OperationsStudio() {
                     isOpen={true}
                     isPreview={true}
                     embedded={true}
-                    onClose={() => {}}
+                    onClose={() => { }}
                   />
                 </div>
               )}
@@ -3580,379 +3819,379 @@ export default function OperationsStudio() {
           ) : (
             <div className="ops-scanner-layout">
 
-            {/* Left Column: Camera Viewport */}
-            <div className={`bento-card ${isScannerFullscreen ? 'bento-card--scanner-fullscreen' : ''}`} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
-                <div>
-                  <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
-                    Live Camera Scanner
-                  </h3>
-                  <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-                    Point camera at attendee QR ticket pass to record attendance and award points
-                  </span>
+              {/* Left Column: Camera Viewport */}
+              <div className={`bento-card ${isScannerFullscreen ? 'bento-card--scanner-fullscreen' : ''}`} style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem' }}>
+                  <div>
+                    <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.25rem', fontWeight: 800, margin: 0 }}>
+                      Live Camera Scanner
+                    </h3>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                      Point camera at attendee QR ticket pass to record attendance and award points
+                    </span>
+                  </div>
+                  {cameraActive && (
+                    <button
+                      type="button"
+                      onClick={toggleScannerFullscreen}
+                      className="btn btn-ghost"
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem', padding: '0.45rem 0.85rem' }}
+                      title="Enter fullscreen scanner"
+                    >
+                      <Maximize2 size={14} />
+                      Fullscreen
+                    </button>
+                  )}
                 </div>
-                {cameraActive && (
-                  <button
-                    type="button"
-                    onClick={toggleScannerFullscreen}
-                    className="btn btn-ghost"
-                    style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.8125rem', padding: '0.45rem 0.85rem' }}
-                    title="Enter fullscreen scanner"
-                  >
-                    <Maximize2 size={14} />
-                    Fullscreen
-                  </button>
-                )}
-              </div>
 
-              {/* Video Box */}
-              <div
-                ref={scannerFsRef}
-                className={[
-                  'ops-video-container',
-                  scanFeedbackState !== 'idle' ? `ops-video-container--${scanFeedbackState}` : '',
-                  isScannerFullscreen ? 'ops-video-container--fullscreen' : '',
-                ].filter(Boolean).join(' ')}
-              >
-                <video
-                  ref={videoRef}
-                  playsInline
-                  muted
-                  className={`ops-video-feed ${facingMode === 'user' ? 'ops-video-feed--mirrored' : ''}`}
-                />
-                
-                {cameraActive && (
-                  <>
-                    <div className={`ops-scanner-laser ${scanning ? 'ops-scanner-laser--verifying' : ''}`} />
-                    <div className={`ops-scanner-reticle-frame ${scanning ? 'ops-scanner-reticle-frame--verifying' : ''}`} />
-                    <div className="ops-scanner-status-pill">
-                      <span className="ops-scanner-status-pill__dot" />
-                      <span>
-                        {scanning
-                          ? 'Verifying Check-In...'
-                          : `Scanning for: ${currentScannerActivity?.name || 'Main Check-In'}`}
-                      </span>
-                    </div>
+                {/* Video Box */}
+                <div
+                  ref={scannerFsRef}
+                  className={[
+                    'ops-video-container',
+                    scanFeedbackState !== 'idle' ? `ops-video-container--${scanFeedbackState}` : '',
+                    isScannerFullscreen ? 'ops-video-container--fullscreen' : '',
+                  ].filter(Boolean).join(' ')}
+                >
+                  <video
+                    ref={videoRef}
+                    playsInline
+                    muted
+                    className={`ops-video-feed ${facingMode === 'user' ? 'ops-video-feed--mirrored' : ''}`}
+                  />
 
-                    {/* Fullscreen-only controls */}
-                    {isScannerFullscreen && (
-                      <>
-                        {/* Close button */}
-                        <button
-                          type="button"
-                          className="ops-scanner-fs-close"
-                          onClick={toggleScannerFullscreen}
-                          title="Exit Fullscreen (Esc)"
-                        >
-                          <Minimize2 size={18} />
-                        </button>
+                  {cameraActive && (
+                    <>
+                      <div className={`ops-scanner-laser ${scanning ? 'ops-scanner-laser--verifying' : ''}`} />
+                      <div className={`ops-scanner-reticle-frame ${scanning ? 'ops-scanner-reticle-frame--verifying' : ''}`} />
+                      <div className="ops-scanner-status-pill">
+                        <span className="ops-scanner-status-pill__dot" />
+                        <span>
+                          {scanning
+                            ? 'Verifying Check-In...'
+                            : `Scanning for: ${currentScannerActivity?.name || 'Main Check-In'}`}
+                        </span>
+                      </div>
 
-                        {/* Recent scan feed overlay */}
-                        {scanFeed.length > 0 && (
-                          <div className="ops-scanner-fs-feed">
-                            {scanFeed.slice(-3).reverse().map((item, idx) => (
-                              <div key={idx} className={`ops-scanner-fs-feed-item ops-scanner-fs-feed-item--${item.type || 'success'}`}>
-                                {item.type === 'success' ? <CheckCircle2 size={12} /> : item.type === 'duplicate' ? <AlertTriangle size={12} /> : <X size={12} />}
-                                <span style={{ marginLeft: '0.3rem' }}>{item.message}</span>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Bottom glass toolbar */}
-                        <div className="ops-scanner-fs-toolbar">
-                          <button type="button" className="ops-scanner-fs-btn" onClick={handleFlipCamera}>
-                            <RotateCcw size={15} /> Flip
-                          </button>
-                          {torchSupported && (
-                            <button
-                              type="button"
-                              className={`ops-scanner-fs-btn ${torchActive ? 'ops-scanner-fs-btn--active' : ''}`}
-                              onClick={handleToggleTorch}
-                            >
-                              {torchActive ? <ZapOff size={15} /> : <Zap size={15} />}
-                              {torchActive ? 'Flash On' : 'Flash Off'}
-                            </button>
-                          )}
+                      {/* Fullscreen-only controls */}
+                      {isScannerFullscreen && (
+                        <>
+                          {/* Close button */}
                           <button
                             type="button"
-                            className="ops-scanner-fs-btn ops-scanner-fs-btn--danger"
-                            onClick={async () => {
-                              if (document.fullscreenElement || document.webkitFullscreenElement) {
-                                if (document.exitFullscreen) {
-                                  await document.exitFullscreen().catch(() => {});
-                                } else if (document.webkitExitFullscreen) {
-                                  await document.webkitExitFullscreen().catch(() => {});
-                                }
-                              }
-                              stopCamera();
-                              setIsScannerFullscreen(false);
-                            }}
-                          >
-                            <Pause size={15} /> Stop
-                          </button>
-                          <button
-                            type="button"
-                            className="ops-scanner-fs-btn"
+                            className="ops-scanner-fs-close"
                             onClick={toggleScannerFullscreen}
                             title="Exit Fullscreen (Esc)"
                           >
-                            <Minimize2 size={15} /> Exit
+                            <Minimize2 size={18} />
                           </button>
-                        </div>
-                      </>
-                    )}
-                  </>
-                )}
 
-                {!cameraActive && (
-                  <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(9, 13, 22, 0.92)', gap: '1rem', padding: '1.5rem', textAlign: 'center' }}>
-                    <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(14, 165, 233, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
-                      <Camera size={36} />
-                    </div>
-                    <div>
-                      <h4 className="ops-camera-offline-title">Camera</h4>
-                      <p className="ops-camera-offline-desc">
-                        Start your webcam or device camera to scan attendee QR passes in real time.
-                      </p>
-                      {cameraError && (
-                        <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#f87171' }}>
-                          {cameraError}
-                        </p>
+                          {/* Recent scan feed overlay */}
+                          {scanFeed.length > 0 && (
+                            <div className="ops-scanner-fs-feed">
+                              {scanFeed.slice(-3).reverse().map((item, idx) => (
+                                <div key={idx} className={`ops-scanner-fs-feed-item ops-scanner-fs-feed-item--${item.type || 'success'}`}>
+                                  {item.type === 'success' ? <CheckCircle2 size={12} /> : item.type === 'duplicate' ? <AlertTriangle size={12} /> : <X size={12} />}
+                                  <span style={{ marginLeft: '0.3rem' }}>{item.message}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Bottom glass toolbar */}
+                          <div className="ops-scanner-fs-toolbar">
+                            <button type="button" className="ops-scanner-fs-btn" onClick={handleFlipCamera}>
+                              <RotateCcw size={15} /> Flip
+                            </button>
+                            {torchSupported && (
+                              <button
+                                type="button"
+                                className={`ops-scanner-fs-btn ${torchActive ? 'ops-scanner-fs-btn--active' : ''}`}
+                                onClick={handleToggleTorch}
+                              >
+                                {torchActive ? <ZapOff size={15} /> : <Zap size={15} />}
+                                {torchActive ? 'Flash On' : 'Flash Off'}
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className="ops-scanner-fs-btn ops-scanner-fs-btn--danger"
+                              onClick={async () => {
+                                if (document.fullscreenElement || document.webkitFullscreenElement) {
+                                  if (document.exitFullscreen) {
+                                    await document.exitFullscreen().catch(() => { });
+                                  } else if (document.webkitExitFullscreen) {
+                                    await document.webkitExitFullscreen().catch(() => { });
+                                  }
+                                }
+                                stopCamera();
+                                setIsScannerFullscreen(false);
+                              }}
+                            >
+                              <Pause size={15} /> Stop
+                            </button>
+                            <button
+                              type="button"
+                              className="ops-scanner-fs-btn"
+                              onClick={toggleScannerFullscreen}
+                              title="Exit Fullscreen (Esc)"
+                            >
+                              <Minimize2 size={15} /> Exit
+                            </button>
+                          </div>
+                        </>
                       )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => startCamera()}
-                      className="btn btn-primary"
-                      style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1.25rem', fontWeight: 700 }}
-                    >
-                      <Play size={16} /> Start Web Camera
-                    </button>
-                  </div>
-                )}
-              </div>
+                    </>
+                  )}
 
-              {/* Camera Toolbar */}
-              {cameraActive && (
-                <div className="ops-camera-toolbar">
-                  <div className="ops-camera-toolbar__group">
-                    <button
-                      type="button"
-                      onClick={handleFlipCamera}
-                      className="ops-camera-toolbar__btn"
-                      title="Flip front / rear camera"
-                    >
-                      <RotateCcw size={13} />
-                      <span>Flip Camera</span>
-                    </button>
-
-                    {torchSupported && (
+                  {!cameraActive && (
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'rgba(9, 13, 22, 0.92)', gap: '1rem', padding: '1.5rem', textAlign: 'center' }}>
+                      <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(14, 165, 233, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-primary)' }}>
+                        <Camera size={36} />
+                      </div>
+                      <div>
+                        <h4 className="ops-camera-offline-title">Camera</h4>
+                        <p className="ops-camera-offline-desc">
+                          Start your webcam or device camera to scan attendee QR passes in real time.
+                        </p>
+                        {cameraError && (
+                          <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: '#f87171' }}>
+                            {cameraError}
+                          </p>
+                        )}
+                      </div>
                       <button
                         type="button"
-                        onClick={handleToggleTorch}
-                        className={`ops-camera-toolbar__btn ${torchActive ? 'ops-camera-toolbar__btn--active' : ''}`}
-                        title="Toggle Flashlight"
+                        onClick={() => startCamera()}
+                        className="btn btn-primary"
+                        style={{ display: 'inline-flex', alignItems: 'center', gap: '0.45rem', padding: '0.55rem 1.25rem', fontWeight: 700 }}
                       >
-                        {torchActive ? <ZapOff size={13} /> : <Zap size={13} />}
-                        <span>{torchActive ? 'Flash On' : 'Flash Off'}</span>
+                        <Play size={16} /> Start Web Camera
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Camera Toolbar */}
+                {cameraActive && (
+                  <div className="ops-camera-toolbar">
+                    <div className="ops-camera-toolbar__group">
+                      <button
+                        type="button"
+                        onClick={handleFlipCamera}
+                        className="ops-camera-toolbar__btn"
+                        title="Flip front / rear camera"
+                      >
+                        <RotateCcw size={13} />
+                        <span>Flip Camera</span>
+                      </button>
+
+                      {torchSupported && (
+                        <button
+                          type="button"
+                          onClick={handleToggleTorch}
+                          className={`ops-camera-toolbar__btn ${torchActive ? 'ops-camera-toolbar__btn--active' : ''}`}
+                          title="Toggle Flashlight"
+                        >
+                          {torchActive ? <ZapOff size={13} /> : <Zap size={13} />}
+                          <span>{torchActive ? 'Flash On' : 'Flash Off'}</span>
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="ops-camera-toolbar__group">
+                      <button
+                        type="button"
+                        onClick={stopCamera}
+                        className="ops-camera-toolbar__btn"
+                        style={{ color: 'var(--color-danger, #ef4444)' }}
+                        title="Turn off camera"
+                      >
+                        <Pause size={13} />
+                        <span>Stop Camera</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+
+              {/* Right Column: Feedback, Manual Desk & Scan Log */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+
+                {/* Last Scan Result Card */}
+                {lastScanResult && (
+                  <div className={`ops-scan-badge-feedback ops-scan-badge-feedback--${lastScanResult.type}`}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: 800, fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                        {lastScanResult.type === 'success' ? (
+                          <><CheckCircle2 size={16} /> Check-In Confirmed!</>
+                        ) : lastScanResult.type === 'duplicate' ? (
+                          <><AlertTriangle size={16} /> Already Scanned</>
+                        ) : lastScanResult.isRestricted ? (
+                          <><Shield size={16} /> Not On Activity Whitelist</>
+                        ) : (
+                          <><X size={16} /> Scan Rejected</>
+                        )}
+                      </span>
+                      <span style={{ fontSize: '0.78rem', opacity: 0.8 }}>
+                        {lastScanResult.timestamp}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: '0.88rem', marginTop: '0.2rem' }}>
+                      {lastScanResult.message}
+                    </div>
+                    {lastScanResult.participant && (
+                      <div style={{ fontSize: '0.8125rem', borderTop: '1px solid var(--color-border)', paddingTop: '0.45rem', display: 'flex', justifyContent: 'space-between' }}>
+                        <span>{lastScanResult.participant.university}</span>
+                        <span style={{ fontWeight: 700, color: '#f59e0b' }}>Total: {lastScanResult.participant.pointsAwarded || 0} pts</span>
+                      </div>
+                    )}
+
+                    {/* Organizer Whitelist Override Action */}
+                    {lastScanResult.isRestricted && (isGlobalAdminOrOfficer || isOCLead) && (
+                      <button
+                        type="button"
+                        onClick={() => executeCheckInScan(lastScanResult.ticketPayload, true)}
+                        className="btn btn-primary"
+                        style={{ marginTop: '0.65rem', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}
+                      >
+                        <ShieldCheck size={16} /> Organizer Override & Admit Attendee
                       </button>
                     )}
                   </div>
+                )}
 
-                  <div className="ops-camera-toolbar__group">
-                    <button
-                      type="button"
-                      onClick={stopCamera}
-                      className="ops-camera-toolbar__btn"
-                      style={{ color: 'var(--color-danger, #ef4444)' }}
-                      title="Turn off camera"
-                    >
-                      <Pause size={13} />
-                      <span>Stop Camera</span>
-                    </button>
+                {/* Manual Reception Desk Lookup */}
+                <div className="bento-card" style={{ padding: '1.25rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
+                    <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
+                      Reception Lookup Desk
+                    </h4>
+                    {currentScannerActivity?.isRestricted && (
+                      <span className="badge badge-purple" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                        <Shield size={10} /> Restricted Mode
+                      </span>
+                    )}
                   </div>
-                </div>
-              )}
+                  <input
+                    type="text"
+                    value={manualSearchQuery}
+                    onChange={(e) => setManualSearchQuery(e.target.value)}
+                    placeholder="Search attendee by name or email..."
+                    className="form-input"
+                    style={{ marginBottom: '0.65rem' }}
+                  />
 
-            </div>
+                  <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
+                    {participants
+                      .filter((p) => {
+                        const matchesSearch =
+                          !manualSearchQuery ||
+                          p.name?.toLowerCase().includes(manualSearchQuery.toLowerCase()) ||
+                          p.email?.toLowerCase().includes(manualSearchQuery.toLowerCase());
+                        if (!matchesSearch) return false;
 
-            {/* Right Column: Feedback, Manual Desk & Scan Log */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
+                        // If current activity has active whitelist and user is not an organizer (scanner-only), hide non-whitelisted attendees
+                        const hasOrganizerAccess = isGlobalAdminOrOfficer || isOCLead;
+                        if (currentScannerActivity?.isRestricted && !hasOrganizerAccess) {
+                          return isAttendeeWhitelisted(p);
+                        }
+                        return true;
+                      })
+                      .slice(0, 8)
+                      .map((p) => {
+                        const isCheckedIn = (p.scannedActivities || []).length > 0 || p.status === 'checked_in';
+                        const whitelisted = isAttendeeWhitelisted(p);
+                        const isRestrictedAct = Boolean(currentScannerActivity?.isRestricted);
+                        const canOverride = isGlobalAdminOrOfficer || isOCLead;
 
-              {/* Last Scan Result Card */}
-              {lastScanResult && (
-                <div className={`ops-scan-badge-feedback ops-scan-badge-feedback--${lastScanResult.type}`}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span style={{ fontWeight: 800, fontSize: '0.95rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
-                      {lastScanResult.type === 'success' ? (
-                        <><CheckCircle2 size={16} /> Check-In Confirmed!</>
-                      ) : lastScanResult.type === 'duplicate' ? (
-                        <><AlertTriangle size={16} /> Already Scanned</>
-                      ) : lastScanResult.isRestricted ? (
-                        <><Shield size={16} /> Not On Activity Whitelist</>
-                      ) : (
-                        <><X size={16} /> Scan Rejected</>
-                      )}
-                    </span>
-                    <span style={{ fontSize: '0.78rem', opacity: 0.8 }}>
-                      {lastScanResult.timestamp}
-                    </span>
-                  </div>
-                  <div style={{ fontSize: '0.88rem', marginTop: '0.2rem' }}>
-                    {lastScanResult.message}
-                  </div>
-                  {lastScanResult.participant && (
-                    <div style={{ fontSize: '0.8125rem', borderTop: '1px solid var(--color-border)', paddingTop: '0.45rem', display: 'flex', justifyContent: 'space-between' }}>
-                      <span>{lastScanResult.participant.university}</span>
-                      <span style={{ fontWeight: 700, color: '#f59e0b' }}>Total: {lastScanResult.participant.pointsAwarded || 0} pts</span>
-                    </div>
-                  )}
-
-                  {/* Organizer Whitelist Override Action */}
-                  {lastScanResult.isRestricted && (isGlobalAdminOrOfficer || isOCLead) && (
-                    <button
-                      type="button"
-                      onClick={() => executeCheckInScan(lastScanResult.ticketPayload, true)}
-                      className="btn btn-primary"
-                      style={{ marginTop: '0.65rem', width: '100%', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '0.4rem', fontSize: '0.8125rem' }}
-                    >
-                      <ShieldCheck size={16} /> Organizer Override & Admit Attendee
-                    </button>
-                  )}
-                </div>
-              )}
-
-              {/* Manual Reception Desk Lookup */}
-              <div className="bento-card" style={{ padding: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
-                  <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', fontWeight: 700, margin: 0 }}>
-                    Reception Lookup Desk
-                  </h4>
-                  {currentScannerActivity?.isRestricted && (
-                    <span className="badge badge-purple" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                      <Shield size={10} /> Restricted Mode
-                    </span>
-                  )}
-                </div>
-                <input
-                  type="text"
-                  value={manualSearchQuery}
-                  onChange={(e) => setManualSearchQuery(e.target.value)}
-                  placeholder="Search attendee by name or email..."
-                  className="form-input"
-                  style={{ marginBottom: '0.65rem' }}
-                />
-
-                <div style={{ maxHeight: '200px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '0.45rem' }}>
-                  {participants
-                    .filter((p) => {
-                      const matchesSearch =
-                        !manualSearchQuery ||
-                        p.name?.toLowerCase().includes(manualSearchQuery.toLowerCase()) ||
-                        p.email?.toLowerCase().includes(manualSearchQuery.toLowerCase());
-                      if (!matchesSearch) return false;
-
-                      // If current activity has active whitelist and user is not an organizer (scanner-only), hide non-whitelisted attendees
-                      const hasOrganizerAccess = isGlobalAdminOrOfficer || isOCLead;
-                      if (currentScannerActivity?.isRestricted && !hasOrganizerAccess) {
-                        return isAttendeeWhitelisted(p);
-                      }
-                      return true;
-                    })
-                    .slice(0, 8)
-                    .map((p) => {
-                      const isCheckedIn = (p.scannedActivities || []).length > 0 || p.status === 'checked_in';
-                      const whitelisted = isAttendeeWhitelisted(p);
-                      const isRestrictedAct = Boolean(currentScannerActivity?.isRestricted);
-                      const canOverride = isGlobalAdminOrOfficer || isOCLead;
-
-                      return (
-                        <div
-                          key={p._id || p.id}
-                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.84rem' }}
-                        >
-                          <div>
-                            <div style={{ fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span>{p.name}</span>
-                              {isRestrictedAct && !whitelisted && (
-                                <span className="badge badge-danger" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
-                                  Not Whitelisted
-                                </span>
-                              )}
+                        return (
+                          <div
+                            key={p._id || p.id}
+                            style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.84rem' }}
+                          >
+                            <div>
+                              <div style={{ fontWeight: 600, color: 'var(--color-text)', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <span>{p.name}</span>
+                                {isRestrictedAct && !whitelisted && (
+                                  <span className="badge badge-danger" style={{ fontSize: '0.65rem', padding: '0.1rem 0.35rem' }}>
+                                    Not Whitelisted
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{p.email}</div>
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{p.email}</div>
-                          </div>
-                          {isCheckedIn ? (
-                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
-                              <span className="badge badge-accent" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-                                <Check size={11} /> Scanned
-                              </span>
-                              {isGlobalAdminOrOfficer && (
+                            {isCheckedIn ? (
+                              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}>
+                                <span className="badge badge-accent" style={{ fontSize: '0.72rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                                  <Check size={11} /> Scanned
+                                </span>
+                                {isGlobalAdminOrOfficer && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleResetCheckIn(p)}
+                                    className="btn btn-ghost btn-xs text-danger"
+                                    style={{ padding: '0.15rem 0.35rem', fontSize: '0.68rem' }}
+                                    title="Undo check-in (Admin/Officer only)"
+                                  >
+                                    Undo
+                                  </button>
+                                )}
+                              </div>
+                            ) : isRestrictedAct && !whitelisted ? (
+                              canOverride ? (
                                 <button
                                   type="button"
-                                  onClick={() => handleResetCheckIn(p)}
-                                  className="btn btn-ghost btn-xs text-danger"
-                                  style={{ padding: '0.15rem 0.35rem', fontSize: '0.68rem' }}
-                                  title="Undo check-in (Admin/Officer only)"
+                                  onClick={() => executeCheckInScan(p._id || p.id, true)}
+                                  className="btn btn-warning"
+                                  style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                                  title="Override whitelist and admit attendee"
                                 >
-                                  Undo
+                                  <ShieldCheck size={13} /> Override
                                 </button>
-                              )}
-                            </div>
-                          ) : isRestrictedAct && !whitelisted ? (
-                            canOverride ? (
+                              ) : null
+                            ) : (
                               <button
                                 type="button"
-                                onClick={() => executeCheckInScan(p._id || p.id, true)}
-                                className="btn btn-warning"
-                                style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
-                                title="Override whitelist and admit attendee"
+                                onClick={() => handleQuickManualCheckIn(p)}
+                                className="btn btn-primary"
+                                style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
                               >
-                                <ShieldCheck size={13} /> Override
+                                Scan
                               </button>
-                            ) : null
-                          ) : (
-                            <button
-                              type="button"
-                              onClick={() => handleQuickManualCheckIn(p)}
-                              className="btn btn-primary"
-                              style={{ fontSize: '0.75rem', padding: '0.25rem 0.6rem' }}
-                            >
-                              Scan
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })}
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
                 </div>
-              </div>
 
-              {/* Recent Scan Feed */}
-              <div className="bento-card" style={{ padding: '1.25rem', flex: 1 }}>
-                <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.65rem' }}>
-                  Recent Scan Log ({scanFeed.length})
-                </h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
-                  {scanFeed.map((item, idx) => (
-                    <div
-                      key={idx}
-                      style={{ fontSize: '0.8125rem', padding: '0.35rem 0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'space-between' }}
-                    >
-                      <span>{item.message}</span>
-                      <span style={{ color: 'var(--color-text-muted)' }}>{item.timestamp}</span>
-                    </div>
-                  ))}
-                  {scanFeed.length === 0 && (
-                    <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', textAlign: 'center', padding: '1rem' }}>
-                      No scans in this session yet.
-                    </div>
-                  )}
+                {/* Recent Scan Feed */}
+                <div className="bento-card" style={{ padding: '1.25rem', flex: 1 }}>
+                  <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', fontWeight: 700, margin: '0 0 0.65rem' }}>
+                    Recent Scan Log ({scanFeed.length})
+                  </h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', maxHeight: '180px', overflowY: 'auto' }}>
+                    {scanFeed.map((item, idx) => (
+                      <div
+                        key={idx}
+                        style={{ fontSize: '0.8125rem', padding: '0.35rem 0.6rem', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', display: 'flex', justifyContent: 'space-between' }}
+                      >
+                        <span>{item.message}</span>
+                        <span style={{ color: 'var(--color-text-muted)' }}>{item.timestamp}</span>
+                      </div>
+                    ))}
+                    {scanFeed.length === 0 && (
+                      <div style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem', textAlign: 'center', padding: '1rem' }}>
+                        No scans in this session yet.
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
 
+              </div>
             </div>
-          </div>
           )}
         </div>
       )}
@@ -4172,15 +4411,14 @@ export default function OperationsStudio() {
             {/* 3-Stage Stepper / Tabs Bar (Both Create & Edit Modes) */}
             <div className="ops-wizard-stepper">
               <div
-                className={`ops-wizard-step ${
-                  creationStage === 1
+                className={`ops-wizard-step ${creationStage === 1
                     ? 'ops-wizard-step--active'
                     : !isStage1Valid && hasAttemptedStage1
-                    ? 'ops-wizard-step--error'
-                    : isStage1Valid
-                    ? 'ops-wizard-step--completed'
-                    : ''
-                }`}
+                      ? 'ops-wizard-step--error'
+                      : isStage1Valid
+                        ? 'ops-wizard-step--completed'
+                        : ''
+                  }`}
                 onClick={() => setCreationStage(1)}
                 title={!isStage1Valid && hasAttemptedStage1 ? 'Core details incomplete' : '1. Core'}
                 style={{ cursor: 'pointer' }}
@@ -4200,15 +4438,14 @@ export default function OperationsStudio() {
               </div>
               <div className="ops-wizard-stepper__connector" />
               <div
-                className={`ops-wizard-step ${
-                  creationStage === 2
+                className={`ops-wizard-step ${creationStage === 2
                     ? 'ops-wizard-step--active'
                     : !isStage2Valid && hasAttemptedStage2
-                    ? 'ops-wizard-step--error'
-                    : isStage2Valid && hasAttemptedStage2
-                    ? 'ops-wizard-step--completed'
-                    : ''
-                }`}
+                      ? 'ops-wizard-step--error'
+                      : isStage2Valid && hasAttemptedStage2
+                        ? 'ops-wizard-step--completed'
+                        : ''
+                  }`}
                 onClick={() => {
                   setHasAttemptedStage1(true);
                   setCreationStage(2);
@@ -4571,177 +4808,357 @@ export default function OperationsStudio() {
                 {/* ── STAGE 2: CUSTOM REGISTRATION QUESTIONS ───────────────── */}
                 {creationStage === 2 && (
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                       <div>
                         <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '1rem', fontWeight: 700, margin: 0 }}>
-                          Custom Registration Questions ({eventForm.customFields.length})
+                          Registration Sections & Questions ({eventForm.customFields.length} Qs in {customSections.length} Sections)
                         </h4>
                         <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-                          Ask attendees specific questions during registration (e.g. T-Shirt Size, GitHub, Dietary)
+                          Questions are grouped into sequential sections. Attendees navigate through each section step-by-step.
                         </span>
                       </div>
                       <button
                         type="button"
-                        onClick={handleAddCustomField}
-                        className="btn btn-primary"
-                        style={{ fontSize: '0.78rem', padding: '0.35rem 0.65rem' }}
+                        onClick={handleAddSection}
+                        className="btn btn-secondary btn-sm"
+                        style={{ fontSize: '0.78rem', padding: '0.35rem 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                       >
-                        <Plus size={12} /> Add Field
+                        <Plus size={14} /> Add Section
                       </button>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                      {eventForm.customFields.map((field, idx) => {
-                        const isDragging = draggedCustomFieldIdx === idx;
-                        const isDragOver = dragOverCustomFieldIdx === idx && !isDragging;
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                      {customSections.map((sec, secIdx) => {
+                        const defaultSec = customSections[0];
+                        const secFields = eventForm.customFields
+                          .map((f, globalIdx) => ({ ...f, _globalIdx: globalIdx }))
+                          .filter((f) => (f.sectionId ? f.sectionId === sec.id : (f.section || defaultSec?.title) === sec.title));
+
+                        const isDragOverSec = dragOverSectionId === sec.id;
 
                         return (
                           <div
-                            key={field.id || idx}
-                            draggable={dragEnabledIdx === idx}
-                            onDragStart={(e) => {
-                              setDraggedCustomFieldIdx(idx);
-                              e.dataTransfer.effectAllowed = 'move';
-                              e.dataTransfer.setData('text/plain', String(idx));
-                            }}
+                            key={sec.id}
                             onDragOver={(e) => {
                               e.preventDefault();
-                              e.dataTransfer.dropEffect = 'move';
-                              if (dragOverCustomFieldIdx !== idx) {
-                                setDragOverCustomFieldIdx(idx);
+                              if (dragOverSectionId !== sec.id) {
+                                setDragOverSectionId(sec.id);
                               }
                             }}
                             onDragLeave={() => {
-                              if (dragOverCustomFieldIdx === idx) {
-                                setDragOverCustomFieldIdx(null);
+                              if (dragOverSectionId === sec.id) {
+                                setDragOverSectionId(null);
                               }
                             }}
                             onDrop={(e) => {
                               e.preventDefault();
-                              handleReorderCustomField(draggedCustomFieldIdx, idx);
-                              setDragEnabledIdx(null);
-                              setDraggedCustomFieldIdx(null);
-                              setDragOverCustomFieldIdx(null);
+                              if (draggedCustomFieldIdx !== null) {
+                                handleMoveFieldToSection(draggedCustomFieldIdx, sec.id);
+                                setDraggedCustomFieldIdx(null);
+                                setDragOverSectionId(null);
+                                setDragOverCustomFieldIdx(null);
+                              }
                             }}
-                            onDragEnd={() => {
-                              setDragEnabledIdx(null);
-                              setDraggedCustomFieldIdx(null);
-                              setDragOverCustomFieldIdx(null);
-                            }}
-                            className="bento-card"
                             style={{
-                              padding: '0.75rem',
+                              background: 'var(--color-surface, #1e293b)',
+                              border: isDragOverSec ? '2px dashed var(--color-primary)' : '1px solid var(--color-border)',
+                              borderRadius: 'var(--radius-md, 8px)',
+                              padding: '1rem',
                               display: 'flex',
                               flexDirection: 'column',
-                              gap: '0.5rem',
-                              opacity: isDragging ? 0.45 : 1,
-                              border: isDragOver
-                                ? '1px dashed var(--color-primary)'
-                                : '1px solid var(--color-border)',
-                              background: isDragOver ? 'rgba(59, 130, 246, 0.05)' : undefined,
-                              transition: 'border 0.15s, background 0.15s, opacity 0.15s',
-                              position: 'relative',
+                              gap: '0.75rem',
+                              transition: 'border-color 0.15s, background-color 0.15s',
                             }}
                           >
-                            <div style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1.2fr auto auto', gap: '0.5rem', alignItems: 'center' }}>
-                              <div
-                                onMouseDown={() => setDragEnabledIdx(idx)}
-                                onMouseUp={() => setDragEnabledIdx(null)}
-                                style={{
-                                  display: 'inline-flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  cursor: 'grab',
-                                  color: 'var(--color-text-muted)',
-                                  padding: '0.2rem',
-                                  userSelect: 'none',
-                                }}
-                                title="Drag to reorder question"
-                              >
-                                <GripVertical size={16} />
-                              </div>
-                              <input
-                                type="text"
-                                value={field.label}
-                                onChange={(e) => {
-                                  handleUpdateCustomField(idx, { label: e.target.value });
-                                  if (touchedFields.questions) setTouchedFields((prev) => ({ ...prev, questions: false }));
-                                }}
-                                onBlur={() => setTouchedFields((prev) => ({ ...prev, questions: true }))}
-                                placeholder="Question (e.g. T-Shirt Size)"
-                                className="form-input"
-                                style={{
-                                  fontSize: '0.85rem',
-                                  borderColor: (hasAttemptedStage2 || touchedFields.questions) && !field.label?.trim() ? 'var(--color-danger, #ef4444)' : undefined,
-                                }}
-                              />
-                              <select
-                                value={field.type}
-                                onChange={(e) => {
-                                  const newType = e.target.value;
-                                  const updates = { type: newType };
-                                  if (newType === 'national_id') {
-                                    if (!field.placeholder) updates.placeholder = '14-digit National ID';
-                                    if (!field.label || field.label === 'New Question') updates.label = 'National ID';
-                                  }
-                                  handleUpdateCustomField(idx, updates);
-                                }}
-                                className="form-input"
-                                style={{ fontSize: '0.85rem' }}
-                              >
-                                <option value="text">Text Input</option>
-                                <option value="national_id">National ID (14 Digits)</option>
-                                <option value="select">Dropdown Select</option>
-                                <option value="number">Number</option>
-                                <option value="textarea">Textarea</option>
-                                <option value="checkbox">Checkbox</option>
-                              </select>
-                              <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            {/* Section Header */}
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flex: 1, minWidth: '220px' }}>
+                                <span className="badge badge-accent" style={{ fontSize: '0.7rem', padding: '0.2rem 0.5rem', whiteSpace: 'nowrap' }}>
+                                  Section {secIdx + 1}
+                                </span>
                                 <input
-                                  type="checkbox"
-                                  checked={Boolean(field.required)}
-                                  onChange={(e) => handleUpdateCustomField(idx, { required: e.target.checked })}
+                                  type="text"
+                                  value={sec.title}
+                                  onChange={(e) => handleRenameSection(sec.id, e.target.value)}
+                                  onBlur={() => handleSectionBlur(sec.id, secIdx)}
+                                  placeholder="Section Title (e.g. Tech Profile)"
+                                  className="form-input"
+                                  style={{
+                                    fontSize: '0.9rem',
+                                    fontWeight: 600,
+                                    padding: '0.3rem 0.6rem',
+                                    height: '32px',
+                                    maxWidth: '300px',
+                                    borderColor: hasAttemptedStage2 && !sec.title?.trim() ? 'var(--color-danger, #ef4444)' : undefined,
+                                  }}
                                 />
-                                Req
-                              </label>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCustomField(idx)}
-                                className="btn btn-secondary btn-icon"
-                                style={{ width: '36px', height: '36px', color: 'var(--color-danger)' }}
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                                <span style={{ fontSize: '0.65rem', color: 'var(--color-text-muted)' }}>
+                                  ({secFields.length})
+                                </span>
+                              </div>
 
-                            {(hasAttemptedStage2 || touchedFields.questions) && !field.label?.trim() && (
-                              <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '0.74rem' }}>
-                                Question title is required
-                              </span>
-                            )}
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                {/* Move Up / Move Down Section Controls */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveSectionUp(secIdx)}
+                                    disabled={secIdx === 0}
+                                    className="ops-btn-action"
+                                    title="Move Section Up"
+                                  >
+                                    <ChevronUp size={16} />
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleMoveSectionDown(secIdx)}
+                                    disabled={secIdx === customSections.length - 1}
+                                    className="ops-btn-action"
+                                    title="Move Section Down"
+                                  >
+                                    <ChevronDown size={16} />
+                                  </button>
+                                </div>
 
-                            {field.type === 'select' && (
-                              <div>
-                                <SelectOptionsChipsEditor
-                                  options={Array.isArray(field.options) ? field.options : []}
-                                  onChange={(newOpts) => handleUpdateCustomField(idx, { options: newOpts })}
-                                />
-                                {(!field.options || field.options.length === 0) && (hasAttemptedStage2 || touchedFields.questions) && (
-                                  <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '0.74rem', marginTop: '0.2rem', display: 'block' }}>
-                                    Dropdown questions require at least 1 option.
-                                  </span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddCustomFieldToSection(sec.id)}
+                                  className="btn btn-primary"
+                                  style={{ height: '34px', fontSize: '0.78rem', padding: '0 0.75rem', display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
+                                >
+                                  <Plus size={14} /> Add Question
+                                </button>
+                                {customSections.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDeleteSection(sec.id)}
+                                    className="ops-btn-action ops-btn-action--danger"
+                                    title="Delete Section"
+                                  >
+                                    <Trash2 size={16} />
+                                  </button>
                                 )}
                               </div>
-                            )}
+                            </div>
+
+                            {/* Section Questions Dropzone / List */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.55rem' }}>
+                              {secFields.map((field) => {
+                                const globalIdx = field._globalIdx;
+                                const isDragging = draggedCustomFieldIdx === globalIdx;
+                                const isDragOver = dragOverCustomFieldIdx === globalIdx && !isDragging;
+                                const qIdxInSection = secFields.findIndex((f) => f._globalIdx === globalIdx);
+                                const isFirstQ = qIdxInSection === 0;
+                                const isLastQ = qIdxInSection === secFields.length - 1;
+
+                                return (
+                                  <div
+                                    key={field.id || globalIdx}
+                                    draggable={dragEnabledIdx === globalIdx}
+                                    onDragStart={(e) => {
+                                      setDraggedCustomFieldIdx(globalIdx);
+                                      e.dataTransfer.effectAllowed = 'move';
+                                      e.dataTransfer.setData('text/plain', String(globalIdx));
+                                    }}
+                                    onDragOver={(e) => {
+                                      e.preventDefault();
+                                      e.dataTransfer.dropEffect = 'move';
+                                      if (dragOverCustomFieldIdx !== globalIdx) {
+                                        setDragOverCustomFieldIdx(globalIdx);
+                                      }
+                                    }}
+                                    onDragLeave={() => {
+                                      if (dragOverCustomFieldIdx === globalIdx) {
+                                        setDragOverCustomFieldIdx(null);
+                                      }
+                                    }}
+                                    onDrop={(e) => {
+                                      e.preventDefault();
+                                      handleReorderCustomField(draggedCustomFieldIdx, globalIdx, sec.id);
+                                      setDragEnabledIdx(null);
+                                      setDraggedCustomFieldIdx(null);
+                                      setDragOverCustomFieldIdx(null);
+                                      setDragOverSectionId(null);
+                                    }}
+                                    onDragEnd={() => {
+                                      setDragEnabledIdx(null);
+                                      setDraggedCustomFieldIdx(null);
+                                      setDragOverCustomFieldIdx(null);
+                                      setDragOverSectionId(null);
+                                    }}
+                                    className="bento-card"
+                                    style={{
+                                      padding: '0.65rem',
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '0.45rem',
+                                      opacity: isDragging ? 0.45 : 1,
+                                      border: isDragOver
+                                        ? '1px dashed var(--color-primary)'
+                                        : '1px solid var(--color-border)',
+                                      background: isDragOver ? 'rgba(59, 130, 246, 0.05)' : undefined,
+                                      transition: 'border 0.15s, background 0.15s, opacity 0.15s',
+                                      position: 'relative',
+                                    }}
+                                  >
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 2fr 1.2fr auto auto', gap: '0.5rem', alignItems: 'center' }}>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
+                                        <div
+                                          onMouseDown={() => setDragEnabledIdx(globalIdx)}
+                                          onMouseUp={() => setDragEnabledIdx(null)}
+                                          style={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            cursor: 'grab',
+                                            color: 'var(--color-text-muted)',
+                                            padding: '0.25rem',
+                                            userSelect: 'none',
+                                          }}
+                                          title="Drag to reorder or move between sections"
+                                        >
+                                          <GripVertical size={16} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveQuestionWithinSection(globalIdx, -1)}
+                                            disabled={isFirstQ}
+                                            style={{
+                                              width: '20px',
+                                              height: '14px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              background: 'none',
+                                              border: 'none',
+                                              padding: 0,
+                                              color: isFirstQ ? 'var(--color-border)' : 'var(--color-text-muted)',
+                                              cursor: isFirstQ ? 'not-allowed' : 'pointer',
+                                            }}
+                                            title="Move Question Up"
+                                          >
+                                            <ChevronUp size={13} />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMoveQuestionWithinSection(globalIdx, 1)}
+                                            disabled={isLastQ}
+                                            style={{
+                                              width: '20px',
+                                              height: '14px',
+                                              display: 'inline-flex',
+                                              alignItems: 'center',
+                                              justifyContent: 'center',
+                                              background: 'none',
+                                              border: 'none',
+                                              padding: 0,
+                                              color: isLastQ ? 'var(--color-border)' : 'var(--color-text-muted)',
+                                              cursor: isLastQ ? 'not-allowed' : 'pointer',
+                                            }}
+                                            title="Move Question Down"
+                                          >
+                                            <ChevronDown size={13} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={field.label}
+                                        onChange={(e) => {
+                                          handleUpdateCustomField(globalIdx, { label: e.target.value });
+                                          if (touchedFields.questions) setTouchedFields((prev) => ({ ...prev, questions: false }));
+                                        }}
+                                        onBlur={() => setTouchedFields((prev) => ({ ...prev, questions: true }))}
+                                        placeholder="Question (e.g. GitHub Profile)"
+                                        className="form-input"
+                                        style={{
+                                          fontSize: '0.85rem',
+                                          borderColor: (hasAttemptedStage2 || touchedFields.questions) && !field.label?.trim() ? 'var(--color-danger, #ef4444)' : undefined,
+                                        }}
+                                      />
+                                      <select
+                                        value={field.type}
+                                        onChange={(e) => {
+                                          const newType = e.target.value;
+                                          const updates = { type: newType };
+                                          if (newType === 'national_id') {
+                                            if (!field.placeholder) updates.placeholder = '14-digit National ID';
+                                            if (!field.label || field.label === 'New Question') updates.label = 'National ID';
+                                          } else if (newType === 'url') {
+                                            if (!field.placeholder) updates.placeholder = 'https://...';
+                                          }
+                                          handleUpdateCustomField(globalIdx, updates);
+                                        }}
+                                        className="form-input"
+                                        style={{ fontSize: '0.85rem' }}
+                                      >
+                                        <option value="text">Text Input</option>
+                                        <option value="select">Dropdown Select</option>
+                                        <option value="multi_select">Multi-Select</option>
+                                        <option value="number">Number</option>
+                                        <option value="textarea">Textarea</option>
+                                        <option value="checkbox">Checkbox</option>
+                                        <option value="url">URL / Link</option>
+                                        <option value="national_id">National ID (14 Digits)</option>
+                                      </select>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', fontSize: '0.78rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={Boolean(field.required)}
+                                          onChange={(e) => handleUpdateCustomField(globalIdx, { required: e.target.checked })}
+                                        />
+                                        Req
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveCustomField(globalIdx)}
+                                        className="ops-btn-action ops-btn-action--danger"
+                                        title="Remove question"
+                                      >
+                                        <Trash2 size={16} />
+                                      </button>
+                                    </div>
+
+                                    {(hasAttemptedStage2 || touchedFields.questions) && !field.label?.trim() && (
+                                      <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '0.74rem' }}>
+                                        Question title is required
+                                      </span>
+                                    )}
+
+                                    {(field.type === 'select' || field.type === 'multi_select') && (
+                                      <div>
+                                        <SelectOptionsChipsEditor
+                                          options={Array.isArray(field.options) ? field.options : []}
+                                          onChange={(newOpts) => handleUpdateCustomField(globalIdx, { options: newOpts })}
+                                        />
+                                        {(!field.options || field.options.length === 0) && (hasAttemptedStage2 || touchedFields.questions) && (
+                                          <span style={{ color: 'var(--color-danger, #ef4444)', fontSize: '0.74rem', marginTop: '0.2rem', display: 'block' }}>
+                                            {field.type === 'multi_select' ? 'Multi-select questions require at least 1 option.' : 'Dropdown questions require at least 1 option.'}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+
+                              {secFields.length === 0 && (
+                                <div style={{
+                                  textAlign: 'center',
+                                  padding: '1.25rem',
+                                  color: 'var(--color-text-muted)',
+                                  border: '1px dashed var(--color-border)',
+                                  borderRadius: 'var(--radius-sm)',
+                                  fontSize: '0.8rem',
+                                }}>
+                                  No questions in this section yet. Click "+ Add Question" or drag questions here.
+                                </div>
+                              )}
+                            </div>
                           </div>
                         );
                       })}
-
-                      {eventForm.customFields.length === 0 && (
-                        <div style={{ textAlign: 'center', padding: '2rem', color: 'var(--color-text-muted)', border: '1px dashed var(--color-border)', borderRadius: 'var(--radius-md)' }}>
-                          No custom questions added yet. You can add fields or skip this stage!
-                        </div>
-                      )}
                     </div>
                   </div>
                 )}
@@ -5451,11 +5868,11 @@ export default function OperationsStudio() {
                           __html: (emailTemplate.templateMode === 'full'
                             ? (emailTemplate.fullHtmlBody || '')
                             : getDefaultEmailTemplate(
-                                emailTemplate.editorMode === 'html'
-                                  ? emailTemplate.standardBody
-                                  : renderMarkdownToHtml(emailTemplate.standardBody || ''),
-                                selectedEvent?.name
-                              )
+                              emailTemplate.editorMode === 'html'
+                                ? emailTemplate.standardBody
+                                : renderMarkdownToHtml(emailTemplate.standardBody || ''),
+                              selectedEvent?.name
+                            )
                           )
                             .replace(/\{\{name\}\}/g, emailTemplate.previewName || 'Yousef Mansour')
                             .replace(/\{\{email\}\}/g, 'attendee@ieeemsb.org')
@@ -5536,7 +5953,7 @@ export default function OperationsStudio() {
               type="button"
               onClick={() => {
                 if (document.fullscreenElement) {
-                  document.exitFullscreen().catch(() => {});
+                  document.exitFullscreen().catch(() => { });
                 }
                 setShowKioskModal(false);
               }}
@@ -6625,7 +7042,7 @@ export default function OperationsStudio() {
                       Showing first {sheetPreviewRows.length} rows
                     </span>
                   </div>
-                  <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)'}}>
+                  <div style={{ overflowX: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}>
                     <table style={{ width: '100%', fontSize: '0.78rem', borderCollapse: 'collapse' }}>
                       <thead style={{ background: 'var(--color-bg-alt)', position: 'sticky', top: 0 }}>
                         <tr>
@@ -6838,30 +7255,30 @@ export default function OperationsStudio() {
                 style={
                   isQrFullscreen
                     ? {
-                        position: 'fixed',
-                        inset: 0,
-                        zIndex: 99999,
-                        background: '#070a13',
-                        color: '#f8fafc',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '2rem',
-                        gap: '1.5rem',
-                      }
+                      position: 'fixed',
+                      inset: 0,
+                      zIndex: 99999,
+                      background: '#070a13',
+                      color: '#f8fafc',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '2rem',
+                      gap: '1.5rem',
+                    }
                     : {
-                        background: 'var(--color-bg-alt, rgba(0,0,0,0.03))',
-                        border: '1px solid var(--color-border)',
-                        borderRadius: 'var(--radius-lg)',
-                        padding: '1.25rem',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        textAlign: 'center',
-                        gap: '0.75rem',
-                        position: 'relative',
-                      }
+                      background: 'var(--color-bg-alt, rgba(0,0,0,0.03))',
+                      border: '1px solid var(--color-border)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '1.25rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      textAlign: 'center',
+                      gap: '0.75rem',
+                      position: 'relative',
+                    }
                 }
               >
                 {/* Enlarge / Fullscreen Exit Button */}

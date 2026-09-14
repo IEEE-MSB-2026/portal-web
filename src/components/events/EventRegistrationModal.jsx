@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { api } from '../../services/api';
 import {
@@ -57,6 +57,26 @@ export default function EventRegistrationModal({
     }
   }, [isOpen, user, isPreview]);
 
+  // Derive sections from event.customFields unconditionally before any early return
+  const sections = useMemo(() => {
+    const rawFields = event?.customFields || [];
+    if (!rawFields.length) return [];
+
+    const sectionMap = new Map();
+    rawFields.forEach((field) => {
+      const secTitle = (field.section && field.section.trim()) ? field.section.trim() : 'Additional Questions';
+      if (!sectionMap.has(secTitle)) {
+        sectionMap.set(secTitle, []);
+      }
+      sectionMap.get(secTitle).push(field);
+    });
+
+    return Array.from(sectionMap.entries()).map(([title, fields]) => ({
+      title,
+      fields,
+    }));
+  }, [event?.customFields]);
+
   if (!isOpen || !event) return null;
 
   // Eligibility Guard
@@ -82,14 +102,30 @@ export default function EventRegistrationModal({
     setCustomResponses((prev) => ({ ...prev, [fieldId]: sanitized }));
   };
 
+  const handleToggleMultiSelect = (fieldId, option) => {
+    setCustomResponses((prev) => {
+      const currentList = Array.isArray(prev[fieldId]) ? [...prev[fieldId]] : [];
+      const idx = currentList.indexOf(option);
+      if (idx > -1) {
+        currentList.splice(idx, 1);
+      } else {
+        currentList.push(option);
+      }
+      return { ...prev, [fieldId]: currentList };
+    });
+  };
+
+  const totalSteps = 1 + sections.length;
+  const currentSection = typeof step === 'number' && step >= 2 && step <= totalSteps ? sections[step - 2] : null;
+  const currentStepTitle = step === 1 ? 'Personal Details' : (currentSection?.title || '');
+
   const validateStep1 = () => {
     if (!formData.name.trim()) return 'Full name is required';
     if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email)) return 'A valid email address is required';
     return null;
   };
 
-  const validateStep2 = () => {
-    const fields = event.customFields || [];
+  const validateSection = (fields) => {
     for (const f of fields) {
       const val = customResponses[f.id];
       const strVal = val !== undefined && val !== null ? String(val).trim() : '';
@@ -97,6 +133,15 @@ export default function EventRegistrationModal({
       if (f.required) {
         if (val === undefined || val === null || val === '' || (Array.isArray(val) && val.length === 0)) {
           return `Please complete the required question: "${f.label}"`;
+        }
+      }
+
+      if (f.type === 'url' && strVal) {
+        try {
+          const testUrl = strVal.startsWith('http://') || strVal.startsWith('https://') ? strVal : `https://${strVal}`;
+          new URL(testUrl);
+        } catch {
+          return `Please enter a valid link/URL for "${f.label}"`;
         }
       }
 
@@ -120,11 +165,34 @@ export default function EventRegistrationModal({
         setError(err);
         return;
       }
-      if (!event.customFields || event.customFields.length === 0) {
+      if (sections.length === 0) {
         handleSubmit();
       } else {
         setStep(2);
       }
+    } else {
+      const currentSecIdx = step - 2;
+      const sec = sections[currentSecIdx];
+      if (sec) {
+        const err = validateSection(sec.fields);
+        if (err) {
+          setError(err);
+          return;
+        }
+      }
+
+      if (step < totalSteps) {
+        setStep(step + 1);
+      } else {
+        handleSubmit();
+      }
+    }
+  };
+
+  const handlePrev = () => {
+    setError(null);
+    if (typeof step === 'number' && step > 1) {
+      setStep((prev) => prev - 1);
     }
   };
 
@@ -134,8 +202,8 @@ export default function EventRegistrationModal({
       setError(`Please verify your email address (${user?.email}) to register for events.`);
       return;
     }
-    if (step === 2) {
-      const err = validateStep2();
+    for (const sec of sections) {
+      const err = validateSection(sec.fields);
       if (err) {
         setError(err);
         return;
@@ -147,7 +215,7 @@ export default function EventRegistrationModal({
       setTimeout(() => {
         setLoading(false);
         setSuccessData({ id: 'TKT-PREVIEW-89241' });
-        setStep(3);
+        setStep('confirmed');
       }, 350);
       return;
     }
@@ -167,7 +235,7 @@ export default function EventRegistrationModal({
 
       const res = await api.registerForEvent(evId, payload);
       setSuccessData(res.participant || res.ticket || { id: res.ticketId || 'CONFIRMED' });
-      setStep(3);
+      setStep('confirmed');
       if (onSuccess) onSuccess();
     } catch (err) {
       console.error('Registration failed:', err);
@@ -175,6 +243,156 @@ export default function EventRegistrationModal({
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderFieldInput = (field) => {
+    if (field.type === 'select') {
+      return (
+        <select
+          value={customResponses[field.id] || ''}
+          onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
+          className="form-input"
+        >
+          <option value="">{field.placeholder || '-- Select Option --'}</option>
+          {(field.options || []).map((opt) => (
+            <option key={opt} value={opt}>{opt}</option>
+          ))}
+        </select>
+      );
+    }
+
+    if (field.type === 'multi_select') {
+      return (
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '0.4rem',
+          maxHeight: '190px',
+          overflowY: 'auto',
+          padding: '0.6rem',
+          background: 'var(--color-surface-hover, rgba(255,255,255,0.03))',
+          borderRadius: 'var(--radius-sm)',
+          border: '1px solid var(--color-border)',
+        }}>
+          {(field.options || []).map((opt) => {
+            const isChecked = Array.isArray(customResponses[field.id]) && customResponses[field.id].includes(opt);
+            return (
+              <label
+                key={opt}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.6rem',
+                  cursor: 'pointer',
+                  fontSize: '0.85rem',
+                  padding: '0.3rem 0.4rem',
+                  borderRadius: 'var(--radius-xs)',
+                  background: isChecked ? 'rgba(59, 130, 246, 0.08)' : 'transparent',
+                  transition: 'background 0.15s',
+                  userSelect: 'none',
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={() => handleToggleMultiSelect(field.id, opt)}
+                  style={{ accentColor: 'var(--color-primary)' }}
+                />
+                <span>{opt}</span>
+              </label>
+            );
+          })}
+        </div>
+      );
+    }
+
+    if (field.type === 'url') {
+      return (
+        <input
+          type="url"
+          value={customResponses[field.id] || ''}
+          onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
+          placeholder={field.placeholder || 'https://...'}
+          className="form-input"
+        />
+      );
+    }
+
+    if (field.type === 'national_id') {
+      return (
+        <div style={{ position: 'relative' }}>
+          <input
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={14}
+            value={customResponses[field.id] || ''}
+            onChange={(e) => handleCustomResponseChange(field.id, e.target.value, 'national_id')}
+            placeholder={field.placeholder || 'Enter 14-digit National ID'}
+            className="form-input"
+            style={{
+              paddingRight: '4.8rem',
+              fontFamily: 'monospace',
+              letterSpacing: '0.08em',
+            }}
+          />
+          <span
+            style={{
+              position: 'absolute',
+              right: '0.75rem',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              fontSize: '0.75rem',
+              fontWeight: 600,
+              color: (customResponses[field.id]?.length === 14)
+                ? 'var(--color-success, #10b981)'
+                : 'var(--color-text-muted)',
+              pointerEvents: 'none',
+              userSelect: 'none',
+              transition: 'color 0.2s',
+            }}
+          >
+            {customResponses[field.id]?.length || 0}/14
+          </span>
+        </div>
+      );
+    }
+
+    if (field.type === 'textarea') {
+      return (
+        <textarea
+          rows={3}
+          value={customResponses[field.id] || ''}
+          onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
+          placeholder={field.placeholder || ''}
+          className="form-input"
+          style={{ resize: 'vertical' }}
+        />
+      );
+    }
+
+    if (field.type === 'checkbox') {
+      return (
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', fontSize: '0.88rem' }}>
+          <input
+            type="checkbox"
+            checked={Boolean(customResponses[field.id])}
+            onChange={(e) => handleCustomResponseChange(field.id, e.target.checked)}
+          />
+          {field.placeholder || 'Yes, I agree'}
+        </label>
+      );
+    }
+
+    return (
+      <input
+        type={field.type === 'number' ? 'number' : 'text'}
+        value={customResponses[field.id] || ''}
+        onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
+        placeholder={field.placeholder || ''}
+        className="form-input"
+      />
+    );
   };
 
   const modalBody = (
@@ -196,9 +414,18 @@ export default function EventRegistrationModal({
       {/* Modal Header */}
       <div className="modal-header">
         <div>
-          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', marginBottom: '0.35rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <span className="badge badge-primary">{event.category || 'Event'}</span>
-            <span className="badge badge-accent">Stage {step} of {event.customFields?.length > 0 ? 2 : 1}</span>
+            {!successData && totalSteps > 1 && (
+              <span className="badge badge-accent">
+                Stage {step} of {totalSteps}
+              </span>
+            )}
+            {!successData && currentStepTitle && (
+              <span className="badge badge-secondary" style={{ fontSize: '0.72rem', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {currentStepTitle}
+              </span>
+            )}
             {isPreview && (
               <span className="badge badge-secondary" style={{ fontSize: '0.68rem' }}>
                 Live Simulation
@@ -213,7 +440,7 @@ export default function EventRegistrationModal({
           <button
             type="button"
             className="btn btn-secondary btn-xs"
-            onClick={() => setStep(1)}
+            onClick={() => { setStep(1); setSuccessData(null); }}
             title="Restart preview to Stage 1"
           >
             Reset
@@ -224,6 +451,20 @@ export default function EventRegistrationModal({
           </button>
         )}
       </div>
+
+      {/* Progress Bar */}
+      {!successData && totalSteps > 1 && (
+        <div style={{ width: '100%', height: '3px', background: 'var(--color-border)', overflow: 'hidden' }}>
+          <div
+            style={{
+              width: `${Math.min(100, Math.round(((typeof step === 'number' ? step : totalSteps) / totalSteps) * 100))}%`,
+              height: '100%',
+              background: 'var(--color-primary)',
+              transition: 'width 0.25s ease',
+            }}
+          />
+        </div>
+      )}
 
       {/* Modal Body */}
         <div style={{ padding: 'var(--space-6)', display: 'flex', flexDirection: 'column', gap: 'var(--space-4)' }}>
@@ -243,7 +484,7 @@ export default function EventRegistrationModal({
           )}
 
           {/* STEP 1: Personal & Academic Details */}
-          {step === 1 && (
+          {step === 1 && !successData && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Full Name *</label>
@@ -320,8 +561,8 @@ export default function EventRegistrationModal({
                 >
                   {isEmailUnverified ? (
                     'Verification Required'
-                  ) : event.customFields && event.customFields.length > 0 ? (
-                    <>Next: Questions <ChevronRight size={15} /></>
+                  ) : sections.length > 0 ? (
+                    <>Next: {sections[0]?.title} <ChevronRight size={15} /></>
                   ) : (
                     loading ? 'Confirming...' : 'Complete Registration'
                   )}
@@ -330,120 +571,57 @@ export default function EventRegistrationModal({
             </div>
           )}
 
-          {/* STEP 2: Event Custom Dynamic Fields */}
-          {step === 2 && (
+          {/* STEP 2 to N: Dynamic Custom Sections */}
+          {typeof step === 'number' && step >= 2 && currentSection && !successData && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-              <p style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', margin: 0 }}>
-                Please answer the event-specific questions required by the organizer:
-              </p>
+              <div style={{ paddingBottom: '0.4rem', borderBottom: '1px solid var(--color-border)' }}>
+                <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.05rem', fontWeight: 700, margin: '0 0 0.2rem', color: 'var(--color-text)' }}>
+                  {currentSection.title}
+                </h3>
+                <span style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
+                  Section {step - 1} of {sections.length} • {currentSection.fields.length} question{currentSection.fields.length !== 1 ? 's' : ''}
+                </span>
+              </div>
 
-              {(event.customFields || []).map((field) => (
+              {currentSection.fields.map((field) => (
                 <div key={field.id} className="form-group">
                   <label className="form-label">
                     {field.label} {field.required && <span style={{ color: 'var(--color-danger)' }}>*</span>}
                   </label>
-
-                  {field.type === 'select' ? (
-                    <select
-                      value={customResponses[field.id] || ''}
-                      onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
-                      className="form-input"
-                    >
-                      <option value="">{field.placeholder || '-- Select Option --'}</option>
-                      {(field.options || []).map((opt) => (
-                        <option key={opt} value={opt}>{opt}</option>
-                      ))}
-                    </select>
-                  ) : field.type === 'national_id' ? (
-                    <div style={{ position: 'relative' }}>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        pattern="[0-9]*"
-                        maxLength={14}
-                        value={customResponses[field.id] || ''}
-                        onChange={(e) => handleCustomResponseChange(field.id, e.target.value, 'national_id')}
-                        placeholder={field.placeholder || 'Enter 14-digit National ID'}
-                        className="form-input"
-                        style={{
-                          paddingRight: '4.8rem',
-                          fontFamily: 'monospace',
-                          letterSpacing: '0.08em',
-                        }}
-                      />
-                      <span
-                        style={{
-                          position: 'absolute',
-                          right: '0.75rem',
-                          top: '50%',
-                          transform: 'translateY(-50%)',
-                          fontSize: '0.75rem',
-                          fontWeight: 600,
-                          color:
-                            (customResponses[field.id]?.length === 14)
-                              ? 'var(--color-success, #10b981)'
-                              : 'var(--color-text-muted)',
-                          pointerEvents: 'none',
-                          userSelect: 'none',
-                          transition: 'color 0.2s',
-                        }}
-                      >
-                        {customResponses[field.id]?.length || 0}/14
-                      </span>
-                    </div>
-                  ) : field.type === 'textarea' ? (
-                    <textarea
-                      rows={3}
-                      value={customResponses[field.id] || ''}
-                      onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
-                      placeholder={field.placeholder || ''}
-                      className="form-input"
-                      style={{ resize: 'vertical' }}
-                    />
-                  ) : field.type === 'checkbox' ? (
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', cursor: 'pointer', fontSize: '0.88rem' }}>
-                      <input
-                        type="checkbox"
-                        checked={Boolean(customResponses[field.id])}
-                        onChange={(e) => handleCustomResponseChange(field.id, e.target.checked)}
-                      />
-                      {field.placeholder || 'Yes, I agree'}
-                    </label>
-                  ) : (
-                    <input
-                      type={field.type === 'number' ? 'number' : 'text'}
-                      value={customResponses[field.id] || ''}
-                      onChange={(e) => handleCustomResponseChange(field.id, e.target.value)}
-                      placeholder={field.placeholder || ''}
-                      className="form-input"
-                    />
-                  )}
+                  {renderFieldInput(field)}
                 </div>
               ))}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={handlePrev}
                   className="btn btn-secondary"
                   style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  <ArrowLeft size={15} /> Back
+                  <ArrowLeft size={15} /> {step === 2 ? 'Details' : 'Previous'}
                 </button>
                 <button
                   type="button"
-                  onClick={handleSubmit}
+                  onClick={handleNext}
                   disabled={loading || isEmailUnverified}
                   className="btn btn-primary"
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem' }}
                 >
-                  {isEmailUnverified ? 'Verification Required' : loading ? 'Submitting...' : 'Complete Registration ✓'}
+                  {isEmailUnverified ? (
+                    'Verification Required'
+                  ) : step < totalSteps ? (
+                    <>Next: {sections[step - 1]?.title} <ChevronRight size={15} /></>
+                  ) : (
+                    loading ? 'Submitting...' : 'Complete Registration ✓'
+                  )}
                 </button>
               </div>
             </div>
           )}
 
-          {/* STEP 3: Success Confirmation */}
-          {step === 3 && (
+          {/* SUCCESS Confirmation Screen */}
+          {(Boolean(successData) || step === 'confirmed') && (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center', padding: '1rem 0' }}>
               <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--color-primary-light)', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '1rem' }}>
                 <CheckCircle2 size={36} />
@@ -452,7 +630,7 @@ export default function EventRegistrationModal({
                 Registration Confirmed!
               </h3>
               <p style={{ color: 'var(--color-text-muted)', fontSize: '0.88rem', maxWidth: '420px', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-                Your event ticket will be sent to your email closer to the event date. Keep an eye on your inbox!.
+                Your event ticket will be sent to your email closer to the event date. Keep an eye on your inbox!
               </p>
 
               <button
