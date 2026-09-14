@@ -111,8 +111,8 @@ export default function EventRegistrationModal({
     name: '',
     email: '',
     phoneNumber: '',
-    university: 'Menoufia University',
-    faculty: 'Faculty of Electronic Engineering',
+    university: '',
+    faculty: '',
     major: '',
   });
 
@@ -126,9 +126,9 @@ export default function EventRegistrationModal({
       setFormData({
         name: user?.name || (isPreview ? 'Yousef Mansour' : ''),
         email: user?.email || (isPreview ? 'attendee@ieeemsb.org' : ''),
-        phoneNumber: user?.phoneNumber || (isPreview ? '+20 100 123 4567' : ''),
-        university: user?.university || 'Menoufia University',
-        faculty: user?.faculty || 'Faculty of Electronic Engineering',
+        phoneNumber: user?.phoneNumber || user?.phone || (isPreview ? '+20 100 123 4567' : ''),
+        university: user?.university || (isPreview ? 'Menoufia University' : ''),
+        faculty: user?.faculty || (isPreview ? 'Faculty of Electronic Engineering' : ''),
         major: user?.major || (isPreview ? 'Computer Science & Engineering' : ''),
       });
       setCustomResponses({});
@@ -213,6 +213,13 @@ export default function EventRegistrationModal({
   const validateStep1 = () => {
     if (!formData.name.trim()) return 'Full name is required';
     if (!formData.email.trim() || !/^\S+@\S+\.\S+$/.test(formData.email)) return 'A valid email address is required';
+    if (!formData.phoneNumber.trim()) return 'Phone number is required';
+    const cleanPhone = formData.phoneNumber.replace(/[\s\-()]/g, '');
+    if (!/^\+?[0-9]{10,15}$/.test(cleanPhone)) {
+      return 'Please enter a valid phone number (at least 10 digits)';
+    }
+    if (!formData.university.trim()) return 'University is required';
+    if (!formData.faculty.trim()) return 'Faculty is required';
     return null;
   };
 
@@ -347,6 +354,7 @@ export default function EventRegistrationModal({
         name: formData.name,
         email: formData.email,
         phone: formData.phoneNumber,
+        phoneNumber: formData.phoneNumber,
         university: formData.university,
         faculty: formData.faculty,
         major: formData.major,
@@ -704,9 +712,10 @@ export default function EventRegistrationModal({
               </div>
 
               <div className="form-group">
-                <label className="form-label">Phone Number</label>
+                <label className="form-label">Phone Number *</label>
                 <input
                   type="tel"
+                  required
                   value={formData.phoneNumber}
                   onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
                   placeholder="+20 100 000 0000"
@@ -716,22 +725,24 @@ export default function EventRegistrationModal({
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div className="form-group">
-                  <label className="form-label">University</label>
+                  <label className="form-label">University *</label>
                   <input
                     type="text"
+                    required
                     value={formData.university}
                     onChange={(e) => handleInputChange('university', e.target.value)}
-                    placeholder="Menoufia University"
+                    placeholder="e.g. Menoufia University"
                     className="form-input"
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Faculty</label>
+                  <label className="form-label">Faculty *</label>
                   <input
                     type="text"
+                    required
                     value={formData.faculty}
                     onChange={(e) => handleInputChange('faculty', e.target.value)}
-                    placeholder=""
+                    placeholder="e.g. Faculty of Electronic Engineering"
                     className="form-input"
                   />
                 </div>
