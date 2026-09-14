@@ -99,7 +99,7 @@ export default function EventRegistrationModal({
   isPreview = false,
   embedded = false,
 }) {
-  const { user, isAuthenticated } = useAuthStore();
+  const { user, isAuthenticated, updateUser } = useAuthStore();
 
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -134,6 +134,49 @@ export default function EventRegistrationModal({
       setCustomResponses({});
     }
   }, [isOpen, user, isPreview]);
+
+  // Fetch user profile from /me/profile on open to populate university, faculty, and phone if already set by user
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated) return;
+
+    let isMounted = true;
+    const loadUserProfile = async () => {
+      try {
+        const res = await api.getMyProfile();
+        const profile = res?.profile || res?.user || res;
+
+        if (!isMounted || !profile) return;
+
+        const profileUniversity = profile.university ? String(profile.university).trim() : '';
+        const profileFaculty = profile.faculty ? String(profile.faculty).trim() : '';
+        const profilePhone = (profile.phone || profile.phoneNumber) ? String(profile.phone || profile.phoneNumber).trim() : '';
+        const profileMajor = (profile.department || profile.major) ? String(profile.department || profile.major).trim() : '';
+
+        setFormData((prev) => ({
+          ...prev,
+          phoneNumber: prev.phoneNumber || profilePhone,
+          university: prev.university || profileUniversity,
+          faculty: prev.faculty || profileFaculty,
+          major: prev.major || profileMajor,
+        }));
+
+        if (updateUser && (profileUniversity || profileFaculty || profilePhone)) {
+          updateUser({
+            ...(profileUniversity ? { university: profileUniversity } : {}),
+            ...(profileFaculty ? { faculty: profileFaculty } : {}),
+            ...(profilePhone ? { phone: profilePhone, phoneNumber: profilePhone } : {}),
+          });
+        }
+      } catch (err) {
+        console.warn('Could not fetch user profile details:', err);
+      }
+    };
+
+    loadUserProfile();
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, isAuthenticated, updateUser]);
 
   // Derive sections from event.customFields unconditionally before any early return
   const sections = useMemo(() => {
