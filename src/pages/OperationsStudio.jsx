@@ -2637,7 +2637,8 @@ export default function OperationsStudio() {
         !rosterSearch ||
         p.name?.toLowerCase().includes(rosterSearch.toLowerCase()) ||
         p.email?.toLowerCase().includes(rosterSearch.toLowerCase()) ||
-        p.phoneNumber?.includes(rosterSearch);
+        p.phoneNumber?.includes(rosterSearch) ||
+        p.phone?.includes(rosterSearch);
 
       const matchesStatus =
         rosterStatusFilter === 'all' ||
@@ -4078,7 +4079,7 @@ export default function OperationsStudio() {
                     type="text"
                     value={manualSearchQuery}
                     onChange={(e) => setManualSearchQuery(e.target.value)}
-                    placeholder="Search attendee by name or email..."
+                    placeholder="Search attendee by name, email, or phone..."
                     className="form-input"
                     style={{ marginBottom: '0.65rem' }}
                   />
@@ -4089,7 +4090,9 @@ export default function OperationsStudio() {
                         const matchesSearch =
                           !manualSearchQuery ||
                           p.name?.toLowerCase().includes(manualSearchQuery.toLowerCase()) ||
-                          p.email?.toLowerCase().includes(manualSearchQuery.toLowerCase());
+                          p.email?.toLowerCase().includes(manualSearchQuery.toLowerCase()) ||
+                          p.phoneNumber?.includes(manualSearchQuery) ||
+                          p.phone?.includes(manualSearchQuery);
                         if (!matchesSearch) return false;
 
                         // If current activity has active whitelist and user is not an organizer (scanner-only), hide non-whitelisted attendees
@@ -4215,7 +4218,7 @@ export default function OperationsStudio() {
                   type="text"
                   value={rosterSearch}
                   onChange={(e) => setRosterSearch(e.target.value)}
-                  placeholder="Search by name or email..."
+                  placeholder="Search by name, email, or phone..."
                   className="form-input ops-search-input"
                 />
               </div>
@@ -4295,6 +4298,7 @@ export default function OperationsStudio() {
                 <tr>
                   <th className="ops-table-sticky-col-left">Attendee Name</th>
                   <th>Email</th>
+                  <th>Phone</th>
                   <th>Faculty & Org</th>
                   <th>Status</th>
                   <th>Activities Scanned</th>
@@ -4315,6 +4319,9 @@ export default function OperationsStudio() {
                         {p.name}
                       </td>
                       <td style={{ color: 'var(--color-text-muted)' }}>{p.email}</td>
+                      <td style={{ color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                        {p.phoneNumber || p.phone || '—'}
+                      </td>
                       <td>{p.faculty || p.university || '—'}</td>
                       <td>
                         <span className={`badge ${isCheckedIn ? 'badge-accent' : 'badge-primary'}`}>
@@ -4399,7 +4406,7 @@ export default function OperationsStudio() {
 
                 {filteredParticipants.length === 0 && (
                   <tr>
-                    <td colSpan={7 + (selectedEvent?.customFields?.length || 0)} style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--color-text-muted)' }}>
+                    <td colSpan={8 + (selectedEvent?.customFields?.length || 0)} style={{ textAlign: 'center', padding: '3.5rem 1rem', color: 'var(--color-text-muted)' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}>
                         <Users size={28} style={{ opacity: 0.35 }} />
                         <span style={{ fontWeight: 600 }}>No attendee records matching criteria</span>
