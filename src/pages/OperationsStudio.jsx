@@ -4212,7 +4212,7 @@ export default function OperationsStudio() {
           {/* Controls Bar */}
           <div className="ops-toolbar">
             <div className="ops-toolbar__group">
-              <div className="ops-search-input-wrap">
+              <div className="ops-search-input-wrap" style={{ minWidth: '350px' }}>
                 <Search size={16} />
                 <input
                   type="text"
