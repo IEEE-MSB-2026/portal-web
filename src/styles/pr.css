@@ -1421,3 +1421,169 @@
   background: var(--color-surface-hover);
 }
 
+/* --------------------------------------------------------------------------
+   Dynamic Attachments Card & Ingestion
+   -------------------------------------------------------------------------- */
+.pr-attachment-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  animation: fadeIn 0.2s ease;
+}
+
+.pr-attachment-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.pr-attachment-upload-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+@media (max-width: 640px) {
+  .pr-attachment-upload-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pr-attachment-dropzone {
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 0.75rem;
+  text-align: center;
+  background: var(--color-bg);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.pr-attachment-dropzone:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.pr-attachment-status-box {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: rgba(0, 98, 155, 0.06);
+  border: 1px solid rgba(0, 98, 155, 0.25);
+  border-radius: var(--radius-md);
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pr-attachment-tag-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.pr-attachment-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.pr-attachment-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  font-size: 0.72rem;
+  font-family: monospace;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.pr-attachment-chip:hover,
+.pr-attachment-chip.active {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+}
+
+.pr-attachment-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  font-size: 0.75rem;
+}
+
+.pr-attachment-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.7rem;
+  font-weight: 600;
+}
+
+.pr-attachment-badge--matched {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10b981;
+}
+
+.pr-attachment-badge--missing {
+  background: rgba(245, 158, 11, 0.15);
+  color: #f59e0b;
+}
+
+.pr-attachment-badge--unassigned {
+  background: rgba(100, 116, 139, 0.15);
+  color: var(--color-text-muted);
+}
+
+.pr-attachment-progress-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(4px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  border-radius: var(--radius-lg);
+  color: #fff;
+  padding: 2rem;
+  text-align: center;
+}
+
+.pr-attachment-progress-bar {
+  width: 100%;
+  max-width: 380px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 9999px;
+  overflow: hidden;
+  margin: 1rem 0 0.5rem;
+}
+
+.pr-attachment-progress-fill {
+  height: 100%;
+  background: #10b981;
+  transition: width 0.2s ease;
+}
+

@@ -50,7 +50,13 @@ import {
   Archive,
   RotateCcw,
   Copy,
+  Paperclip,
+  FolderUp,
+  FileArchive,
+  FileCheck2,
+  AlertTriangle,
 } from 'lucide-react';
+import JSZip from 'jszip';
 import { useAuthStore } from '../stores/authStore';
 import { useToastStore } from '../stores/toastStore';
 import { useBackdropDismiss } from '../hooks/useBackdropDismiss';
@@ -260,6 +266,44 @@ function calculateDeliverySuccessRate(deliveryLogsData, campaign) {
   return Math.round((sent / total) * 100);
 }
 
+function normalizeMatchKey(str) {
+  if (!str || typeof str !== 'string') return '';
+  return str
+    .toLowerCase()
+    .replace(/\.pdf$/i, '')
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function resolveRecipientTagValue(recipient, tag) {
+  if (!tag) return recipient?.name || '';
+  const cleanTag = tag.replace(/[{}]/g, '').trim();
+  const lowerTag = cleanTag.toLowerCase();
+
+  if (lowerTag === 'name' || lowerTag === 'user.name') return recipient?.name || '';
+  if (lowerTag === 'email' || lowerTag === 'user.email') return recipient?.email || '';
+  if (lowerTag === 'committee' || lowerTag === 'user.committee' || lowerTag === 'committeename') return recipient?.committeeName || recipient?.committee || '';
+  if (lowerTag === 'role' || lowerTag === 'user.role') return recipient?.role || '';
+
+  const customFields = recipient?.customFields || recipient;
+  if (customFields && typeof customFields === 'object') {
+    if (customFields[cleanTag] !== undefined && customFields[cleanTag] !== null) {
+      return String(customFields[cleanTag]);
+    }
+    if (lowerTag.startsWith('sheet.')) {
+      const sub = cleanTag.slice(6);
+      if (customFields[sub] !== undefined && customFields[sub] !== null) {
+        return String(customFields[sub]);
+      }
+    }
+    for (const [k, v] of Object.entries(customFields)) {
+      if (k.toLowerCase() === lowerTag) return String(v);
+    }
+  }
+  return '';
+}
+
 export default function PRStudio() {
   const { user } = useAuthStore();
   const toast = useToastStore();
@@ -382,6 +426,16 @@ export default function PRStudio() {
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [loadingBranchMembers, setLoadingBranchMembers] = useState(false);
 
+  // Dynamic Attachments State
+  const [extractedPdfFiles, setExtractedPdfFiles] = useState([]); // Array of { name, file: File|Blob, size }
+  const [attachmentFolderName, setAttachmentFolderName] = useState('');
+  const [attachmentMatchTag, setAttachmentMatchTag] = useState('{{name}}');
+  const [manualAttachmentOverrides, setManualAttachmentOverrides] = useState({}); // { [recipientEmail]: fileName }
+  const [showAttachmentReviewModal, setShowAttachmentReviewModal] = useState(false);
+  const [showMissingAttachmentsWarning, setShowMissingAttachmentsWarning] = useState(false);
+  const [pendingCampaignSavePayload, setPendingCampaignSavePayload] = useState(null);
+  const [uploadingAttachmentsProgress, setUploadingAttachmentsProgress] = useState(null); // { current, total, percent }
+
   // ── Load Initial Data ─────────────────────────────────────────────────────
   useEffect(() => {
     if (!hasAccess) return;
@@ -397,6 +451,12 @@ export default function PRStudio() {
   });
   const campaignBackdrop = useBackdropDismiss(() => setShowCampaignModal(false), {
     isOpen: showCampaignModal,
+  });
+  const attachmentReviewBackdrop = useBackdropDismiss(() => setShowAttachmentReviewModal(false), {
+    isOpen: showAttachmentReviewModal,
+  });
+  const missingWarningBackdrop = useBackdropDismiss(() => setShowMissingAttachmentsWarning(false), {
+    isOpen: showMissingAttachmentsWarning,
   });
   const logsBackdrop = useBackdropDismiss(() => setSelectedLogCampaign(null), {
     isOpen: !!selectedLogCampaign,
@@ -671,6 +731,14 @@ export default function PRStudio() {
     setPreviewRecipientsList([]);
     setPreviewRecipientCount(0);
     setPreviewRowIndex(0);
+    setExtractedPdfFiles([]);
+    setAttachmentFolderName('');
+    setAttachmentMatchTag('{{name}}');
+    setManualAttachmentOverrides({});
+    setShowAttachmentReviewModal(false);
+    setShowMissingAttachmentsWarning(false);
+    setPendingCampaignSavePayload(null);
+    setUploadingAttachmentsProgress(null);
     setShowCampaignModal(true);
   };
 
@@ -709,6 +777,20 @@ export default function PRStudio() {
     });
 
     setMemberSearchQuery('');
+    if (camp.metadata?.hasDynamicAttachments) {
+      setAttachmentFolderName(camp.metadata.dynamicAttachmentsConfig?.folderName || 'Staged_Attachments');
+      setAttachmentMatchTag(camp.metadata.dynamicAttachmentsConfig?.tag || '{{name}}');
+    } else {
+      setAttachmentFolderName('');
+      setAttachmentMatchTag('{{name}}');
+    }
+    setExtractedPdfFiles([]);
+    setManualAttachmentOverrides({});
+    setShowAttachmentReviewModal(false);
+    setShowMissingAttachmentsWarning(false);
+    setPendingCampaignSavePayload(null);
+    setUploadingAttachmentsProgress(null);
+
     if (parsedCustom.length > 0) {
       setCustomSheetFileName(camp.metadata?.sheetFileName || 'Uploaded_Spreadsheet.csv');
       const cols = new Set();
@@ -924,6 +1006,241 @@ export default function PRStudio() {
     });
   };
 
+  // Dynamic Attachment Matching Computation
+  const attachmentMatchResults = React.useMemo(() => {
+    if (extractedPdfFiles.length === 0) {
+      return { matched: [], missing: [], unassigned: [], matchMap: new Map() };
+    }
+
+    const targetRecipients = previewRecipientsList.length > 0
+      ? previewRecipientsList
+      : (campaignForm.segmentType === 'custom_sheet' ? campaignForm.customRecipients : []);
+
+    const assignedFileNames = new Set();
+    const matchMap = new Map(); // recipientEmail -> file
+    const matched = [];
+    const missing = [];
+
+    // Map of normalized file names to files
+    const fileLookup = new Map();
+    for (const fileItem of extractedPdfFiles) {
+      fileLookup.set(normalizeMatchKey(fileItem.name), fileItem);
+    }
+
+    for (const recipient of targetRecipients) {
+      const email = (recipient.email || '').toLowerCase().trim();
+      if (!email) continue;
+
+      // Check manual override first
+      if (manualAttachmentOverrides[email]) {
+        const ovName = manualAttachmentOverrides[email];
+        const ovFile = extractedPdfFiles.find((f) => f.name === ovName);
+        if (ovFile) {
+          matchMap.set(email, ovFile);
+          assignedFileNames.add(ovFile.name);
+          matched.push({ recipient, file: ovFile, isManual: true });
+          continue;
+        }
+      }
+
+      // Automatic tag-based match
+      const tagVal = resolveRecipientTagValue(recipient, attachmentMatchTag);
+      const normalizedKey = normalizeMatchKey(tagVal);
+
+      let matchedFile = null;
+      if (normalizedKey && fileLookup.has(normalizedKey)) {
+        matchedFile = fileLookup.get(normalizedKey);
+      } else if (normalizedKey) {
+        // Fallback: check substring match
+        for (const fileItem of extractedPdfFiles) {
+          const normFile = normalizeMatchKey(fileItem.name);
+          if (normFile.includes(normalizedKey) || normalizedKey.includes(normFile)) {
+            matchedFile = fileItem;
+            break;
+          }
+        }
+      }
+
+      if (matchedFile) {
+        matchMap.set(email, matchedFile);
+        assignedFileNames.add(matchedFile.name);
+        matched.push({ recipient, file: matchedFile, expectedKey: tagVal });
+      } else {
+        missing.push({ recipient, expectedKey: tagVal || recipient.name || email });
+      }
+    }
+
+    const unassigned = extractedPdfFiles.filter((f) => !assignedFileNames.has(f.name));
+
+    return { matched, missing, unassigned, matchMap };
+  }, [extractedPdfFiles, previewRecipientsList, campaignForm.customRecipients, campaignForm.segmentType, attachmentMatchTag, manualAttachmentOverrides]);
+
+  const handleAttachmentFolderUpload = (e) => {
+    const rawFiles = Array.from(e.target.files || []);
+    const files = rawFiles.filter((f) =>
+      f.name.toLowerCase().endsWith('.pdf') && !f.name.startsWith('.')
+    );
+
+    if (files.length === 0) {
+      toast.error('No PDFs Found', 'No valid PDF files were found in the selected folder.');
+      return;
+    }
+
+    const folderPath = files[0].webkitRelativePath ? files[0].webkitRelativePath.split('/')[0] : 'PDF_Folder';
+    const pdfItems = files.map((f) => ({
+      name: f.name,
+      file: f,
+      size: f.size,
+    }));
+
+    setExtractedPdfFiles(pdfItems);
+    setAttachmentFolderName(folderPath);
+    setManualAttachmentOverrides({});
+    toast.success('Folder Loaded', `Imported ${pdfItems.length} PDF attachments from "${folderPath}".`);
+  };
+
+  const handleAttachmentZipUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const zip = await JSZip.loadAsync(file);
+      const pdfItems = [];
+
+      for (const [relativePath, zipEntry] of Object.entries(zip.files)) {
+        if (!zipEntry.dir && relativePath.toLowerCase().endsWith('.pdf') && !zipEntry.name.startsWith('.') && !zipEntry.name.includes('/.')) {
+          const blob = await zipEntry.async('blob');
+          const cleanName = relativePath.split('/').pop();
+          pdfItems.push({
+            name: cleanName,
+            file: new File([blob], cleanName, { type: 'application/pdf' }),
+            size: blob.size,
+          });
+        }
+      }
+
+      if (pdfItems.length === 0) {
+        toast.error('No PDFs Found', 'The ZIP archive does not contain any PDF files.');
+        return;
+      }
+
+      setExtractedPdfFiles(pdfItems);
+      setAttachmentFolderName(file.name);
+      setManualAttachmentOverrides({});
+      toast.success('ZIP Archive Extracted', `Extracted ${pdfItems.length} PDF attachments from "${file.name}".`);
+    } catch (err) {
+      toast.error('ZIP Error', 'Failed to extract ZIP archive: ' + err.message);
+    }
+  };
+
+  const handleRemoveDynamicAttachments = () => {
+    setExtractedPdfFiles([]);
+    setAttachmentFolderName('');
+    setAttachmentMatchTag('{{name}}');
+    setManualAttachmentOverrides({});
+    toast.success('Attachments Removed', 'Dynamic attachments have been cleared.');
+  };
+
+  const executeCampaignSave = async (payloadToSave, options = {}) => {
+    setSavingCampaign(true);
+    try {
+      let finalPayload = { ...payloadToSave };
+
+      // If dynamic attachments are present and there are files to upload
+      if (extractedPdfFiles.length > 0) {
+        const matchedItems = attachmentMatchResults.matched;
+        
+        // Find matched items that need uploading to Cloudinary
+        const itemsToUpload = [];
+        for (const item of matchedItems) {
+          const recEmail = (item.recipient.email || '').toLowerCase().trim();
+          itemsToUpload.push({
+            file: item.file.file || item.file,
+            filename: item.file.name,
+            recipientKey: recEmail,
+          });
+        }
+
+        if (itemsToUpload.length > 0) {
+          setUploadingAttachmentsProgress({ current: 0, total: itemsToUpload.length, percent: 0 });
+          const uploadResults = await api.uploadCampaignAttachmentsBatch(
+            itemsToUpload,
+            (current, total) => {
+              setUploadingAttachmentsProgress({
+                current,
+                total,
+                percent: Math.round((current / total) * 100),
+              });
+            }
+          );
+
+          // Build map from recipientKey to uploaded asset metadata
+          const assetByRecipient = new Map();
+          for (const up of uploadResults) {
+            if (up.recipientKey) {
+              assetByRecipient.set(up.recipientKey, {
+                filename: up.filename,
+                url: up.url,
+                publicId: up.publicId,
+                assetId: up.assetId,
+                mimeType: up.mimeType || 'application/pdf',
+                size: up.size,
+              });
+            }
+          }
+
+          // Attach to customRecipients or recipient list
+          if (finalPayload.customRecipients && finalPayload.customRecipients.length > 0) {
+            finalPayload.customRecipients = finalPayload.customRecipients.map((r) => {
+              const email = (r.email || '').toLowerCase().trim();
+              const att = assetByRecipient.get(email);
+              return att ? { ...r, attachments: [att] } : { ...r, attachments: [] };
+            });
+          } else if (previewRecipientsList.length > 0) {
+            // Even for standard segments (all_members, committee_members, etc.), customRecipients array holds enriched recipients with their attachments!
+            finalPayload.customRecipients = previewRecipientsList.map((r) => {
+              const email = (r.email || '').toLowerCase().trim();
+              const att = assetByRecipient.get(email);
+              return {
+                ...r,
+                attachments: att ? [att] : [],
+              };
+            });
+          }
+
+          finalPayload.metadata = {
+            ...finalPayload.metadata,
+            hasDynamicAttachments: true,
+            dynamicAttachmentsConfig: {
+              tag: attachmentMatchTag,
+              folderName: attachmentFolderName,
+              skipUnmatched: options.skipUnmatched ?? true,
+              matchedCount: matchedItems.length,
+              missingCount: attachmentMatchResults.missing.length,
+            },
+          };
+        }
+      }
+
+      if (editingCampaign) {
+        await api.updatePRCampaign(editingCampaign.id, finalPayload);
+        toast.success('Campaign Updated', 'Campaign draft saved successfully.');
+      } else {
+        await api.createPRCampaign(finalPayload);
+        toast.success('Campaign Created', 'Outreach campaign created successfully.');
+      }
+      setShowCampaignModal(false);
+      setPendingCampaignSavePayload(null);
+      setShowMissingAttachmentsWarning(false);
+      loadCampaigns();
+    } catch (err) {
+      toast.error('Save Failed', err.message || 'Failed to save campaign.');
+    } finally {
+      setSavingCampaign(false);
+      setUploadingAttachmentsProgress(null);
+    }
+  };
+
   const handleSaveCampaign = async (e) => {
     e.preventDefault();
     if (!campaignForm.title.trim()) {
@@ -951,48 +1268,46 @@ export default function PRStudio() {
       return;
     }
 
-    setSavingCampaign(true);
-    try {
-      const targetCommitteeId =
-        (campaignForm.segmentType === 'committee_members' || campaignForm.segmentType === 'committee_leads_specific')
-          ? campaignForm.committeeId || null
-          : null;
+    const targetCommitteeId =
+      (campaignForm.segmentType === 'committee_members' || campaignForm.segmentType === 'committee_leads_specific')
+        ? campaignForm.committeeId || null
+        : null;
 
-      const backendSegmentType =
-        campaignForm.segmentType === 'committee_leads_all' || campaignForm.segmentType === 'committee_leads_specific'
-          ? 'committee_leads'
-          : campaignForm.segmentType;
+    const backendSegmentType =
+      campaignForm.segmentType === 'committee_leads_all' || campaignForm.segmentType === 'committee_leads_specific'
+        ? 'committee_leads'
+        : campaignForm.segmentType;
 
-      const payload = {
-        title: campaignForm.title.trim(),
-        subject: campaignForm.subject.trim(),
-        body: campaignForm.body.trim(),
-        segmentType: backendSegmentType,
-        committeeId: targetCommitteeId,
-        recipientUserIds: campaignForm.recipientUserIds,
-        customRecipients: campaignForm.customRecipients,
-        metadata: {
-          sheetFileName: customSheetFileName || null,
-          customColumns: customSheetColumns,
-        },
-        status: campaignForm.scheduledFor ? 'scheduled' : 'draft',
-        scheduledFor: campaignForm.scheduledFor ? new Date(campaignForm.scheduledFor).toISOString() : null,
-      };
+    const payload = {
+      title: campaignForm.title.trim(),
+      subject: campaignForm.subject.trim(),
+      body: campaignForm.body.trim(),
+      segmentType: backendSegmentType,
+      committeeId: targetCommitteeId,
+      recipientUserIds: campaignForm.recipientUserIds,
+      customRecipients: campaignForm.customRecipients,
+      metadata: {
+        sheetFileName: customSheetFileName || null,
+        customColumns: customSheetColumns,
+      },
+      status: campaignForm.scheduledFor ? 'scheduled' : 'draft',
+      scheduledFor: campaignForm.scheduledFor ? new Date(campaignForm.scheduledFor).toISOString() : null,
+    };
 
-      if (editingCampaign) {
-        await api.updatePRCampaign(editingCampaign.id, payload);
-        toast.success('Campaign Updated', 'Campaign draft saved successfully.');
-      } else {
-        await api.createPRCampaign(payload);
-        toast.success('Campaign Created', 'Outreach campaign created successfully.');
-      }
-      setShowCampaignModal(false);
-      loadCampaigns();
-    } catch (err) {
-      toast.error('Save Failed', err.message || 'Failed to save campaign.');
-    } finally {
-      setSavingCampaign(false);
+    // If dynamic attachments enabled and there are missing attachments, show warning modal first!
+    if (extractedPdfFiles.length > 0 && attachmentMatchResults.missing.length > 0) {
+      setPendingCampaignSavePayload(payload);
+      setShowMissingAttachmentsWarning(true);
+      return;
     }
+
+    await executeCampaignSave(payload);
+  };
+
+  const handleConfirmSkipMissing = async () => {
+    if (!pendingCampaignSavePayload) return;
+    setShowMissingAttachmentsWarning(false);
+    await executeCampaignSave(pendingCampaignSavePayload, { skipUnmatched: true });
   };
 
   const handleSendCampaign = async (camp) => {
@@ -2525,6 +2840,157 @@ export default function PRStudio() {
                       </div>
                     )}
 
+                    {/* Dynamic PDF Attachments Section */}
+                    <div className="pr-attachment-card">
+                      <div className="pr-attachment-header">
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
+                          <Paperclip size={16} color="var(--color-primary)" />
+                          <span style={{ fontSize: '0.84375rem', fontWeight: 700, color: 'var(--color-text)' }}>
+                            Dynamic Attachments (Individual PDFs)
+                          </span>
+                          <span className="badge badge-outline" style={{ fontSize: '0.6875rem' }}>Optional</span>
+                        </div>
+                        {extractedPdfFiles.length > 0 && (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs text-danger"
+                            onClick={handleRemoveDynamicAttachments}
+                            style={{ fontSize: '0.72rem', padding: '0.15rem 0.4rem' }}
+                          >
+                            <Trash2 size={12} />
+                            <span>Remove Attachments</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {extractedPdfFiles.length === 0 ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                          <div className="pr-attachment-upload-grid">
+                            {/* Option 1: Select Folder */}
+                            <label className="pr-attachment-dropzone">
+                              <input
+                                type="file"
+                                webkitdirectory="true"
+                                directory="true"
+                                multiple
+                                style={{ display: 'none' }}
+                                onChange={handleAttachmentFolderUpload}
+                              />
+                              <FolderUp size={22} color="var(--color-primary)" />
+                              <span style={{ fontSize: '0.78125rem', fontWeight: 600 }}>Select Folder of PDFs</span>
+                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                Pick a local folder containing individual PDFs
+                              </span>
+                            </label>
+
+                            {/* Option 2: Upload ZIP */}
+                            <label className="pr-attachment-dropzone">
+                              <input
+                                type="file"
+                                accept=".zip"
+                                style={{ display: 'none' }}
+                                onChange={handleAttachmentZipUpload}
+                              />
+                              <FileArchive size={22} color="#8b5cf6" />
+                              <span style={{ fontSize: '0.78125rem', fontWeight: 600 }}>Upload ZIP Archive</span>
+                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                Upload a .zip containing all recipient PDFs
+                              </span>
+                            </label>
+                          </div>
+                          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                            Files are automatically matched to each recipient using the template tag below (supports all audience types).
+                          </span>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                          {/* Folder status banner */}
+                          <div className="pr-attachment-status-box">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                              <FileCheck2 size={20} style={{ color: '#10b981' }} />
+                              <div>
+                                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                                  {attachmentFolderName}
+                                </div>
+                                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                                  {extractedPdfFiles.length} PDF files loaded into memory
+                                </div>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <button
+                                type="button"
+                                className="btn btn-outline btn-xs"
+                                onClick={() => setShowAttachmentReviewModal(true)}
+                                style={{ fontSize: '0.72rem' }}
+                              >
+                                <Eye size={12} />
+                                <span>Review &amp; Override ({attachmentMatchResults.matched.length}/{previewRecipientCount || (campaignForm.segmentType === 'custom_sheet' ? campaignForm.customRecipients.length : 0)})</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Match Filename Using Tag */}
+                          <div className="pr-attachment-tag-row">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                              <label className="form-label" style={{ margin: 0, fontSize: '0.75rem' }}>
+                                Match Filename Using Tag:
+                              </label>
+                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                Matches e.g. <code>John Doe.pdf</code>
+                              </span>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                              <input
+                                type="text"
+                                className="form-input"
+                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem', height: '2rem' }}
+                                placeholder="{{name}}"
+                                value={attachmentMatchTag}
+                                onChange={(e) => setAttachmentMatchTag(e.target.value)}
+                              />
+                            </div>
+
+                            {/* Quick Tag Pills */}
+                            <div className="pr-attachment-chips">
+                              {['{{name}}', '{{email}}', ...(customSheetColumns.slice(0, 4).map((c) => `{{${c}}}`))].map((tag) => (
+                                <button
+                                  key={tag}
+                                  type="button"
+                                  className={`pr-attachment-chip ${attachmentMatchTag.toLowerCase() === tag.toLowerCase() ? 'active' : ''}`}
+                                  onClick={() => setAttachmentMatchTag(tag)}
+                                >
+                                  {tag}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Match Stats Bar */}
+                          <div className="pr-attachment-stats-bar">
+                            <span className="pr-attachment-badge pr-attachment-badge--matched">
+                              <CheckCircle2 size={12} />
+                              {attachmentMatchResults.matched.length} Matched
+                            </span>
+                            {attachmentMatchResults.missing.length > 0 && (
+                              <span className="pr-attachment-badge pr-attachment-badge--missing">
+                                <AlertTriangle size={12} />
+                                {attachmentMatchResults.missing.length} Missing PDF
+                              </span>
+                            )}
+                            {attachmentMatchResults.unassigned.length > 0 && (
+                              <span className="pr-attachment-badge pr-attachment-badge--unassigned">
+                                <Info size={12} />
+                                {attachmentMatchResults.unassigned.length} Unused PDFs
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Scheduled Dispatch & Expected Recipients Info */}
                     <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '0.85rem', alignItems: 'end' }}>
                       <div className="form-group" style={{ margin: 0 }}>
@@ -2751,7 +3217,237 @@ export default function PRStudio() {
                   )}
                 </button>
               </div>
+
+              {/* Dynamic Attachments Upload Progress Overlay */}
+              {uploadingAttachmentsProgress && (
+                <div className="pr-attachment-progress-overlay">
+                  <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
+                  <h4 style={{ margin: '1rem 0 0.25rem', color: '#fff', fontSize: '1.1rem' }}>
+                    Staging Dynamic Attachments
+                  </h4>
+                  <p style={{ margin: 0, fontSize: '0.8125rem', color: 'rgba(255,255,255,0.85)' }}>
+                    Uploading attachment {uploadingAttachmentsProgress.current} of {uploadingAttachmentsProgress.total} ({uploadingAttachmentsProgress.percent}%)
+                  </p>
+                  <div className="pr-attachment-progress-bar">
+                    <div
+                      className="pr-attachment-progress-fill"
+                      style={{ width: `${uploadingAttachmentsProgress.percent}%` }}
+                    />
+                  </div>
+                  <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.65)' }}>
+                    Files are uploaded to File Service and will be automatically purged post-dispatch.
+                  </span>
+                </div>
+              )}
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {/* WARNING MODAL: Incomplete / Missing Attachment Matches                */}
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {showMissingAttachmentsWarning && (
+        <div className="modal-overlay" {...missingWarningBackdrop.getBackdropProps()} style={{ zIndex: 1200 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 520, width: '92vw', padding: '1.5rem', borderRadius: 'var(--radius-lg)' }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '1rem', color: '#f59e0b' }}>
+              <AlertTriangle size={24} />
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 800, color: 'var(--color-text)' }}>
+                Missing PDF Attachments
+              </h3>
+            </div>
+
+            <p style={{ fontSize: '0.875rem', lineHeight: 1.5, color: 'var(--color-text)', marginBottom: '0.75rem' }}>
+              <strong>{attachmentMatchResults.missing.length}</strong> recipient{attachmentMatchResults.missing.length > 1 ? 's do' : ' does'} not have a matching PDF file in the uploaded folder.
+            </p>
+
+            <div style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.75rem', marginBottom: '1.25rem', maxHeight: 150, overflowY: 'auto' }}>
+              <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--color-text-muted)', marginBottom: '0.4rem', textTransform: 'uppercase' }}>
+                Recipients Missing Attachments:
+              </div>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem', fontSize: '0.8rem', color: 'var(--color-text)' }}>
+                {attachmentMatchResults.missing.slice(0, 5).map((m, idx) => (
+                  <li key={idx} style={{ marginBottom: '0.2rem' }}>
+                    <strong>{m.recipient?.name || 'Member'}</strong> ({m.recipient?.email}) — expected <code>{m.expectedKey}.pdf</code>
+                  </li>
+                ))}
+                {attachmentMatchResults.missing.length > 5 && (
+                  <li style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                    + {attachmentMatchResults.missing.length - 5} more recipient(s)
+                  </li>
+                )}
+              </ul>
+            </div>
+
+            <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginBottom: '1.5rem' }}>
+              If you proceed, these <strong>{attachmentMatchResults.missing.length}</strong> recipient(s) will be automatically skipped during dispatch.
+            </p>
+
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '0.65rem' }}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowMissingAttachmentsWarning(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setShowMissingAttachmentsWarning(false);
+                  setShowAttachmentReviewModal(true);
+                }}
+              >
+                Review &amp; Match
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={handleConfirmSkipMissing}
+              >
+                Skip &amp; Proceed
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {/* MODAL: Dynamic Attachments Review & Manual Override Table             */}
+      {/* ───────────────────────────────────────────────────────────────────── */}
+      {showAttachmentReviewModal && (
+        <div className="modal-overlay" {...attachmentReviewBackdrop.getBackdropProps()} style={{ zIndex: 1200 }}>
+          <div
+            className="modal-content"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: 880, width: '94vw', maxHeight: '86vh', display: 'flex', flexDirection: 'column', padding: 0 }}
+          >
+            <div className="modal-header" style={{ padding: '1.15rem 1.5rem', borderBottom: '1px solid var(--color-border)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <Paperclip size={18} color="var(--color-primary)" />
+                <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
+                  Dynamic Attachments Matching Review
+                </h3>
+              </div>
+              <button
+                type="button"
+                className="modal-close"
+                onClick={() => setShowAttachmentReviewModal(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div style={{ padding: '0.75rem 1.5rem', background: 'var(--color-bg)', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem' }}>
+              <div className="pr-attachment-stats-bar" style={{ padding: 0, background: 'transparent', border: 'none' }}>
+                <span className="pr-attachment-badge pr-attachment-badge--matched">
+                  <CheckCircle2 size={12} /> {attachmentMatchResults.matched.length} Matched
+                </span>
+                {attachmentMatchResults.missing.length > 0 && (
+                  <span className="pr-attachment-badge pr-attachment-badge--missing">
+                    <AlertTriangle size={12} /> {attachmentMatchResults.missing.length} Missing PDF
+                  </span>
+                )}
+                {attachmentMatchResults.unassigned.length > 0 && (
+                  <span className="pr-attachment-badge pr-attachment-badge--unassigned">
+                    <Info size={12} /> {attachmentMatchResults.unassigned.length} Unused Files
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>
+                Active match pattern: <code>{attachmentMatchTag}</code>
+              </span>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem 1.5rem' }}>
+              <table className="pr-delivery-table" style={{ marginTop: 0 }}>
+                <thead>
+                  <tr>
+                    <th style={{ width: '30%' }}>Recipient</th>
+                    <th style={{ width: '25%' }}>Matching Key</th>
+                    <th style={{ width: '30%' }}>Matched PDF Attachment</th>
+                    <th style={{ width: '15%' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(previewRecipientsList.length > 0 ? previewRecipientsList : (campaignForm.segmentType === 'custom_sheet' ? campaignForm.customRecipients : [])).map((recipient, idx) => {
+                    const email = (recipient.email || '').toLowerCase().trim();
+                    const tagVal = resolveRecipientTagValue(recipient, attachmentMatchTag);
+                    const matchedFile = attachmentMatchResults.matchMap.get(email);
+                    const isOverridden = Boolean(manualAttachmentOverrides[email]);
+
+                    return (
+                      <tr key={`${email}-${idx}`}>
+                        <td>
+                          <div style={{ fontWeight: 600 }}>{recipient.name || 'Member'}</div>
+                          <div style={{ fontSize: '0.72rem', color: 'var(--color-text-muted)' }}>{email}</div>
+                        </td>
+                        <td>
+                          <code style={{ fontSize: '0.75rem' }}>{tagVal || '—'}</code>
+                        </td>
+                        <td>
+                          {matchedFile ? (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.78rem', color: 'var(--color-text)' }}>
+                              <FileCheck2 size={14} style={{ color: '#10b981', flexShrink: 0 }} />
+                              <span style={{ wordBreak: 'break-all' }}>{matchedFile.name}</span>
+                              {isOverridden && (
+                                <span className="badge badge-outline" style={{ fontSize: '0.625rem' }}>Manual</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                              <select
+                                className="form-select"
+                                style={{ fontSize: '0.72rem', padding: '0.2rem 0.4rem', height: '1.8rem' }}
+                                value=""
+                                onChange={(e) => {
+                                  if (e.target.value) {
+                                    setManualAttachmentOverrides((p) => ({ ...p, [email]: e.target.value }));
+                                  }
+                                }}
+                              >
+                                <option value="">(Select from {attachmentMatchResults.unassigned.length} unused files)</option>
+                                {attachmentMatchResults.unassigned.map((uf) => (
+                                  <option key={uf.name} value={uf.name}>
+                                    {uf.name}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+                        </td>
+                        <td>
+                          {matchedFile ? (
+                            <span className="pr-attachment-badge pr-attachment-badge--matched">
+                              <Check size={11} /> Matched
+                            </span>
+                          ) : (
+                            <span className="pr-attachment-badge pr-attachment-badge--missing">
+                              <AlertTriangle size={11} /> Missing
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="modal-footer" style={{ padding: '0.85rem 1.5rem', borderTop: '1px solid var(--color-border)' }}>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setShowAttachmentReviewModal(false)}
+              >
+                Done Reviewing
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -3009,6 +3705,12 @@ export default function PRStudio() {
                                 <td>
                                   <div style={{ fontWeight: 600 }}>{l.name || 'Branch Member'}</div>
                                   <div style={{ fontSize: '0.725rem', color: 'var(--color-text-muted)' }}>{l.email}</div>
+                                  {l.attachments && l.attachments.length > 0 && (
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.7rem', color: 'var(--color-primary)', marginTop: '2px' }}>
+                                      <Paperclip size={11} />
+                                      <span>{l.attachments[0].filename}</span>
+                                    </div>
+                                  )}
                                 </td>
                                 <td>
                                   <span
@@ -3017,20 +3719,24 @@ export default function PRStudio() {
                                         ? 'badge-accent'
                                         : l.status === 'failed'
                                         ? 'badge-destructive'
+                                        : l.status === 'skipped'
+                                        ? 'badge-warning'
                                         : l.status === 'scheduled'
                                         ? 'badge-warning'
                                         : 'badge-outline'
                                     }`}
                                     style={{ fontSize: '0.6875rem' }}
                                   >
-                                    {l.status}
+                                    {l.status === 'skipped' ? 'Skipped (No PDF)' : l.status}
                                   </span>
                                 </td>
                                 <td style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                                   {l.sentAt ? new Date(l.sentAt).toLocaleTimeString() : '—'}
                                 </td>
-                                <td style={{ fontSize: '0.75rem', color: l.error && l.status === 'failed' ? 'var(--color-destructive)' : 'var(--color-text-muted)' }}>
-                                  {l.error || (l.status === 'sent' ? 'Delivered to inbox' : l.status === 'scheduled' ? 'Scheduled for automatic dispatch' : 'Ready for dispatch')}
+                                <td style={{ fontSize: '0.75rem', color: l.error && l.status === 'failed' ? 'var(--color-destructive)' : l.status === 'skipped' ? '#f59e0b' : 'var(--color-text-muted)' }}>
+                                  {l.status === 'skipped' && l.error === 'missing_attachment'
+                                    ? 'Skipped: No matching PDF attachment'
+                                    : (l.error || (l.status === 'sent' ? 'Delivered to inbox' : l.status === 'scheduled' ? 'Scheduled for automatic dispatch' : 'Ready for dispatch'))}
                                 </td>
                               </tr>
                             ));

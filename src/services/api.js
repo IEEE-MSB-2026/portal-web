@@ -444,6 +444,54 @@ export const api = {
     };
   },
 
+  uploadCampaignAttachmentsBatch: async (items, onProgress = null, concurrency = 3) => {
+    const results = [];
+    let completed = 0;
+    const total = items.length;
+    if (total === 0) return results;
+
+    const queue = [...items];
+    const runWorker = async () => {
+      while (queue.length > 0) {
+        const item = queue.shift();
+        if (!item) break;
+        try {
+          const uploadRes = await api.uploadDirectToCloudinary({
+            file: item.file,
+            folder: 'campaign_attachments',
+            resourceType: 'raw',
+            purpose: 'campaign_attachment',
+          });
+          results.push({
+            filename: item.filename || item.file.name,
+            url: uploadRes.secureUrl,
+            publicId: uploadRes.publicId,
+            assetId: uploadRes.assetId,
+            mimeType: item.file.type || 'application/pdf',
+            size: item.file.size,
+            recipientKey: item.recipientKey || null,
+          });
+        } catch (err) {
+          console.error(`Failed to upload dynamic attachment "${item.filename}":`, err.message);
+          throw new Error(`Failed to upload attachment "${item.filename}": ${err.message}`);
+        } finally {
+          completed++;
+          if (typeof onProgress === 'function') {
+            onProgress(completed, total);
+          }
+        }
+      }
+    };
+
+    const workers = [];
+    const poolSize = Math.min(concurrency, total);
+    for (let i = 0; i < poolSize; i++) {
+      workers.push(runWorker());
+    }
+    await Promise.all(workers);
+    return results;
+  },
+
   deleteFileAsset: (id) =>
     request(`/api/files/assets/${encodeURIComponent(id)}`, {
       method: 'DELETE',
