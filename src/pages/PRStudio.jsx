@@ -426,6 +426,12 @@ export default function PRStudio() {
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [loadingBranchMembers, setLoadingBranchMembers] = useState(false);
 
+  // Attachments State (Shared Single & Dynamic Personalized)
+  const [attachmentMode, setAttachmentMode] = useState('single'); // 'single' | 'dynamic'
+  const [singleAttachmentFile, setSingleAttachmentFile] = useState(null); // File | null
+  const [existingSingleAttachment, setExistingSingleAttachment] = useState(null); // { filename, url, publicId, assetId, size, mimeType } | null
+  const singleAttachmentInputRef = useRef(null);
+
   // Dynamic Attachments State
   const [extractedPdfFiles, setExtractedPdfFiles] = useState([]); // Array of { name, file: File|Blob, size }
   const [attachmentFolderName, setAttachmentFolderName] = useState('');
@@ -731,6 +737,9 @@ export default function PRStudio() {
     setPreviewRecipientsList([]);
     setPreviewRecipientCount(0);
     setPreviewRowIndex(0);
+    setAttachmentMode('single');
+    setSingleAttachmentFile(null);
+    setExistingSingleAttachment(null);
     setExtractedPdfFiles([]);
     setAttachmentFolderName('');
     setAttachmentMatchTag('{{name}}');
@@ -777,6 +786,21 @@ export default function PRStudio() {
     });
 
     setMemberSearchQuery('');
+
+    // Load attachments config (single shared attachment vs dynamic)
+    const sharedAtt = camp.metadata?.sharedAttachment || (Array.isArray(camp.metadata?.sharedAttachments) ? camp.metadata.sharedAttachments[0] : null);
+    if (sharedAtt) {
+      setExistingSingleAttachment(sharedAtt);
+      setAttachmentMode('single');
+    } else if (camp.metadata?.hasDynamicAttachments) {
+      setAttachmentMode('dynamic');
+      setExistingSingleAttachment(null);
+    } else {
+      setAttachmentMode('single');
+      setExistingSingleAttachment(null);
+    }
+    setSingleAttachmentFile(null);
+
     if (camp.metadata?.hasDynamicAttachments) {
       setAttachmentFolderName(camp.metadata.dynamicAttachmentsConfig?.folderName || 'Staged_Attachments');
       setAttachmentMatchTag(camp.metadata.dynamicAttachmentsConfig?.tag || '{{name}}');
@@ -1133,12 +1157,35 @@ export default function PRStudio() {
     }
   };
 
-  const handleRemoveDynamicAttachments = () => {
-    setExtractedPdfFiles([]);
-    setAttachmentFolderName('');
-    setAttachmentMatchTag('{{name}}');
-    setManualAttachmentOverrides({});
-    toast.success('Attachments Removed', 'Dynamic attachments have been cleared.');
+  const formatFileSize = (bytes) => {
+    if (!bytes || isNaN(bytes)) return '0 B';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleSingleAttachmentSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const MAX_ALLOWED_BYTES = 10 * 1024 * 1024;
+    if (file.size > MAX_ALLOWED_BYTES) {
+      toast.error('File Too Large', 'Maximum allowed attachment size is 10MB.');
+      e.target.value = '';
+      return;
+    }
+    setSingleAttachmentFile(file);
+    setExistingSingleAttachment(null);
+    toast.success('Attachment Selected', `"${file.name}" will be attached for all recipients.`);
+    e.target.value = '';
+  };
+
+  const handleRemoveSingleAttachment = () => {
+    setSingleAttachmentFile(null);
+    setExistingSingleAttachment(null);
+    if (singleAttachmentInputRef.current) {
+      singleAttachmentInputRef.current.value = '';
+    }
+    toast.success('Attachment Removed', 'The common attachment has been cleared.');
   };
 
   const executeCampaignSave = async (payloadToSave, options = {}) => {
@@ -1146,7 +1193,42 @@ export default function PRStudio() {
     try {
       let finalPayload = { ...payloadToSave };
 
-      // If dynamic attachments are present and there are files to upload
+      // 1. Single shared attachment handling (one attachment for all)
+      if (singleAttachmentFile) {
+        setUploadingAttachmentsProgress({ current: 0, total: 1, percent: 40 });
+        const uploadRes = await api.uploadDirectToCloudinary({
+          file: singleAttachmentFile,
+          folder: 'campaign_attachments',
+          purpose: 'campaign_attachment',
+        });
+        setUploadingAttachmentsProgress({ current: 1, total: 1, percent: 100 });
+
+        const sharedAsset = {
+          filename: singleAttachmentFile.name,
+          url: uploadRes.secureUrl,
+          publicId: uploadRes.publicId,
+          assetId: uploadRes.assetId,
+          mimeType: singleAttachmentFile.type || 'application/pdf',
+          size: singleAttachmentFile.size,
+        };
+
+        finalPayload.metadata = {
+          ...(finalPayload.metadata || {}),
+          sharedAttachment: sharedAsset,
+          sharedAttachments: [sharedAsset],
+        };
+      } else if (existingSingleAttachment) {
+        finalPayload.metadata = {
+          ...(finalPayload.metadata || {}),
+          sharedAttachment: existingSingleAttachment,
+          sharedAttachments: [existingSingleAttachment],
+        };
+      } else if (finalPayload.metadata) {
+        delete finalPayload.metadata.sharedAttachment;
+        delete finalPayload.metadata.sharedAttachments;
+      }
+
+      // 2. Dynamic attachments handling (if individual PDFs are present)
       if (extractedPdfFiles.length > 0) {
         const matchedItems = attachmentMatchResults.matched;
         
@@ -1983,6 +2065,13 @@ export default function PRStudio() {
                         <Users size={11} />
                         <span>{audienceLabel}</span>
                       </span>
+
+                      {(camp.metadata?.sharedAttachment || camp.metadata?.hasDynamicAttachments) && (
+                        <span className="badge badge-outline" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-primary)' }}>
+                          <Paperclip size={11} />
+                          <span>{camp.metadata?.sharedAttachment ? (camp.metadata.sharedAttachment.filename || 'Attachment') : 'Dynamic PDFs'}</span>
+                        </span>
+                      )}
 
                       {camp.scheduledFor && (
                         <span className="badge" style={{ fontSize: '0.7rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
@@ -2840,153 +2929,246 @@ export default function PRStudio() {
                       </div>
                     )}
 
-                    {/* Dynamic PDF Attachments Section */}
+                    {/* Attachments Section */}
                     <div className="pr-attachment-card">
                       <div className="pr-attachment-header">
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
                           <Paperclip size={16} color="var(--color-primary)" />
                           <span style={{ fontSize: '0.84375rem', fontWeight: 700, color: 'var(--color-text)' }}>
-                            Dynamic Attachments (Individual PDFs)
+                            Attachments
                           </span>
                           <span className="badge badge-outline" style={{ fontSize: '0.6875rem' }}>Optional</span>
                         </div>
-                        {extractedPdfFiles.length > 0 && (
+
+                        {/* Mode Segmented Controls */}
+                        <div className="pr-attachment-mode-tabs">
                           <button
                             type="button"
-                            className="btn btn-ghost btn-xs text-danger"
-                            onClick={handleRemoveDynamicAttachments}
-                            style={{ fontSize: '0.72rem', padding: '0.15rem 0.4rem' }}
+                            className={`pr-mode-tab ${attachmentMode === 'single' ? 'active' : ''}`}
+                            onClick={() => setAttachmentMode('single')}
                           >
-                            <Trash2 size={12} />
-                            <span>Remove Attachments</span>
+                            <FileText size={13} />
+                            <span>One for All (Same)</span>
+                            {(singleAttachmentFile || existingSingleAttachment) && (
+                              <span className="pr-tab-indicator-dot" title="Single attachment active" />
+                            )}
                           </button>
-                        )}
+                          <button
+                            type="button"
+                            className={`pr-mode-tab ${attachmentMode === 'dynamic' ? 'active' : ''}`}
+                            onClick={() => setAttachmentMode('dynamic')}
+                          >
+                            <Users size={13} />
+                            <span>Personalized (Per Recipient)</span>
+                            {extractedPdfFiles.length > 0 && (
+                              <span className="pr-tab-indicator-dot" title="Dynamic PDFs active" />
+                            )}
+                          </button>
+                        </div>
                       </div>
 
-                      {extractedPdfFiles.length === 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          <div className="pr-attachment-upload-grid">
-                            {/* Option 1: Select Folder */}
-                            <label className="pr-attachment-dropzone">
-                              <input
-                                type="file"
-                                webkitdirectory="true"
-                                directory="true"
-                                multiple
-                                style={{ display: 'none' }}
-                                onChange={handleAttachmentFolderUpload}
-                              />
-                              <FolderUp size={22} color="var(--color-primary)" />
-                              <span style={{ fontSize: '0.78125rem', fontWeight: 600 }}>Select Folder of PDFs</span>
-                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                                Pick a local folder containing individual PDFs
-                              </span>
-                            </label>
-
-                            {/* Option 2: Upload ZIP */}
-                            <label className="pr-attachment-dropzone">
-                              <input
-                                type="file"
-                                accept=".zip"
-                                style={{ display: 'none' }}
-                                onChange={handleAttachmentZipUpload}
-                              />
-                              <FileArchive size={22} color="#8b5cf6" />
-                              <span style={{ fontSize: '0.78125rem', fontWeight: 600 }}>Upload ZIP Archive</span>
-                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                                Upload a .zip containing all recipient PDFs
-                              </span>
-                            </label>
-                          </div>
-                          <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                            Files are automatically matched to each recipient using the template tag below (supports all audience types).
-                          </span>
-                        </div>
-                      ) : (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
-                          {/* Folder status banner */}
-                          <div className="pr-attachment-status-box">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                              <FileCheck2 size={20} style={{ color: '#10b981' }} />
-                              <div>
-                                <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                                  {attachmentFolderName}
-                                </div>
-                                <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
-                                  {extractedPdfFiles.length} PDF files loaded into memory
+                      {/* Mode 1: Single Attachment for All */}
+                      {attachmentMode === 'single' && (
+                        <div>
+                          {!singleAttachmentFile && !existingSingleAttachment ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <label className="pr-attachment-dropzone pr-attachment-dropzone--single">
+                                <input
+                                  ref={singleAttachmentInputRef}
+                                  type="file"
+                                  accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                                  style={{ display: 'none' }}
+                                  onChange={handleSingleAttachmentSelect}
+                                />
+                                <UploadCloud size={24} color="var(--color-primary)" />
+                                <span style={{ fontSize: '0.8125rem', fontWeight: 600 }}>Select File for All Recipients</span>
+                                <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                                  Upload a PDF, document, or image (Max 10MB) &bull; Same file will be attached for every recipient
+                                </span>
+                              </label>
+                            </div>
+                          ) : (
+                            <div className="pr-single-file-preview">
+                              <div className="pr-single-file-details">
+                                <FileCheck2 size={22} style={{ color: '#10b981', flexShrink: 0 }} />
+                                <div className="pr-single-file-meta">
+                                  <div className="pr-single-file-name" title={singleAttachmentFile?.name || existingSingleAttachment?.filename}>
+                                    {singleAttachmentFile?.name || existingSingleAttachment?.filename}
+                                  </div>
+                                  <div className="pr-single-file-sub">
+                                    <span>{formatFileSize(singleAttachmentFile?.size || existingSingleAttachment?.size)}</span>
+                                    <span>&bull;</span>
+                                    <span className="badge badge-accent" style={{ fontSize: '0.65rem', padding: '0.1rem 0.4rem' }}>
+                                      Sent to all {previewRecipientCount || (campaignForm.segmentType === 'custom_sheet' ? campaignForm.customRecipients.length : 0)} recipients
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
-                            </div>
 
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                              <button
-                                type="button"
-                                className="btn btn-outline btn-xs"
-                                onClick={() => setShowAttachmentReviewModal(true)}
-                                style={{ fontSize: '0.72rem' }}
-                              >
-                                <Eye size={12} />
-                                <span>Review &amp; Override ({attachmentMatchResults.matched.length}/{previewRecipientCount || (campaignForm.segmentType === 'custom_sheet' ? campaignForm.customRecipients.length : 0)})</span>
-                              </button>
-                            </div>
-                          </div>
-
-                          {/* Match Filename Using Tag */}
-                          <div className="pr-attachment-tag-row">
-                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-                              <label className="form-label" style={{ margin: 0, fontSize: '0.75rem' }}>
-                                Match Filename Using Tag:
-                              </label>
-                              <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                                Matches e.g. <code>John Doe.pdf</code>
-                              </span>
-                            </div>
-
-                            <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-                              <input
-                                type="text"
-                                className="form-input"
-                                style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem', height: '2rem' }}
-                                placeholder="{{name}}"
-                                value={attachmentMatchTag}
-                                onChange={(e) => setAttachmentMatchTag(e.target.value)}
-                              />
-                            </div>
-
-                            {/* Quick Tag Pills */}
-                            <div className="pr-attachment-chips">
-                              {['{{name}}', '{{email}}', ...(customSheetColumns.slice(0, 4).map((c) => `{{${c}}}`))].map((tag) => (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                <label className="btn btn-outline btn-xs" style={{ cursor: 'pointer', margin: 0, fontSize: '0.72rem' }}>
+                                  <input
+                                    ref={singleAttachmentInputRef}
+                                    type="file"
+                                    accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
+                                    style={{ display: 'none' }}
+                                    onChange={handleSingleAttachmentSelect}
+                                  />
+                                  <span>Change</span>
+                                </label>
                                 <button
-                                  key={tag}
                                   type="button"
-                                  className={`pr-attachment-chip ${attachmentMatchTag.toLowerCase() === tag.toLowerCase() ? 'active' : ''}`}
-                                  onClick={() => setAttachmentMatchTag(tag)}
+                                  className="btn btn-ghost btn-xs text-danger"
+                                  onClick={handleRemoveSingleAttachment}
+                                  style={{ fontSize: '0.72rem', padding: '0.15rem 0.4rem' }}
                                 >
-                                  {tag}
+                                  <Trash2 size={12} />
+                                  <span>Remove</span>
                                 </button>
-                              ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
+                        </div>
+                      )}
 
-                          {/* Match Stats Bar */}
-                          <div className="pr-attachment-stats-bar">
-                            <span className="pr-attachment-badge pr-attachment-badge--matched">
-                              <CheckCircle2 size={12} />
-                              {attachmentMatchResults.matched.length} Matched
-                            </span>
-                            {attachmentMatchResults.missing.length > 0 && (
-                              <span className="pr-attachment-badge pr-attachment-badge--missing">
-                                <AlertTriangle size={12} />
-                                {attachmentMatchResults.missing.length} Missing PDF
+                      {/* Mode 2: Dynamic Personalized PDFs per Recipient */}
+                      {attachmentMode === 'dynamic' && (
+                        <div>
+                          {extractedPdfFiles.length === 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                              <div className="pr-attachment-upload-grid">
+                                {/* Option 1: Select Folder */}
+                                <label className="pr-attachment-dropzone">
+                                  <input
+                                    type="file"
+                                    webkitdirectory="true"
+                                    directory="true"
+                                    multiple
+                                    style={{ display: 'none' }}
+                                    onChange={handleAttachmentFolderUpload}
+                                  />
+                                  <FolderUp size={22} color="var(--color-primary)" />
+                                  <span style={{ fontSize: '0.78125rem', fontWeight: 600 }}>Select Folder of PDFs</span>
+                                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                    Pick a local folder containing PDFs
+                                  </span>
+                                </label>
+
+                                {/* Option 2: Upload ZIP */}
+                                <label className="pr-attachment-dropzone">
+                                  <input
+                                    type="file"
+                                    accept=".zip"
+                                    style={{ display: 'none' }}
+                                    onChange={handleAttachmentZipUpload}
+                                  />
+                                  <FileArchive size={22} color="#8b5cf6" />
+                                  <span style={{ fontSize: '0.78125rem', fontWeight: 600 }}>Upload ZIP Archive</span>
+                                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                    Upload a .zip containing all recipient PDFs
+                                  </span>
+                                </label>
+                              </div>
+                              <span style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                                Files are automatically matched to each recipient using the template tag below (supports all audience types).
                               </span>
-                            )}
-                            {attachmentMatchResults.unassigned.length > 0 && (
-                              <span className="pr-attachment-badge pr-attachment-badge--unassigned">
-                                <Info size={12} />
-                                {attachmentMatchResults.unassigned.length} Unused PDFs
-                              </span>
-                            )}
-                          </div>
+                            </div>
+                          ) : (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.65rem' }}>
+                              {/* Folder status banner */}
+                              <div className="pr-attachment-status-box">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                  <FileCheck2 size={20} style={{ color: '#10b981' }} />
+                                  <div>
+                                    <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
+                                      {attachmentFolderName}
+                                    </div>
+                                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>
+                                      {extractedPdfFiles.length} PDF files loaded into memory
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                                  <button
+                                    type="button"
+                                    className="btn btn-outline btn-xs"
+                                    onClick={() => setShowAttachmentReviewModal(true)}
+                                    style={{ fontSize: '0.72rem' }}
+                                  >
+                                    <Eye size={12} />
+                                    <span>Review &amp; Override ({attachmentMatchResults.matched.length}/{previewRecipientCount || (campaignForm.segmentType === 'custom_sheet' ? campaignForm.customRecipients.length : 0)})</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="btn btn-ghost btn-xs text-danger"
+                                    onClick={handleRemoveDynamicAttachments}
+                                    style={{ fontSize: '0.72rem', padding: '0.15rem 0.4rem' }}
+                                  >
+                                    <Trash2 size={12} />
+                                    <span>Remove</span>
+                                  </button>
+                                </div>
+                              </div>
+
+                              {/* Match Filename Using Tag */}
+                              <div className="pr-attachment-tag-row">
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                                  <label className="form-label" style={{ margin: 0, fontSize: '0.75rem' }}>
+                                    Match Filename Using Tag:
+                                  </label>
+                                  <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
+                                    Matches e.g. <code>John Doe.pdf</code>
+                                  </span>
+                                </div>
+
+                                <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                                  <input
+                                    type="text"
+                                    className="form-input"
+                                    style={{ fontSize: '0.8rem', padding: '0.35rem 0.6rem', height: '2rem' }}
+                                    placeholder="{{name}}"
+                                    value={attachmentMatchTag}
+                                    onChange={(e) => setAttachmentMatchTag(e.target.value)}
+                                  />
+                                </div>
+
+                                {/* Quick Tag Pills */}
+                                <div className="pr-attachment-chips">
+                                  {['{{name}}', '{{email}}', ...(customSheetColumns.slice(0, 4).map((c) => `{{${c}}}`))].map((tag) => (
+                                    <button
+                                      key={tag}
+                                      type="button"
+                                      className={`pr-attachment-chip ${attachmentMatchTag.toLowerCase() === tag.toLowerCase() ? 'active' : ''}`}
+                                      onClick={() => setAttachmentMatchTag(tag)}
+                                    >
+                                      {tag}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Match Stats Bar */}
+                              <div className="pr-attachment-stats-bar">
+                                <span className="pr-attachment-badge pr-attachment-badge--matched">
+                                  <CheckCircle2 size={12} />
+                                  {attachmentMatchResults.matched.length} Matched
+                                </span>
+                                {attachmentMatchResults.missing.length > 0 && (
+                                  <span className="pr-attachment-badge pr-attachment-badge--missing">
+                                    <AlertTriangle size={12} />
+                                    {attachmentMatchResults.missing.length} Missing PDF
+                                  </span>
+                                )}
+                                {attachmentMatchResults.unassigned.length > 0 && (
+                                  <span className="pr-attachment-badge pr-attachment-badge--unassigned">
+                                    <Info size={12} />
+                                    {attachmentMatchResults.unassigned.length} Unused PDFs
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -3169,6 +3351,32 @@ export default function PRStudio() {
                                     dangerouslySetInnerHTML={{ __html: renderedHtml }}
                                   />
 
+                                  {/* Attached File Preview Chip */}
+                                  {(() => {
+                                    const activeSingleName = singleAttachmentFile?.name || existingSingleAttachment?.filename;
+                                    const activeSingleSize = singleAttachmentFile?.size || existingSingleAttachment?.size;
+                                    const matchedDynamicItem = attachmentMatchResults?.matched?.find(
+                                      (m) => (m.recipient.email || '').toLowerCase() === (activeRecipient.email || '').toLowerCase()
+                                    );
+
+                                    const displayAttName = (attachmentMode === 'single' || !matchedDynamicItem) ? activeSingleName : matchedDynamicItem?.file?.name;
+                                    const displayAttSize = (attachmentMode === 'single' || !matchedDynamicItem) ? activeSingleSize : matchedDynamicItem?.file?.size;
+
+                                    if (!displayAttName) return null;
+
+                                    return (
+                                      <div className="pr-email-preview-attachment-chip">
+                                        <Paperclip size={13} color="var(--color-primary)" />
+                                        <span style={{ fontWeight: 600 }}>{displayAttName}</span>
+                                        {displayAttSize && (
+                                          <span style={{ fontSize: '0.6875rem', color: '#64748b' }}>
+                                            ({formatFileSize(displayAttSize)})
+                                          </span>
+                                        )}
+                                      </div>
+                                    );
+                                  })()}
+
                                   {/* Branded Footer */}
                                   <div className="pr-email-footer-banner">
                                     <div style={{ fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
@@ -3223,7 +3431,7 @@ export default function PRStudio() {
                 <div className="pr-attachment-progress-overlay">
                   <Loader2 size={32} style={{ animation: 'spin 1s linear infinite' }} />
                   <h4 style={{ margin: '1rem 0 0.25rem', color: '#fff', fontSize: '1.1rem' }}>
-                    Staging Dynamic Attachments
+                    Staging Attachments
                   </h4>
                   <p style={{ margin: 0, fontSize: '0.8125rem', color: 'rgba(255,255,255,0.85)' }}>
                     Uploading attachment {uploadingAttachmentsProgress.current} of {uploadingAttachmentsProgress.total} ({uploadingAttachmentsProgress.percent}%)
@@ -3331,7 +3539,7 @@ export default function PRStudio() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                 <Paperclip size={18} color="var(--color-primary)" />
                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 800 }}>
-                  Dynamic Attachments Matching Review
+                  Attachments Matching Review
                 </h3>
               </div>
               <button
