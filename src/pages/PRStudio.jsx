@@ -1121,6 +1121,7 @@ export default function PRStudio() {
     setAttachmentFolderName(folderPath);
     setManualAttachmentOverrides({});
     toast.success('Folder Loaded', `Imported ${pdfItems.length} PDF attachments from "${folderPath}".`);
+    e.target.value = '';
   };
 
   const handleAttachmentZipUpload = async (e) => {
@@ -1152,6 +1153,7 @@ export default function PRStudio() {
       setAttachmentFolderName(file.name);
       setManualAttachmentOverrides({});
       toast.success('ZIP Archive Extracted', `Extracted ${pdfItems.length} PDF attachments from "${file.name}".`);
+      e.target.value = '';
     } catch (err) {
       toast.error('ZIP Error', 'Failed to extract ZIP archive: ' + err.message);
     }
@@ -1186,6 +1188,14 @@ export default function PRStudio() {
       singleAttachmentInputRef.current.value = '';
     }
     toast.success('Attachment Removed', 'The common attachment has been cleared.');
+  };
+
+  const handleRemoveDynamicAttachments = () => {
+    setExtractedPdfFiles([]);
+    setAttachmentFolderName('');
+    setManualAttachmentOverrides({});
+    setShowMissingAttachmentsWarning(false);
+    toast.success('Attachments Cleared', 'Dynamic certificate folder has been removed.');
   };
 
   const executeCampaignSave = async (payloadToSave, options = {}) => {
@@ -2065,13 +2075,6 @@ export default function PRStudio() {
                         <Users size={11} />
                         <span>{audienceLabel}</span>
                       </span>
-
-                      {(camp.metadata?.sharedAttachment || camp.metadata?.hasDynamicAttachments) && (
-                        <span className="badge badge-outline" style={{ fontSize: '0.7rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-primary)' }}>
-                          <Paperclip size={11} />
-                          <span>{camp.metadata?.sharedAttachment ? (camp.metadata.sharedAttachment.filename || 'Attachment') : 'Dynamic PDFs'}</span>
-                        </span>
-                      )}
 
                       {camp.scheduledFor && (
                         <span className="badge" style={{ fontSize: '0.7rem', background: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
