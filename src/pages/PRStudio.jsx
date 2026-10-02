@@ -3248,7 +3248,7 @@ export default function PRStudio() {
       {/* WARNING MODAL: Incomplete / Missing Attachment Matches                */}
       {/* ───────────────────────────────────────────────────────────────────── */}
       {showMissingAttachmentsWarning && (
-        <div className="modal-overlay" {...missingWarningBackdrop.getBackdropProps()} style={{ zIndex: 1200 }}>
+        <div className="modal-overlay" {...missingWarningBackdrop.getBackdropProps()} style={{ zIndex: 1500 }}>
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
@@ -3321,7 +3321,7 @@ export default function PRStudio() {
       {/* MODAL: Dynamic Attachments Review & Manual Override Table             */}
       {/* ───────────────────────────────────────────────────────────────────── */}
       {showAttachmentReviewModal && (
-        <div className="modal-overlay" {...attachmentReviewBackdrop.getBackdropProps()} style={{ zIndex: 1200 }}>
+        <div className="modal-overlay" {...attachmentReviewBackdrop.getBackdropProps()} style={{ zIndex: 1400 }}>
           <div
             className="modal-content"
             onClick={(e) => e.stopPropagation()}
