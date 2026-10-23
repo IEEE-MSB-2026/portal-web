@@ -324,7 +324,7 @@ export default function Profile() {
     try {
       const payload = {
         name: nameInput.trim(),
-        membershipId: membershipInput.trim(),
+        membershipId: membershipInput.trim() || null,
         bio: bioInput.trim(),
         phone: phoneInput.trim(),
       };
