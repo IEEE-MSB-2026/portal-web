@@ -3446,7 +3446,7 @@ export default function PRStudio() {
                     />
                   </div>
                   <span style={{ fontSize: '0.72rem', color: 'rgba(255,255,255,0.65)' }}>
-                    Files are uploaded to File Service and will be automatically purged post-dispatch.
+                    Files are uploading and will be automatically deleted after dispatch.
                   </span>
                 </div>
               )}
