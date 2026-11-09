@@ -3114,7 +3114,7 @@ export default function HRStudio() {
                                         <Download size={12} /> CV
                                       </a>
                                     )}
-                                    <button
+                                    {/* <button
                                       type="button"
                                       className="btn btn-secondary"
                                       style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-primary)' }}
@@ -3128,7 +3128,7 @@ export default function HRStudio() {
                                         <RotateCcw size={12} />
                                       )}
                                       <span>Restore</span>
-                                    </button>
+                                    </button> */}
                                   </div>
                                 </td>
                               </tr>
