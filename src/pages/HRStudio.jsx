@@ -2427,7 +2427,7 @@ export default function HRStudio() {
                   </div>
                   <button type="button" className="btn btn-secondary btn-icon" onClick={() => setSelectedCampaignDetails(null)}><X size={16} /></button>
                 </div>
-                <div className="studio-drawer-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', overflowY: 'auto' }}>
+                <div className="studio-drawer-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-4)', overflowY: 'auto', flex: 1 }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', background: 'var(--color-bg)', padding: 'var(--space-3)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
                     <div>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', display: 'block' }}>Status</span>
@@ -2473,7 +2473,7 @@ export default function HRStudio() {
                     </div>
                   )}
 
-                  <div>
+                  <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
                       <label className="form-label" style={{ fontSize: '0.75rem', textTransform: 'uppercase', color: 'var(--color-text-muted)', margin: 0 }}>
                         Applications & Pipeline Statistics
@@ -2551,7 +2551,7 @@ export default function HRStudio() {
                           });
 
                           return (
-                            <div style={{ marginTop: 'var(--space-3)' }}>
+                            <div style={{ marginTop: 'var(--space-3)', display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-2)' }}>
                                 <span style={{ fontSize: '0.75rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
                                   Submissions ({filteredSubmissions.length} of {campaignDetailsApps.length})
@@ -2573,7 +2573,7 @@ export default function HRStudio() {
                                   No application submissions found in this category.
                                 </div>
                               ) : (
-                                <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)' }}>
+                                <div style={{ flex: 1, minHeight: '180px', overflowY: 'auto', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)' }}>
                                   {filteredSubmissions.map((sub) => (
                                     <div
                                       key={sub.id}
@@ -4446,7 +4446,7 @@ export default function HRStudio() {
 
       {/* SIDE DRAWER: Candidate Details */}
       {selectedCandidate && (
-        <div className="studio-drawer-overlay" style={{ zIndex: 1250 }} {...candidateDetailsBackdrop.getBackdropProps()}>
+        <div className="studio-drawer-overlay" style={{ zIndex: 1400 }} {...candidateDetailsBackdrop.getBackdropProps()}>
           <div className="studio-drawer-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 680 }}>
             <div className="studio-drawer-header">
               <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.45rem', fontSize: '1.25rem', fontWeight: 800 }}>
