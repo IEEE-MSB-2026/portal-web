@@ -63,6 +63,7 @@ import {
   Minus,
   RotateCcw,
   Code,
+  ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
 
@@ -621,6 +622,19 @@ export default function HRStudio() {
   const [rejectedApplications, setRejectedApplications] = useState([]);
   const [loadingRejected, setLoadingRejected] = useState(false);
   const [rejectedSearch, setRejectedSearch] = useState('');
+  const [debouncedRejectedSearch, setDebouncedRejectedSearch] = useState('');
+  const [rejectedPage, setRejectedPage] = useState(1);
+  const [rejectedLimit, setRejectedLimit] = useState(10);
+  const [rejectedTotal, setRejectedTotal] = useState(0);
+  const [restoringAppId, setRestoringAppId] = useState(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedRejectedSearch(rejectedSearch);
+      setRejectedPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [rejectedSearch]);
 
   // ── Member Management Tab ─────────────────────────────────────────────────
   const [allMembers, setAllMembers] = useState([]);
@@ -891,7 +905,7 @@ export default function HRStudio() {
   const loadApplications = useCallback(async () => {
     setLoadingApplications(true);
     try {
-      const params = {};
+      const params = { view: 'active' };
       if (pipelineFilter) params.committeeId = pipelineFilter;
       const data = await api.getHRApplications(params);
       setApplications(data.applications || []);
@@ -906,25 +920,61 @@ export default function HRStudio() {
     if (activeTab === 'pipeline') loadApplications();
   }, [activeTab, loadApplications]);
 
-  // ── Load Rejected Applications ────────────────────────────────────────────
+  // ── Load Rejected Applications (Targeted Query & Pagination) ─────────────
   const loadRejectedApplications = useCallback(async () => {
     setLoadingRejected(true);
     try {
-      const params = { includeRejected: true };
+      const params = {
+        view: 'rejected',
+        page: rejectedPage,
+        limit: rejectedLimit,
+      };
       if (pipelineFilter) params.committeeId = pipelineFilter;
+      if (debouncedRejectedSearch.trim()) params.search = debouncedRejectedSearch.trim();
+
       const data = await api.getHRApplications(params);
-      const rejectedList = (data.applications || []).filter((a) => a.currentStage === 'rejected');
-      setRejectedApplications(rejectedList);
+      setRejectedApplications(data.applications || []);
+      setRejectedTotal(data.pagination?.total ?? data.total ?? (data.applications || []).length);
     } catch (err) {
       toast.error('Load Failed', err.message);
     } finally {
       setLoadingRejected(false);
     }
-  }, [pipelineFilter]);
+  }, [pipelineFilter, rejectedPage, rejectedLimit, debouncedRejectedSearch]);
+
+  useEffect(() => {
+    if (showRejectedModal) {
+      loadRejectedApplications();
+    }
+  }, [showRejectedModal, loadRejectedApplications]);
 
   const handleOpenRejectedModal = () => {
     setShowRejectedModal(true);
-    loadRejectedApplications();
+    setRejectedPage(1);
+    setRejectedSearch('');
+    setDebouncedRejectedSearch('');
+  };
+
+  const handleRestoreApplication = async (app) => {
+    const candidateName = app.answers?.fullName || app.applicantName || 'Candidate';
+    if (!window.confirm(`Restore ${candidateName} back to the active screening pipeline?`)) return;
+    setRestoringAppId(app.id);
+    try {
+      await api.updateApplicationStage(app.id, {
+        stage: 'screening',
+        notes: 'Restored from rejected archive',
+      });
+      toast.success('Candidate Restored', `${candidateName} has been moved back to Screening.`);
+      if (selectedCandidate?.id === app.id) {
+        setSelectedCandidate((prev) => (prev ? { ...prev, currentStage: 'screening' } : null));
+      }
+      await loadRejectedApplications();
+      loadApplications();
+    } catch (err) {
+      toast.error('Restore Failed', err.message);
+    } finally {
+      setRestoringAppId(null);
+    }
   };
 
   // ── Load All Members (Branch-wide) ────────────────────────────────────────
@@ -1317,7 +1367,7 @@ export default function HRStudio() {
     setCampaignDetailStageFilter('all');
     setLoadingCampaignDetailsApps(true);
     try {
-      const res = await api.getHRApplications({ campaignId: camp.id, all: true, includeAccepted: true, includeRejected: true });
+      const res = await api.getHRApplications({ campaignId: camp.id, view: 'all' });
       setCampaignDetailsApps(res.applications || []);
     } catch (err) {
       console.error('Failed to load campaign applications:', err);
@@ -1329,7 +1379,7 @@ export default function HRStudio() {
 
   const handleExportCampaignApplications = async (campaign) => {
     try {
-      const res = await api.getHRApplications({ campaignId: campaign.id, all: true, includeAccepted: true, includeRejected: true });
+      const res = await api.getHRApplications({ campaignId: campaign.id, view: 'all' });
       const campaignApps = res.applications || [];
       if (campaignApps.length === 0) {
         toast.error('No Applications', `No applications found for "${campaign.title}".`);
@@ -1591,7 +1641,7 @@ export default function HRStudio() {
       }));
       // Preload applications for this specific campaign so Expected Recipients resolves accurately
       try {
-        const res = await api.getHRApplications({ campaignId: targetCampaign.id, includeRejected: true, includeAccepted: true, all: true });
+        const res = await api.getHRApplications({ campaignId: targetCampaign.id, view: 'all' });
         if (res?.applications && Array.isArray(res.applications)) {
           setApplications((prev) => {
             const map = new Map(prev.map((a) => [a.id, a]));
@@ -1613,7 +1663,14 @@ export default function HRStudio() {
         scheduledFor: '',
       }));
       if (applications.length === 0) {
-        loadApplications();
+        try {
+          const res = await api.getHRApplications({ view: 'all' });
+          if (res?.applications && Array.isArray(res.applications)) {
+            setApplications(res.applications);
+          }
+        } catch (err) {
+          console.warn('Could not preload applications for outreach:', err);
+        }
       }
     }
     setShowEmailModal(true);
@@ -2014,15 +2071,7 @@ export default function HRStudio() {
     appsByStage[stage.key] = filteredApplications.filter((a) => a.currentStage === stage.key);
   }
 
-  const filteredRejectedApplications = rejectedApplications.filter((a) => {
-    if (rejectedSearch) {
-      const q = rejectedSearch.toLowerCase();
-      const name = (a.answers?.fullName || a.applicantEmail || '').toLowerCase();
-      const email = (a.applicantEmail || '').toLowerCase();
-      return name.includes(q) || email.includes(q);
-    }
-    return true;
-  });
+  const filteredRejectedApplications = rejectedApplications;
 
   const hasActiveColumnFilters =
     selectedCommitteeFilters.length > 0 ||
@@ -2956,13 +3005,19 @@ export default function HRStudio() {
           {/* Dedicated Rejected Applications Modal */}
           {showRejectedModal && (
             <div className="modal-overlay" {...rejectedModalBackdrop.getBackdropProps()}>
-              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 720 }}>
+              <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, width: '95vw' }}>
                 <div className="modal-header">
-                  <h3><UserX size={18} style={{ color: 'var(--color-danger, #ef4444)' }} /> Rejected Applications</h3>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <UserX size={18} style={{ color: 'var(--color-danger, #ef4444)' }} />
+                    <h3 style={{ margin: 0 }}>Rejected Applications</h3>
+                    <span className="badge badge-secondary" style={{ fontSize: '0.72rem', padding: '0.15rem 0.45rem' }}>
+                      {rejectedTotal}
+                    </span>
+                  </div>
                   <button type="button" className="modal-close" onClick={() => setShowRejectedModal(false)}><X size={18} /></button>
                 </div>
-                <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
-                  <div className="hr-search-wrap" style={{ marginBottom: '1rem' }}>
+                <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+                  <div className="hr-search-wrap" style={{ marginBottom: '1rem', display: 'flex', alignItems: 'center' }}>
                     <Search size={15} />
                     <input
                       className="hr-search-input"
@@ -2970,6 +3025,17 @@ export default function HRStudio() {
                       value={rejectedSearch}
                       onChange={(e) => setRejectedSearch(e.target.value)}
                     />
+                    {rejectedSearch && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs"
+                        onClick={() => setRejectedSearch('')}
+                        style={{ padding: '0.15rem 0.35rem', color: 'var(--color-text-muted)' }}
+                        title="Clear search"
+                      >
+                        <X size={14} />
+                      </button>
+                    )}
                   </div>
 
                   {loadingRejected ? (
@@ -2980,60 +3046,145 @@ export default function HRStudio() {
                   ) : filteredRejectedApplications.length === 0 ? (
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
                       <UserX size={20} style={{ opacity: 0.6 }} />
-                      <span>No rejected applications found.</span>
+                      <span>No rejected applications found{debouncedRejectedSearch ? ` matching "${debouncedRejectedSearch}"` : ''}.</span>
                     </div>
                   ) : (
-                    <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflow: 'hidden' }}>
-                      <table className="hr-roster" style={{ width: '100%', borderCollapse: 'collapse' }}>
-                        <thead>
-                          <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', background: 'var(--color-bg)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
-                            <th style={{ padding: '0.65rem 0.85rem' }}>CANDIDATE</th>
-                            <th style={{ padding: '0.65rem 0.85rem' }}>COMMITTEE</th>
-                            <th style={{ padding: '0.65rem 0.85rem' }}>DATE</th>
-                            <th style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>ACTIONS</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredRejectedApplications.map((app) => (
-                            <tr key={app.id} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
-                              <td style={{ padding: '0.65rem 0.85rem' }}>
-                                <div style={{ fontWeight: 600 }}>{app.answers?.fullName || 'Unknown'}</div>
-                                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{app.applicantEmail}</div>
-                              </td>
-                              <td style={{ padding: '0.65rem 0.85rem' }}>
-                                <span className="badge badge-primary">{getCommitteeName(app.committeeId)}</span>
-                              </td>
-                              <td style={{ padding: '0.65rem 0.85rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
-                                {formatDate(app.submittedAt)}
-                              </td>
-                              <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>
-                                <div style={{ display: 'inline-flex', gap: '0.35rem' }}>
-                                  <button
-                                    type="button"
-                                    className="btn btn-secondary"
-                                    style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
-                                    onClick={() => handleOpenCandidate(app)}
+                    <>
+                      <div style={{ border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', overflowX: 'auto' }}>
+                        <table className="hr-roster" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 680 }}>
+                          <thead>
+                            <tr style={{ borderBottom: '1px solid var(--color-border)', textAlign: 'left', background: 'var(--color-bg)', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                              <th style={{ padding: '0.65rem 0.85rem' }}>CANDIDATE</th>
+                              <th style={{ padding: '0.65rem 0.85rem' }}>COMMITTEE</th>
+                              <th style={{ padding: '0.65rem 0.85rem' }}>REJECTION REASON</th>
+                              <th style={{ padding: '0.65rem 0.85rem' }}>REJECTED DATE</th>
+                              <th style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>ACTIONS</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {filteredRejectedApplications.map((app) => (
+                              <tr key={app.id} style={{ borderBottom: '1px solid var(--color-border)', fontSize: '0.85rem' }}>
+                                <td style={{ padding: '0.65rem 0.85rem' }}>
+                                  <div style={{ fontWeight: 600 }}>{app.answers?.fullName || app.applicantName || 'Unknown'}</div>
+                                  <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{app.applicantEmail || app.email}</div>
+                                </td>
+                                <td style={{ padding: '0.65rem 0.85rem' }}>
+                                  <span className="badge badge-primary">{getCommitteeName(app.committeeId)}</span>
+                                </td>
+                                <td style={{ padding: '0.65rem 0.85rem', maxWidth: 220 }}>
+                                  <span
+                                    style={{
+                                      display: 'inline-block',
+                                      fontSize: '0.78rem',
+                                      color: app.rejectionNotes ? 'var(--color-text)' : 'var(--color-text-muted)',
+                                      fontStyle: app.rejectionNotes ? 'normal' : 'italic',
+                                      overflow: 'hidden',
+                                      textOverflow: 'ellipsis',
+                                      whiteSpace: 'nowrap',
+                                      maxWidth: '100%',
+                                    }}
+                                    title={app.rejectionNotes || 'No rejection notes recorded'}
                                   >
-                                    <Eye size={12} /> Details
-                                  </button>
-                                  {app.answers?.cvUrl && (
-                                    <a
-                                      href={app.answers.cvUrl}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
+                                    {app.rejectionNotes || 'No notes recorded'}
+                                  </span>
+                                </td>
+                                <td style={{ padding: '0.65rem 0.85rem', color: 'var(--color-text-muted)', fontSize: '0.8rem' }}>
+                                  {formatDate(app.rejectedAt || app.submittedAt)}
+                                </td>
+                                <td style={{ padding: '0.65rem 0.85rem', textAlign: 'right' }}>
+                                  <div style={{ display: 'inline-flex', gap: '0.35rem', alignItems: 'center' }}>
+                                    <button
+                                      type="button"
                                       className="btn btn-secondary"
                                       style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                                      onClick={() => handleOpenCandidate(app)}
+                                      title="View candidate application details"
                                     >
-                                      <Download size={12} /> CV
-                                    </a>
-                                  )}
-                                </div>
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                                      <Eye size={12} /> Details
+                                    </button>
+                                    {app.answers?.cvUrl && (
+                                      <a
+                                        href={app.answers.cvUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="btn btn-secondary"
+                                        style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}
+                                        title="Download CV / Resume"
+                                      >
+                                        <Download size={12} /> CV
+                                      </a>
+                                    )}
+                                    <button
+                                      type="button"
+                                      className="btn btn-secondary"
+                                      style={{ fontSize: '0.75rem', padding: '0.25rem 0.55rem', display: 'inline-flex', alignItems: 'center', gap: '0.25rem', color: 'var(--color-primary)' }}
+                                      disabled={restoringAppId === app.id}
+                                      onClick={() => handleRestoreApplication(app)}
+                                      title="Restore candidate to Screening stage"
+                                    >
+                                      {restoringAppId === app.id ? (
+                                        <Loader2 size={12} style={{ animation: 'spin 1s linear infinite' }} />
+                                      ) : (
+                                        <RotateCcw size={12} />
+                                      )}
+                                      <span>Restore</span>
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      {/* Pagination Controls */}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--color-border)', flexWrap: 'wrap', gap: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                          <span>Per page:</span>
+                          <select
+                            className="form-input"
+                            style={{ width: 'auto', padding: '0.2rem 0.4rem', fontSize: '0.8rem' }}
+                            value={rejectedLimit}
+                            onChange={(e) => {
+                              setRejectedLimit(Number(e.target.value));
+                              setRejectedPage(1);
+                            }}
+                          >
+                            <option value={10}>10</option>
+                            <option value={25}>25</option>
+                            <option value={50}>50</option>
+                          </select>
+                          <span>
+                            Showing {rejectedTotal === 0 ? 0 : (rejectedPage - 1) * rejectedLimit + 1}–{Math.min(rejectedPage * rejectedLimit, rejectedTotal)} of {rejectedTotal}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            disabled={rejectedPage <= 1 || loadingRejected}
+                            onClick={() => setRejectedPage((p) => Math.max(1, p - 1))}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.25rem 0.5rem' }}
+                            title="Previous Page"
+                          >
+                            <ChevronLeft size={14} /> Prev
+                          </button>
+                          <span style={{ fontSize: '0.8rem', padding: '0 0.4rem', fontWeight: 600 }}>
+                            {rejectedPage} / {Math.max(1, Math.ceil(rejectedTotal / rejectedLimit))}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-xs"
+                            disabled={rejectedPage >= Math.ceil(rejectedTotal / rejectedLimit) || loadingRejected}
+                            onClick={() => setRejectedPage((p) => p + 1)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.2rem', padding: '0.25rem 0.5rem' }}
+                            title="Next Page"
+                          >
+                            Next <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </>
                   )}
                 </div>
                 <div className="modal-footer">
@@ -4341,6 +4492,24 @@ export default function HRStudio() {
                 </div>
               </div>
 
+              {/* Rejection Notice Callout */}
+              {selectedCandidate.currentStage === 'rejected' && (
+                <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.25)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginBottom: 'var(--space-4)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--color-danger, #ef4444)', fontWeight: 700, fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+                    <UserX size={15} />
+                    <span>Application Rejected</span>
+                    {selectedCandidate.rejectedAt && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 500, color: 'var(--color-text-muted)', marginLeft: 'auto' }}>
+                        {formatDate(selectedCandidate.rejectedAt)}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--color-text)', fontStyle: selectedCandidate.rejectionNotes ? 'normal' : 'italic' }}>
+                    {selectedCandidate.rejectionNotes || 'No specific rejection notes recorded.'}
+                  </div>
+                </div>
+              )}
+
               {/* CV / Resume Download Button */}
               {selectedCandidate.answers?.cvUrl && (
                 <div style={{ background: 'rgba(59, 130, 246, 0.08)', border: '1px solid rgba(59, 130, 246, 0.25)', borderRadius: 'var(--radius-md)', padding: '0.75rem 1rem', marginBottom: 'var(--space-4)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -4410,6 +4579,23 @@ export default function HRStudio() {
               {selectedCandidate.currentStage !== 'rejected' && selectedCandidate.currentStage !== 'accepted' && (
                 <button type="button" className="btn" disabled={processingAction} onClick={() => handleReject(selectedCandidate)} style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', background: 'var(--color-destructive)', color: '#fff', border: 'none' }}>
                   <ThumbsDown size={14} /> Reject
+                </button>
+              )}
+              {selectedCandidate.currentStage === 'rejected' && (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  disabled={restoringAppId === selectedCandidate.id}
+                  onClick={() => handleRestoreApplication(selectedCandidate)}
+                  style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', color: 'var(--color-primary)' }}
+                  title="Restore candidate to active Screening stage"
+                >
+                  {restoringAppId === selectedCandidate.id ? (
+                    <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
+                  ) : (
+                    <RotateCcw size={14} />
+                  )}
+                  <span>Restore to Screening</span>
                 </button>
               )}
               <button type="button" className="btn btn-secondary" onClick={() => setSelectedCandidate(null)}>Close</button>

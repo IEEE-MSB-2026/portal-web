@@ -669,10 +669,14 @@ export const api = {
     if (params.committeeId) query.append('committeeId', params.committeeId);
     if (params.campaignId) query.append('campaignId', params.campaignId);
     if (params.stage) query.append('stage', params.stage);
+    if (params.view) query.append('view', params.view);
+    if (params.search) query.append('search', params.search);
     if (params.includeRejected) query.append('includeRejected', 'true');
     if (params.includeAccepted) query.append('includeAccepted', 'true');
     if (params.all || params.includeAll) query.append('all', 'true');
     if (params.limit) query.append('limit', params.limit);
+    if (params.page) query.append('page', params.page);
+    if (params.offset !== undefined) query.append('offset', params.offset);
     const qs = query.toString();
     return request(`/api/core/hr/applications${qs ? `?${qs}` : ''}`);
   },
