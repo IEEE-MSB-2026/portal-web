@@ -4534,12 +4534,18 @@ export default function HRStudio() {
 
               {/* Application Answers */}
               <div style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: 'var(--space-4)', marginBottom: 'var(--space-4)' }}>
-                <h5 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: 'var(--space-2)' }}>Application Form Responses</h5>
+                <h5 style={{ fontSize: '0.8rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: 'var(--space-2)' }}>
+                  Application Form Responses
+                </h5>
                 {Object.entries(selectedCandidate.answers || {}).map(([key, val]) => (
                   val && key !== 'cvUrl' && key !== 'cvFileName' && (
                     <div key={key} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.35rem', fontSize: '0.85rem' }}>
-                      <span style={{ color: 'var(--color-text-muted)', minWidth: 120, textTransform: 'capitalize' }}>{key.replace(/([A-Z])/g, ' $1').trim()}:</span>
-                      <span style={{ fontWeight: 500 }}>{String(val)}</span>
+                      <span style={{ color: 'var(--color-text-muted)', width: 120, flexShrink: 0, textTransform: 'capitalize' }}>
+                        {key.replace(/([A-Z])/g, ' $1').trim()}:
+                      </span>
+                      <span style={{ fontWeight: 500, minWidth: 0, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
+                        {String(val)}
+                      </span>
                     </div>
                   )
                 ))}
